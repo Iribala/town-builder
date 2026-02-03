@@ -45,7 +45,19 @@ def normalize_layout_data(layout_data: Any) -> Dict[str, List[Dict[str, Any]]]:
 
 
 def denormalize_to_layout_list(town_data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Convert canonical dict-of-categories into list layout_data shape."""
+    """Convert canonical dict-of-categories into list layout_data shape.
+
+    NOTE: This function is currently unused. It's kept for potential future use
+    if Django or other consumers need the flat list format with array vectors
+    instead of the dict-of-categories format with {x,y,z} dict vectors.
+
+    The output format is:
+    [
+        {"category": "buildings", "modelName": "...", "position": [x, y, z], ...},
+        {"category": "vehicles", "modelName": "...", "position": [x, y, z], ...},
+        ...
+    ]
+    """
     results: List[Dict[str, Any]] = []
     if not isinstance(town_data, dict):
         return results

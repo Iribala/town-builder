@@ -150,7 +150,7 @@ async def save_town(
         if town_id is not None:
             # Update existing town (PATCH)
             try:
-                await update_town(town_id, request_payload, town_data_to_save, town_name_from_payload)
+                await update_town(town_id, request_payload, canonical_town_data, town_name_from_payload)
                 await set_town_data(canonical_town_data)
                 await broadcast_sse({'type': 'full', 'town': canonical_town_data})
                 return {
@@ -186,7 +186,7 @@ async def save_town(
             try:
                 if existing_town_id:
                     # Update existing town by name
-                    await update_town(existing_town_id, request_payload, town_data_to_save, town_name_from_payload)
+                    await update_town(existing_town_id, request_payload, canonical_town_data, town_name_from_payload)
                     await set_town_data(canonical_town_data)
                     await broadcast_sse({'type': 'full', 'town': canonical_town_data})
                     return {
@@ -196,7 +196,7 @@ async def save_town(
                     }
                 else:
                     # Create new town
-                    result = await create_town(request_payload, town_data_to_save, town_name_from_payload)
+                    result = await create_town(request_payload, canonical_town_data, town_name_from_payload)
                     await set_town_data(canonical_town_data)
                     await broadcast_sse({'type': 'full', 'town': canonical_town_data})
                     return {
@@ -265,7 +265,7 @@ async def load_town(
 
         logger.info(f"Town loaded from {safe_path}")
         await broadcast_sse({'type': 'full', 'town': canonical_town_data})
-        return {"status": "success", "message": f"Town loaded from {safe_path.name}", "data": town_data}
+        return {"status": "success", "message": f"Town loaded from {safe_path.name}", "data": canonical_town_data}
     except Exception as e:
         logger.error(f"Error loading town: {e}")
         raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
@@ -312,7 +312,7 @@ async def load_town_from_django(
         return {
             "status": "success",
             "message": f"Town '{town_data.get('name')}' loaded from Django",
-            "data": layout_data,
+            "data": canonical_layout,
             "town_info": {
                 "id": town_data.get('id'),
                 "name": town_data.get('name'),

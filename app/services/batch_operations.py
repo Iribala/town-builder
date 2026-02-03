@@ -1,4 +1,5 @@
 """Batch operations service for executing multiple operations atomically."""
+import copy
 import logging
 import uuid
 from typing import Dict, List, Any, Optional, Tuple
@@ -33,7 +34,7 @@ class BatchOperationsManager:
 
         # Get current town data
         town_data = await get_town_data()
-        original_town_data = town_data.copy()
+        original_town_data = copy.deepcopy(town_data)
 
         # Track changes for history
         changes = []

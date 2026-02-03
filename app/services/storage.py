@@ -9,12 +9,16 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Default town data structure
+# Default town data structure (must match _CATEGORIES in app/utils/normalization.py)
 DEFAULT_TOWN_DATA = {
     "buildings": [],
+    "vehicles": [],
+    "trees": [],
+    "props": [],
+    "street": [],
+    "park": [],
     "terrain": [],
-    "roads": [],
-    "props": []
+    "roads": []
 }
 
 # Async Redis client

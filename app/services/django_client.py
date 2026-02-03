@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def _prepare_django_payload(
     request_payload: Dict[str, Any],
-    town_data_to_save: Optional[Dict[str, Any]],
+    normalized_town_data: Optional[Dict[str, Any]],
     town_name_from_payload: Optional[str],
     is_update_operation: bool = False
 ) -> Dict[str, Any]:
@@ -20,14 +20,14 @@ def _prepare_django_payload(
 
     Args:
         request_payload: The original request payload
-        town_data_to_save: The town data to save (sceneData)
+        normalized_town_data: The normalized town data (dict-of-categories with {x,y,z} vectors)
         town_name_from_payload: Town name from the payload root
         is_update_operation: Whether this is an update operation (affects name field handling)
 
     Returns:
         Dictionary formatted for Django API
     """
-    current_layout_data = town_data_to_save if town_data_to_save is not None else {}
+    current_layout_data = normalized_town_data if normalized_town_data is not None else {}
     django_payload = {"layout_data": current_layout_data}
 
     # Name (Django key: "name")
@@ -143,12 +143,12 @@ async def search_town_by_name(town_name: str) -> Optional[int]:
         return None
 
 
-async def create_town(request_payload: Dict[str, Any], town_data: Dict[str, Any], town_name: Optional[str]) -> Dict[str, Any]:
+async def create_town(request_payload: Dict[str, Any], normalized_town_data: Dict[str, Any], town_name: Optional[str]) -> Dict[str, Any]:
     """Create a new town in Django API.
 
     Args:
         request_payload: The original request payload
-        town_data: The town data to save
+        normalized_town_data: The normalized town data (dict-of-categories with {x,y,z} vectors)
         town_name: Name of the town
 
     Returns:
@@ -159,7 +159,7 @@ async def create_town(request_payload: Dict[str, Any], town_data: Dict[str, Any]
     """
     base_url = _get_base_url()
     headers = _get_headers()
-    django_payload = _prepare_django_payload(request_payload, town_data, town_name, is_update_operation=False)
+    django_payload = _prepare_django_payload(request_payload, normalized_town_data, town_name, is_update_operation=False)
 
     logger.debug(f"Creating town via Django API: {base_url} with payload keys: {list(django_payload.keys())}")
     async with httpx.AsyncClient() as client:
@@ -180,7 +180,7 @@ async def create_town(request_payload: Dict[str, Any], town_data: Dict[str, Any]
 async def update_town(
     town_id: int,
     request_payload: Dict[str, Any],
-    town_data: Dict[str, Any],
+    normalized_town_data: Dict[str, Any],
     town_name: Optional[str]
 ) -> Dict[str, Any]:
     """Update an existing town in Django API.
@@ -188,7 +188,7 @@ async def update_town(
     Args:
         town_id: ID of the town to update
         request_payload: The original request payload
-        town_data: The town data to save
+        normalized_town_data: The normalized town data (dict-of-categories with {x,y,z} vectors)
         town_name: Name of the town
 
     Returns:
@@ -200,7 +200,7 @@ async def update_town(
     base_url = _get_base_url()
     url = f"{base_url}{town_id}/"
     headers = _get_headers()
-    django_payload = _prepare_django_payload(request_payload, town_data, town_name, is_update_operation=True)
+    django_payload = _prepare_django_payload(request_payload, normalized_town_data, town_name, is_update_operation=True)
 
     logger.debug(f"Updating town (PATCH) via Django API: {url} with payload keys: {list(django_payload.keys())}")
     async with httpx.AsyncClient() as client:
