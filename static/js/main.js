@@ -98,27 +98,72 @@ async function init() {
             }
 
             // Load scene objects if layout_data exists
-            if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-                console.log(`Loading ${result.data.length} objects into scene...`);
-                for (const item of result.data) {
-                    try {
-                        const obj = await loadModelToScene(item.category, item.modelName);
-                        if (obj) {
-                            if (item.position && Array.isArray(item.position)) {
-                                obj.position.fromArray(item.position);
-                            }
-                            if (item.rotation && Array.isArray(item.rotation)) {
-                                obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
-                            }
-                            if (item.scale && Array.isArray(item.scale)) {
-                                obj.scale.fromArray(item.scale);
-                            }
+            if (result.data) {
+                let itemsToLoad = [];
+
+                // Handle dict-of-categories format (from Django backend)
+                if (typeof result.data === 'object' && !Array.isArray(result.data)) {
+                    const categories = ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads'];
+                    for (const category of categories) {
+                        const items = result.data[category] || [];
+                        for (const item of items) {
+                            itemsToLoad.push({
+                                category: category,
+                                modelName: item.model || item.modelName,
+                                position: item.position,
+                                rotation: item.rotation,
+                                scale: item.scale,
+                                id: item.id
+                            });
                         }
-                    } catch (err) {
-                        console.error(`Error loading model ${item.category}/${item.modelName}:`, err);
                     }
                 }
-                showNotification(`Town "${result.town_info.name}" loaded successfully`, 'success');
+                // Handle array format (legacy)
+                else if (Array.isArray(result.data)) {
+                    itemsToLoad = result.data;
+                }
+
+                if (itemsToLoad.length > 0) {
+                    console.log(`Loading ${itemsToLoad.length} objects into scene...`);
+                    for (const item of itemsToLoad) {
+                        try {
+                            const obj = await loadModelToScene(item.category, item.modelName);
+                            if (obj) {
+                                // Handle both array [x,y,z] and object {x,y,z} formats
+                                if (item.position) {
+                                    if (Array.isArray(item.position)) {
+                                        obj.position.fromArray(item.position);
+                                    } else if (typeof item.position === 'object') {
+                                        obj.position.set(item.position.x || 0, item.position.y || 0, item.position.z || 0);
+                                    }
+                                }
+                                if (item.rotation) {
+                                    if (Array.isArray(item.rotation)) {
+                                        obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
+                                    } else if (typeof item.rotation === 'object') {
+                                        obj.rotation.set(item.rotation.x || 0, item.rotation.y || 0, item.rotation.z || 0);
+                                    }
+                                }
+                                if (item.scale) {
+                                    if (Array.isArray(item.scale)) {
+                                        obj.scale.fromArray(item.scale);
+                                    } else if (typeof item.scale === 'object') {
+                                        obj.scale.set(item.scale.x || 1, item.scale.y || 1, item.scale.z || 1);
+                                    }
+                                }
+                                // Store the ID if it exists
+                                if (item.id) {
+                                    obj.userData.id = item.id;
+                                }
+                            }
+                        } catch (err) {
+                            console.error(`Error loading model ${item.category}/${item.modelName}:`, err);
+                        }
+                    }
+                    showNotification(`Town "${result.town_info.name}" loaded successfully`, 'success');
+                } else {
+                    showNotification(`Town "${result.town_info.name}" loaded (no saved layout)`, 'info');
+                }
             } else {
                 showNotification(`Town "${result.town_info.name}" loaded (no saved layout)`, 'info');
             }
