@@ -62,7 +62,7 @@ async def execute_batch_operations(
     """
     try:
         operations = [op.model_dump() for op in request_data.operations]
-        results, successful, failed = batch_operations_manager.execute_operations(
+        results, successful, failed = await batch_operations_manager.execute_operations(
             operations,
             request_data.validate_operations
         )

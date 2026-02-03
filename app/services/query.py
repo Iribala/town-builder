@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class QueryManager:
     """Manages queries and spatial searches on town data."""
 
-    def spatial_query_radius(
+    async def spatial_query_radius(
         self,
         center: Dict[str, float],
         radius: float,
@@ -29,7 +29,7 @@ class QueryManager:
         Returns:
             List of objects within the radius
         """
-        town_data = get_town_data()
+        town_data = await get_town_data()
         results = []
 
         # Determine categories to search
@@ -63,7 +63,7 @@ class QueryManager:
         logger.info(f"Radius query: found {len(results)} objects within {radius} units")
         return results
 
-    def spatial_query_bounds(
+    async def spatial_query_bounds(
         self,
         min_point: Dict[str, float],
         max_point: Dict[str, float],
@@ -81,7 +81,7 @@ class QueryManager:
         Returns:
             List of objects within the bounds
         """
-        town_data = get_town_data()
+        town_data = await get_town_data()
         results = []
 
         # Determine categories to search
@@ -109,7 +109,7 @@ class QueryManager:
         logger.info(f"Bounds query: found {len(results)} objects")
         return results
 
-    def spatial_query_nearest(
+    async def spatial_query_nearest(
         self,
         point: Dict[str, float],
         category: Optional[str] = None,
@@ -127,7 +127,7 @@ class QueryManager:
         Returns:
             List of nearest objects
         """
-        town_data = get_town_data()
+        town_data = await get_town_data()
         results = []
 
         # Determine categories to search
@@ -158,7 +158,7 @@ class QueryManager:
         logger.info(f"Nearest query: found {len(results)} objects")
         return results
 
-    def advanced_query(
+    async def advanced_query(
         self,
         category: Optional[str] = None,
         filters: Optional[List[Dict[str, Any]]] = None,
@@ -180,7 +180,7 @@ class QueryManager:
         Returns:
             List of matching objects
         """
-        town_data = get_town_data()
+        town_data = await get_town_data()
         results = []
 
         # Determine categories to search

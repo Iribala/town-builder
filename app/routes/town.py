@@ -23,6 +23,7 @@ from app.services.django_client import (
     update_town
 )
 from app.utils.security import get_safe_filepath
+from app.utils.normalization import normalize_layout_data
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -90,8 +91,9 @@ async def update_town_endpoint(
 
     # Full town data update
     else:
-        await set_town_data(data)
-        await broadcast_sse({'type': 'full', 'town': data})
+        canonical_town_data = normalize_layout_data(data)
+        await set_town_data(canonical_town_data)
+        await broadcast_sse({'type': 'full', 'town': canonical_town_data})
 
     return {"status": "success"}
 
@@ -125,6 +127,8 @@ async def save_town(
         if town_data_to_save is None:
             raise HTTPException(status_code=400, detail="No data provided to save")
 
+        canonical_town_data = normalize_layout_data(town_data_to_save)
+
         # Save to local file (optional)
         local_save_message = ""
         if filename:
@@ -147,7 +151,8 @@ async def save_town(
             # Update existing town (PATCH)
             try:
                 await update_town(town_id, request_payload, town_data_to_save, town_name_from_payload)
-                await broadcast_sse({'type': 'full', 'town': town_data_to_save})
+                await set_town_data(canonical_town_data)
+                await broadcast_sse({'type': 'full', 'town': canonical_town_data})
                 return {
                     "status": "success",
                     "message": f"{local_save_message} Town updated in Django backend (ID: {town_id}).",
@@ -182,7 +187,8 @@ async def save_town(
                 if existing_town_id:
                     # Update existing town by name
                     await update_town(existing_town_id, request_payload, town_data_to_save, town_name_from_payload)
-                    await broadcast_sse({'type': 'full', 'town': town_data_to_save})
+                    await set_town_data(canonical_town_data)
+                    await broadcast_sse({'type': 'full', 'town': canonical_town_data})
                     return {
                         "status": "success",
                         "message": f"{local_save_message} Town updated in Django backend (ID: {existing_town_id}).",
@@ -191,7 +197,8 @@ async def save_town(
                 else:
                     # Create new town
                     result = await create_town(request_payload, town_data_to_save, town_name_from_payload)
-                    await broadcast_sse({'type': 'full', 'town': town_data_to_save})
+                    await set_town_data(canonical_town_data)
+                    await broadcast_sse({'type': 'full', 'town': canonical_town_data})
                     return {
                         "status": "success",
                         "message": f"{local_save_message} Town created in Django backend (ID: {result['town_id']}).",
@@ -253,10 +260,11 @@ async def load_town(
         async with aiofiles.open(safe_path, 'r') as f:
             content = await f.read()
             town_data = json.loads(content)
-            await set_town_data(town_data)
+            canonical_town_data = normalize_layout_data(town_data)
+            await set_town_data(canonical_town_data)
 
         logger.info(f"Town loaded from {safe_path}")
-        await broadcast_sse({'type': 'full', 'town': town_data})
+        await broadcast_sse({'type': 'full', 'town': canonical_town_data})
         return {"status": "success", "message": f"Town loaded from {safe_path.name}", "data": town_data}
     except Exception as e:
         logger.error(f"Error loading town: {e}")
@@ -295,10 +303,11 @@ async def load_town_from_django(
 
         # Extract layout_data if available
         layout_data = town_data.get('layout_data', [])
+        canonical_layout = normalize_layout_data(layout_data)
 
         # Store in Redis/memory for multiplayer sync
-        await set_town_data(layout_data if layout_data else [])
-        await broadcast_sse({'type': 'full', 'town': layout_data})
+        await set_town_data(canonical_layout)
+        await broadcast_sse({'type': 'full', 'town': canonical_layout})
 
         return {
             "status": "success",

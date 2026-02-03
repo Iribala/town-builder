@@ -218,6 +218,8 @@ class HistoryEntry(BaseModel):
     operation: str
     category: Optional[str] = None
     object_id: Optional[str] = None
+    before_state: Optional[Dict[str, Any]] = None
+    after_state: Optional[Dict[str, Any]] = None
     data: Optional[Dict[str, Any]] = None
 
 

@@ -180,7 +180,7 @@ async def clear_history(
         DELETE /api/history
     """
     try:
-        history_manager.clear_history()
+        await history_manager.clear_history()
 
         return {
             "status": "success",

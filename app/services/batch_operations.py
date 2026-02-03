@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class BatchOperationsManager:
     """Manages batch operations on town data."""
 
-    def execute_operations(
+    async def execute_operations(
         self,
         operations: List[Dict[str, Any]],
         validate: bool = True
@@ -32,7 +32,7 @@ class BatchOperationsManager:
         failed = 0
 
         # Get current town data
-        town_data = get_town_data()
+        town_data = await get_town_data()
         original_town_data = town_data.copy()
 
         # Track changes for history
@@ -53,17 +53,17 @@ class BatchOperationsManager:
 
             # If all operations succeeded, save the changes
             if failed == 0:
-                set_town_data(town_data)
+                await set_town_data(town_data)
 
                 # Add to history
-                history_manager.add_entry(
+                await history_manager.add_entry(
                     operation="batch",
                     before_state=original_town_data,
                     after_state=town_data
                 )
 
                 # Broadcast full update
-                broadcast_sse({'type': 'full', 'town': town_data})
+                await broadcast_sse({'type': 'full', 'town': town_data})
                 logger.info(f"Batch operations completed: {successful} successful, {failed} failed")
             else:
                 # Rollback on any failure

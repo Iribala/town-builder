@@ -43,7 +43,7 @@ async def spatial_query_radius(
         }
     """
     try:
-        results = query_manager.spatial_query_radius(
+        results = await query_manager.spatial_query_radius(
             center=query.center.model_dump(),
             radius=query.radius,
             category=query.category,
@@ -86,7 +86,7 @@ async def spatial_query_bounds(
         }
     """
     try:
-        results = query_manager.spatial_query_bounds(
+        results = await query_manager.spatial_query_bounds(
             min_point=query.min.model_dump(),
             max_point=query.max.model_dump(),
             category=query.category,
@@ -129,7 +129,7 @@ async def spatial_query_nearest(
         }
     """
     try:
-        results = query_manager.spatial_query_nearest(
+        results = await query_manager.spatial_query_nearest(
             point=query.point.model_dump(),
             category=query.category,
             count=query.count,
@@ -180,7 +180,7 @@ async def advanced_query(
         if query.filters:
             filters = [f.model_dump() for f in query.filters]
 
-        results = query_manager.advanced_query(
+        results = await query_manager.advanced_query(
             category=query.category,
             filters=filters,
             sort_by=query.sort_by,
