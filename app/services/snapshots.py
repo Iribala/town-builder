@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import uuid
+import compression.zstd as zstd
 from typing import Dict, List, Any, Optional
 
 from app.config import settings
@@ -37,7 +38,7 @@ class SnapshotManager:
         Returns:
             ID of the created snapshot
         """
-        snapshot_id = str(uuid.uuid4())
+        snapshot_id = str(uuid.uuid7())
         timestamp = time.time()
 
         # Count total objects
@@ -61,9 +62,10 @@ class SnapshotManager:
             raise Exception("Redis client not available")
 
         try:
-            # Store snapshot data
+            # Store snapshot data with compression
             data_key = f"{self.snapshot_data_prefix}{snapshot_id}"
-            await redis_client.set(data_key, json.dumps(town_data))
+            compressed_data = zstd.compress(json.dumps(town_data).encode("utf-8"))
+            await redis_client.set(data_key, compressed_data)
 
             # Add metadata to snapshots list
             await redis_client.rpush(self.snapshots_key, json.dumps(metadata))
@@ -128,6 +130,9 @@ class SnapshotManager:
             data = await redis_client.get(data_key)
 
             if data:
+                # Decompress data if it's zstd compressed (bytes)
+                if isinstance(data, bytes):
+                    data = zstd.decompress(data)
                 return json.loads(data)
 
             return None

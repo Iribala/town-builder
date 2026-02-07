@@ -39,7 +39,7 @@ async def create_building(
     town_data = await get_town_data()
 
     # Generate unique ID
-    building_id = f"obj_{uuid.uuid4().hex[:8]}"
+    building_id = f"obj_{uuid.uuid7().hex[:8]}"
 
     # Set defaults for optional fields
     rotation = request_data.rotation or Rotation()

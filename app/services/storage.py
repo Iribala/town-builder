@@ -1,6 +1,7 @@
 """Storage service for town data using Redis with in-memory fallback."""
 import json
 import logging
+import compression.zstd as zstd
 from typing import Dict, Any, Optional
 
 from redis.asyncio import Redis as AsyncRedis
@@ -56,6 +57,9 @@ async def get_town_data() -> Dict[str, Any]:
         try:
             data = await redis_client.get("town_data")
             if data:
+                # Decompress if it's bytes (zstd compressed)
+                if isinstance(data, bytes):
+                    data = zstd.decompress(data)
                 return json.loads(data)
         except Exception as e:
             logger.warning(f"Redis get failed, using in-memory storage: {e}")
@@ -75,7 +79,9 @@ async def set_town_data(data: Dict[str, Any]) -> None:
 
     if redis_client:
         try:
-            await redis_client.set("town_data", json.dumps(data))
+            # Compress using zstd for efficiency
+            compressed_data = zstd.compress(json.dumps(data).encode("utf-8"))
+            await redis_client.set("town_data", compressed_data)
         except Exception as e:
             logger.warning(f"Redis set failed, data saved to memory only: {e}")
 

@@ -329,7 +329,7 @@ async def load_town_from_django(
         if hasattr(e, 'response') and e.response is not None:
             try:
                 error_detail = e.response.json()
-            except (ValueError, json.JSONDecodeError):
+            except ValueError, json.JSONDecodeError:
                 error_detail = e.response.text
         raise HTTPException(
             status_code=500,
