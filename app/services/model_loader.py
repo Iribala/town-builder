@@ -1,14 +1,12 @@
 """Service for discovering and loading 3D models from the file system."""
 import logging
 import os
-from typing import Dict, List
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-
-def get_available_models() -> Dict[str, List[str]]:
+def get_available_models() -> dict[str, list[str]]:
     """Scan the models directory and return available models by category.
     
     For buildings category, filters out models with '_withoutBase' suffix to avoid duplicates.

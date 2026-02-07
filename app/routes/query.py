@@ -1,6 +1,5 @@
 """Routes for spatial queries and advanced filtering."""
 import logging
-from typing import Union
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -16,7 +15,6 @@ from app.services.query import query_manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/query", tags=["Query & Spatial Search"])
-
 
 @router.post("/spatial/radius")
 async def spatial_query_radius(
@@ -60,7 +58,6 @@ async def spatial_query_radius(
         logger.error(f"Spatial radius query error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/spatial/bounds")
 async def spatial_query_bounds(
     query: SpatialQueryBounds,
@@ -103,7 +100,6 @@ async def spatial_query_bounds(
         logger.error(f"Spatial bounds query error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.post("/spatial/nearest")
 async def spatial_query_nearest(
     query: SpatialQueryNearest,
@@ -145,7 +141,6 @@ async def spatial_query_nearest(
     except Exception as e:
         logger.error(f"Spatial nearest query error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/advanced")
 async def advanced_query(

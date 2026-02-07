@@ -2,7 +2,7 @@
 import json
 import logging
 import compression.zstd as zstd
-from typing import Dict, Any, Optional
+from typing import Any
 
 from redis.asyncio import Redis as AsyncRedis
 
@@ -23,11 +23,10 @@ DEFAULT_TOWN_DATA = {
 }
 
 # Async Redis client
-redis_client: Optional[AsyncRedis] = None
+redis_client: AsyncRedis | None = None
 
 # In-memory town data storage (fallback)
 _town_data_storage = DEFAULT_TOWN_DATA.copy()
-
 
 async def initialize_redis() -> None:
     """Initialize the async Redis client."""
@@ -38,7 +37,6 @@ async def initialize_redis() -> None:
     except Exception as e:
         logger.warning(f"Redis initialization failed, using in-memory storage: {e}")
 
-
 async def close_redis() -> None:
     """Close the async Redis client."""
     global redis_client
@@ -46,8 +44,7 @@ async def close_redis() -> None:
         await redis_client.aclose()
         logger.info("Redis client closed")
 
-
-async def get_town_data() -> Dict[str, Any]:
+async def get_town_data() -> dict[str, Any]:
     """Get town data from Redis with fallback to in-memory storage.
 
     Returns:
@@ -67,8 +64,7 @@ async def get_town_data() -> Dict[str, Any]:
     # Fallback to in-memory storage
     return _town_data_storage.copy()
 
-
-async def set_town_data(data: Dict[str, Any]) -> None:
+async def set_town_data(data: dict[str, Any]) -> None:
     """Set town data in both Redis and in-memory storage.
 
     Args:
@@ -85,8 +81,7 @@ async def set_town_data(data: Dict[str, Any]) -> None:
         except Exception as e:
             logger.warning(f"Redis set failed, data saved to memory only: {e}")
 
-
-def get_redis_client() -> Optional[AsyncRedis]:
+def get_redis_client() -> AsyncRedis | None:
     """Get the Redis client instance.
 
     Returns:

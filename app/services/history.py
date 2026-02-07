@@ -3,7 +3,7 @@ import json
 import logging
 import time
 import uuid
-from typing import Dict, List, Any, Optional
+from typing import Any
 from collections import deque
 
 from app.config import settings
@@ -18,7 +18,6 @@ MAX_HISTORY_SIZE = 100
 _history_stack = deque(maxlen=MAX_HISTORY_SIZE)
 _redo_stack = deque(maxlen=MAX_HISTORY_SIZE)
 
-
 class HistoryManager:
     """Manages operation history for undo/redo functionality."""
 
@@ -30,10 +29,10 @@ class HistoryManager:
     async def add_entry(
         self,
         operation: str,
-        category: Optional[str] = None,
-        object_id: Optional[str] = None,
-        before_state: Optional[Dict[str, Any]] = None,
-        after_state: Optional[Dict[str, Any]] = None
+        category: str | None = None,
+        object_id: str | None = None,
+        before_state: dict[str, Any] | None = None,
+        after_state: dict[str, Any] | None = None
     ) -> str:
         """Add a new history entry.
 
@@ -83,7 +82,7 @@ class HistoryManager:
         logger.info(f"Added history entry: {operation} on {category}/{object_id}")
         return entry_id
 
-    async def get_history(self, limit: int = 50) -> List[Dict[str, Any]]:
+    async def get_history(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get recent history entries.
 
         Args:
@@ -136,7 +135,7 @@ class HistoryManager:
 
         return len(_redo_stack) > 0
 
-    async def get_last_entry(self) -> Optional[Dict[str, Any]]:
+    async def get_last_entry(self) -> dict[str, Any] | None:
         """Get the last history entry without removing it.
 
         Returns:
@@ -155,7 +154,7 @@ class HistoryManager:
             return _history_stack[-1]
         return None
 
-    async def pop_last_entry(self) -> Optional[Dict[str, Any]]:
+    async def pop_last_entry(self) -> dict[str, Any] | None:
         """Remove and return the last history entry.
 
         Returns:
@@ -174,7 +173,7 @@ class HistoryManager:
             return _history_stack.pop()
         return None
 
-    async def push_redo_entry(self, entry: Dict[str, Any]) -> None:
+    async def push_redo_entry(self, entry: dict[str, Any]) -> None:
         """Add an entry to the redo stack.
 
         Args:
@@ -196,7 +195,7 @@ class HistoryManager:
         else:
             _redo_stack.append(entry)
 
-    async def pop_redo_entry(self) -> Optional[Dict[str, Any]]:
+    async def pop_redo_entry(self) -> dict[str, Any] | None:
         """Remove and return the last redo entry.
 
         Returns:
@@ -228,7 +227,6 @@ class HistoryManager:
         _history_stack.clear()
         _redo_stack.clear()
         logger.info("History cleared")
-
 
 # Global history manager instance
 history_manager = HistoryManager()

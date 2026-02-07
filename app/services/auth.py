@@ -1,7 +1,7 @@
 """Authentication service for JWT token verification."""
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict
+from typing import Any
 
 from authlib.jose import jwt
 from authlib.jose.errors import JoseError
@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 # Security scheme (auto_error=False allows optional authentication)
 security = HTTPBearer(auto_error=False)
 
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
     """Verify JWT token and return user info.
 
     Args:
@@ -43,8 +42,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     except JoseError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
-
-def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
     """Get current user from JWT token, with development bypass option.
 
     Args:
@@ -67,8 +65,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
     return verify_token(credentials)
 
-
-def create_access_token(username: str, expires_hours: int = 24) -> Dict[str, Any]:
+def create_access_token(username: str, expires_hours: int = 24) -> dict[str, Any]:
     """Generate a JWT token for development/testing.
 
     Args:

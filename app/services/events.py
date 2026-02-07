@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Dict, Optional, AsyncGenerator
+from typing import AsyncGenerator
 
 from app.config import settings
 from app.services.storage import get_redis_client, get_town_data
@@ -11,10 +11,9 @@ from app.services.storage import get_redis_client, get_town_data
 logger = logging.getLogger(__name__)
 
 # Track users: {name: last_seen_timestamp}
-_connected_users: Dict[str, float] = {}
+_connected_users: dict[str, float] = {}
 
-
-async def broadcast_sse(data: Dict) -> None:
+async def broadcast_sse(data: dict) -> None:
     """Send data to all connected SSE clients via Redis pub/sub.
 
     Args:
@@ -28,7 +27,6 @@ async def broadcast_sse(data: Dict) -> None:
     except Exception as e:
         # Redis is optional for multiplayer features - log error but don't fail
         logger.warning(f"Failed to broadcast SSE event (Redis unavailable): {e}")
-
 
 def get_online_users() -> list[str]:
     """Get a list of currently online user names.
@@ -46,8 +44,7 @@ def get_online_users() -> list[str]:
             del _connected_users[name]
     return list(_connected_users.keys())
 
-
-async def event_stream(player_name: Optional[str] = None) -> AsyncGenerator[str, None]:
+async def event_stream(player_name: str | None = None) -> AsyncGenerator[str, None]:
     """Generate Server-Sent Events stream for a client.
 
     Args:

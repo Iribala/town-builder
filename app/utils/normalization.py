@@ -1,11 +1,9 @@
 """Helpers for normalizing town layout data shapes."""
-from typing import Any, Dict, List
-
+from typing import Any
 
 _CATEGORIES = ["buildings", "vehicles", "trees", "props", "street", "park", "terrain", "roads"]
 
-
-def _vec_from_array(values: Any, default: Dict[str, float]) -> Dict[str, float]:
+def _vec_from_array(values: Any, default: dict[str, float]) -> dict[str, float]:
     if isinstance(values, (list, tuple)) and len(values) >= 3:
         return {"x": float(values[0]), "y": float(values[1]), "z": float(values[2])}
     if isinstance(values, dict):
@@ -16,11 +14,10 @@ def _vec_from_array(values: Any, default: Dict[str, float]) -> Dict[str, float]:
         }
     return default.copy()
 
-
-def normalize_layout_data(layout_data: Any) -> Dict[str, List[Dict[str, Any]]]:
+def normalize_layout_data(layout_data: Any) -> dict[str, list[dict[str, Any]]]:
     """Normalize layout data into canonical dict-of-categories shape."""
     if isinstance(layout_data, dict):
-        normalized: Dict[str, List[Dict[str, Any]]] = {}
+        normalized: dict[str, list[dict[str, Any]]] = {}
         for category in _CATEGORIES:
             items = layout_data.get(category, [])
             normalized[category] = _normalize_objects_list(items, category)
@@ -43,8 +40,7 @@ def normalize_layout_data(layout_data: Any) -> Dict[str, List[Dict[str, Any]]]:
 
     return {category: [] for category in _CATEGORIES}
 
-
-def denormalize_to_layout_list(town_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+def denormalize_to_layout_list(town_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Convert canonical dict-of-categories into list layout_data shape.
 
     NOTE: This function is currently unused. It's kept for potential future use
@@ -58,7 +54,7 @@ def denormalize_to_layout_list(town_data: Dict[str, Any]) -> List[Dict[str, Any]
         ...
     ]
     """
-    results: List[Dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
     if not isinstance(town_data, dict):
         return results
 
@@ -79,14 +75,12 @@ def denormalize_to_layout_list(town_data: Dict[str, Any]) -> List[Dict[str, Any]
             })
     return results
 
-
-def _normalize_objects_list(items: Any, category: str) -> List[Dict[str, Any]]:
+def _normalize_objects_list(items: Any, category: str) -> list[dict[str, Any]]:
     if not isinstance(items, list):
         return []
     return [_normalize_object(item, category) for item in items if isinstance(item, dict)]
 
-
-def _normalize_object(item: Dict[str, Any], category: str) -> Dict[str, Any]:
+def _normalize_object(item: dict[str, Any], category: str) -> dict[str, Any]:
     model = item.get("model") or item.get("modelName")
     return {
         **item,
@@ -97,8 +91,7 @@ def _normalize_object(item: Dict[str, Any], category: str) -> Dict[str, Any]:
         "scale": _vec_from_array(item.get("scale"), {"x": 1.0, "y": 1.0, "z": 1.0}),
     }
 
-
-def _array_from_vec(values: Any, default: List[float]) -> List[float]:
+def _array_from_vec(values: Any, default: list[float]) -> list[float]:
     if isinstance(values, (list, tuple)) and len(values) >= 3:
         return [float(values[0]), float(values[1]), float(values[2])]
     if isinstance(values, dict):

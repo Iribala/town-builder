@@ -1,7 +1,6 @@
 """Routes for programmatic building management."""
 import logging
 import uuid
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -20,7 +19,6 @@ from app.services.events import broadcast_sse
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/buildings", tags=["Buildings"])
-
 
 @router.post("", response_model=BuildingResponse, status_code=201)
 async def create_building(
@@ -78,8 +76,7 @@ async def create_building(
         scale=scale
     )
 
-
-@router.get("", response_model=List[BuildingResponse])
+@router.get("", response_model=list[BuildingResponse])
 async def list_buildings(
     category: str = None,
     current_user: dict = Depends(get_current_user)
@@ -122,7 +119,6 @@ async def list_buildings(
 
     return buildings
 
-
 @router.get("/{building_id}", response_model=BuildingResponse)
 async def get_building(
     building_id: str,
@@ -158,7 +154,6 @@ async def get_building(
                     )
 
     raise HTTPException(status_code=404, detail=f"Building with ID {building_id} not found")
-
 
 @router.put("/{building_id}", response_model=BuildingResponse)
 async def update_building(
@@ -233,7 +228,6 @@ async def update_building(
                     )
 
     raise HTTPException(status_code=404, detail=f"Building with ID {building_id} not found")
-
 
 @router.delete("/{building_id}")
 async def delete_building(

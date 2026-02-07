@@ -2,7 +2,7 @@
 import copy
 import logging
 import uuid
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any
 
 from app.services.storage import get_town_data, set_town_data
 from app.services.events import broadcast_sse
@@ -10,15 +10,14 @@ from app.services.history import history_manager
 
 logger = logging.getLogger(__name__)
 
-
 class BatchOperationsManager:
     """Manages batch operations on town data."""
 
     async def execute_operations(
         self,
-        operations: List[Dict[str, Any]],
+        operations: list[dict[str, Any]],
         validate: bool = True
-    ) -> Tuple[List[Dict[str, Any]], int, int]:
+    ) -> tuple[list[dict[str, Any]], int, int]:
         """Execute a batch of operations.
 
         Args:
@@ -89,10 +88,10 @@ class BatchOperationsManager:
 
     def _execute_single_operation(
         self,
-        town_data: Dict[str, Any],
-        op_data: Dict[str, Any],
+        town_data: dict[str, Any],
+        op_data: dict[str, Any],
         validate: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Execute a single operation.
 
         Args:
@@ -132,10 +131,10 @@ class BatchOperationsManager:
 
     def _create_object(
         self,
-        town_data: Dict[str, Any],
-        op_data: Dict[str, Any],
+        town_data: dict[str, Any],
+        op_data: dict[str, Any],
         validate: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Create a new object."""
         category = op_data.get("category")
         data = op_data.get("data", {})
@@ -167,10 +166,10 @@ class BatchOperationsManager:
 
     def _update_object(
         self,
-        town_data: Dict[str, Any],
-        op_data: Dict[str, Any],
+        town_data: dict[str, Any],
+        op_data: dict[str, Any],
         validate: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Update an existing object."""
         category = op_data.get("category")
         object_id = op_data.get("id")
@@ -199,10 +198,10 @@ class BatchOperationsManager:
 
     def _delete_object(
         self,
-        town_data: Dict[str, Any],
-        op_data: Dict[str, Any],
+        town_data: dict[str, Any],
+        op_data: dict[str, Any],
         validate: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Delete an object by ID or by position."""
         category = op_data.get("category")
         object_id = op_data.get("id")
@@ -264,10 +263,10 @@ class BatchOperationsManager:
 
     def _edit_object(
         self,
-        town_data: Dict[str, Any],
-        op_data: Dict[str, Any],
+        town_data: dict[str, Any],
+        op_data: dict[str, Any],
         validate: bool
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Edit object properties (position, rotation, scale)."""
         category = op_data.get("category")
         object_id = op_data.get("id")
@@ -306,7 +305,7 @@ class BatchOperationsManager:
 
         return {"success": False, "op": "edit", "message": f"Object {object_id} not found"}
 
-    def _validate_object(self, obj: Dict[str, Any]) -> bool:
+    def _validate_object(self, obj: dict[str, Any]) -> bool:
         """Validate an object.
 
         Args:
@@ -322,7 +321,6 @@ class BatchOperationsManager:
                 return False
 
         return True
-
 
 # Global batch operations manager instance
 batch_operations_manager = BatchOperationsManager()

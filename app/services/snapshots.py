@@ -4,7 +4,7 @@ import logging
 import time
 import uuid
 import compression.zstd as zstd
-from typing import Dict, List, Any, Optional
+from typing import Any
 
 from app.config import settings
 from app.services.storage import get_redis_client
@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 # Max snapshots to keep per town
 MAX_SNAPSHOTS = 50
-
 
 class SnapshotManager:
     """Manages town snapshots for versioning and save points."""
@@ -24,9 +23,9 @@ class SnapshotManager:
 
     async def create_snapshot(
         self,
-        town_data: Dict[str, Any],
-        name: Optional[str] = None,
-        description: Optional[str] = None
+        town_data: dict[str, Any],
+        name: str | None = None,
+        description: str | None = None
     ) -> str:
         """Create a new snapshot.
 
@@ -90,7 +89,7 @@ class SnapshotManager:
             logger.error(f"Failed to create snapshot: {e}")
             raise
 
-    async def list_snapshots(self) -> List[Dict[str, Any]]:
+    async def list_snapshots(self) -> list[dict[str, Any]]:
         """List all available snapshots.
 
         Returns:
@@ -111,7 +110,7 @@ class SnapshotManager:
             logger.error(f"Failed to list snapshots: {e}")
             return []
 
-    async def get_snapshot(self, snapshot_id: str) -> Optional[Dict[str, Any]]:
+    async def get_snapshot(self, snapshot_id: str) -> dict[str, Any] | None:
         """Get snapshot data by ID.
 
         Args:
@@ -181,7 +180,7 @@ class SnapshotManager:
             logger.error(f"Failed to delete snapshot {snapshot_id}: {e}")
             return False
 
-    async def get_snapshot_metadata(self, snapshot_id: str) -> Optional[Dict[str, Any]]:
+    async def get_snapshot_metadata(self, snapshot_id: str) -> dict[str, Any] | None:
         """Get snapshot metadata by ID.
 
         Args:
@@ -208,7 +207,6 @@ class SnapshotManager:
         except Exception as e:
             logger.error(f"Failed to get snapshot metadata {snapshot_id}: {e}")
             return None
-
 
 # Global snapshot manager instance
 snapshot_manager = SnapshotManager()

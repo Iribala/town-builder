@@ -1,11 +1,10 @@
 """Service for generating scene descriptions."""
 import logging
-from typing import Dict, Any, List
+from typing import Any
 from collections import Counter
 from app.services.model_display_names import get_model_display_name
 
 logger = logging.getLogger(__name__)
-
 
 def get_model_name_friendly(model_filename: str) -> str:
     """Convert model filename to friendly name.
@@ -18,8 +17,7 @@ def get_model_name_friendly(model_filename: str) -> str:
     """
     return get_model_display_name(model_filename)
 
-
-def analyze_category(category_data: List[Dict[str, Any]], category_name: str) -> Dict[str, Any]:
+def analyze_category(category_data: list[dict[str, Any]], category_name: str) -> dict[str, Any]:
     """Analyze a category of objects.
 
     Args:
@@ -69,8 +67,7 @@ def analyze_category(category_data: List[Dict[str, Any]], category_name: str) ->
         "positions": positions
     }
 
-
-def calculate_scene_bounds(all_positions: List[tuple]) -> Dict[str, Any]:
+def calculate_scene_bounds(all_positions: list[tuple]) -> dict[str, Any]:
     """Calculate the bounds of the scene.
 
     Args:
@@ -104,8 +101,7 @@ def calculate_scene_bounds(all_positions: List[tuple]) -> Dict[str, Any]:
         }
     }
 
-
-def generate_natural_description(analysis: Dict[str, Any]) -> str:
+def generate_natural_description(analysis: dict[str, Any]) -> str:
     """Generate a natural language description of the scene.
 
     Args:
@@ -190,8 +186,7 @@ def generate_natural_description(analysis: Dict[str, Any]) -> str:
 
     return "\n".join(parts)
 
-
-def generate_scene_description(town_data: Dict[str, Any]) -> Dict[str, Any]:
+def generate_scene_description(town_data: dict[str, Any]) -> dict[str, Any]:
     """Generate a comprehensive scene description.
 
     Args:

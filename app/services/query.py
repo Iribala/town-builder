@@ -1,23 +1,22 @@
 """Query and spatial search service for town data."""
 import logging
 import math
-from typing import Dict, List, Any, Optional, Callable
+from typing import Any, Callable
 
 from app.services.storage import get_town_data
 
 logger = logging.getLogger(__name__)
-
 
 class QueryManager:
     """Manages queries and spatial searches on town data."""
 
     async def spatial_query_radius(
         self,
-        center: Dict[str, float],
+        center: dict[str, float],
         radius: float,
-        category: Optional[str] = None,
-        limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        category: str | None = None,
+        limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """Find objects within a radius from a center point.
 
         Args:
@@ -65,11 +64,11 @@ class QueryManager:
 
     async def spatial_query_bounds(
         self,
-        min_point: Dict[str, float],
-        max_point: Dict[str, float],
-        category: Optional[str] = None,
-        limit: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
+        min_point: dict[str, float],
+        max_point: dict[str, float],
+        category: str | None = None,
+        limit: int | None = None
+    ) -> list[dict[str, Any]]:
         """Find objects within a bounding box.
 
         Args:
@@ -111,11 +110,11 @@ class QueryManager:
 
     async def spatial_query_nearest(
         self,
-        point: Dict[str, float],
-        category: Optional[str] = None,
+        point: dict[str, float],
+        category: str | None = None,
         count: int = 1,
-        max_distance: Optional[float] = None
-    ) -> List[Dict[str, Any]]:
+        max_distance: float | None = None
+    ) -> list[dict[str, Any]]:
         """Find nearest objects to a point.
 
         Args:
@@ -160,13 +159,13 @@ class QueryManager:
 
     async def advanced_query(
         self,
-        category: Optional[str] = None,
-        filters: Optional[List[Dict[str, Any]]] = None,
-        sort_by: Optional[str] = None,
+        category: str | None = None,
+        filters: list[dict[str, Any]] | None = None,
+        sort_by: str | None = None,
         sort_order: str = "asc",
-        limit: Optional[int] = None,
+        limit: int | None = None,
         offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Execute advanced query with filters and sorting.
 
         Args:
@@ -223,8 +222,8 @@ class QueryManager:
 
     def _calculate_distance(
         self,
-        point1: Dict[str, float],
-        point2: Dict[str, float]
+        point1: dict[str, float],
+        point2: dict[str, float]
     ) -> float:
         """Calculate Euclidean distance between two points.
 
@@ -251,9 +250,9 @@ class QueryManager:
 
     def _is_within_bounds(
         self,
-        point: Dict[str, float],
-        min_point: Dict[str, float],
-        max_point: Dict[str, float]
+        point: dict[str, float],
+        min_point: dict[str, float],
+        max_point: dict[str, float]
     ) -> bool:
         """Check if a point is within bounding box.
 
@@ -277,8 +276,8 @@ class QueryManager:
 
     def _matches_filters(
         self,
-        obj: Dict[str, Any],
-        filters: List[Dict[str, Any]]
+        obj: dict[str, Any],
+        filters: list[dict[str, Any]]
     ) -> bool:
         """Check if object matches all filters.
 
@@ -301,7 +300,7 @@ class QueryManager:
 
         return True
 
-    def _get_nested_value(self, obj: Dict[str, Any], field: str) -> Any:
+    def _get_nested_value(self, obj: dict[str, Any], field: str) -> Any:
         """Get nested value from object using dot notation.
 
         Args:
@@ -365,7 +364,7 @@ class QueryManager:
             logger.warning(f"Filter evaluation error: {e}")
             return False
 
-    def _get_all_categories(self, town_data: Dict[str, Any]) -> List[str]:
+    def _get_all_categories(self, town_data: dict[str, Any]) -> list[str]:
         """Get all valid categories from town data.
 
         Args:
@@ -378,7 +377,6 @@ class QueryManager:
             key for key, value in town_data.items()
             if isinstance(value, list) and key not in ["snapshots", "history"]
         ]
-
 
 # Global query manager instance
 query_manager = QueryManager()

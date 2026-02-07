@@ -1,7 +1,6 @@
 """Pydantic models for request/response validation."""
-from typing import Dict, List, Optional, Any
+from typing import Any
 from pydantic import BaseModel
-
 
 class Position(BaseModel):
     """3D position coordinates."""
@@ -9,13 +8,11 @@ class Position(BaseModel):
     y: float = 0.0
     z: float = 0.0
 
-
 class Rotation(BaseModel):
     """3D rotation coordinates."""
     x: float = 0.0
     y: float = 0.0
     z: float = 0.0
-
 
 class Scale(BaseModel):
     """3D scale coordinates."""
@@ -23,65 +20,58 @@ class Scale(BaseModel):
     y: float = 1.0
     z: float = 1.0
 
-
 class ModelData(BaseModel):
     """Model data for a placed object."""
-    id: Optional[str] = None
-    position: Optional[Position] = None
-    rotation: Optional[Rotation] = None
-    scale: Optional[Scale] = None
-    driver: Optional[str] = None
-
+    id: str | None = None
+    position: Position | None = None
+    rotation: Rotation | None = None
+    scale: Scale | None = None
+    driver: str | None = None
 
 class TownUpdateRequest(BaseModel):
     """Request to update town data."""
-    townName: Optional[str] = None
-    buildings: Optional[List[Dict[str, Any]]] = None
-    terrain: Optional[List[Dict[str, Any]]] = None
-    roads: Optional[List[Dict[str, Any]]] = None
-    props: Optional[List[Dict[str, Any]]] = None
-    driver: Optional[str] = None
-    id: Optional[str] = None
-    category: Optional[str] = None
-
+    townName: str | None = None
+    buildings: list[dict[str, Any]] | None = None
+    terrain: list[dict[str, Any]] | None = None
+    roads: list[dict[str, Any]] | None = None
+    props: list[dict[str, Any]] | None = None
+    driver: str | None = None
+    id: str | None = None
+    category: str | None = None
 
 class SaveTownRequest(BaseModel):
     """Request to save town data."""
-    filename: Optional[str] = "town_data.json"
-    data: Optional[Any] = None  # Can be array or dict depending on use case
-    town_id: Optional[int] = None  # Changed to int to match Django's integer primary key
-    townName: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    description: Optional[str] = None
-    population: Optional[int] = None
-    area: Optional[float] = None
-    established_date: Optional[str] = None
-    place_type: Optional[str] = None
-    full_address: Optional[str] = None
-    town_image: Optional[str] = None
-
+    filename: str | None = "town_data.json"
+    data: Any | None = None  # Can be array or dict depending on use case
+    town_id: int | None = None  # Changed to int to match Django's integer primary key
+    townName: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    description: str | None = None
+    population: int | None = None
+    area: float | None = None
+    established_date: str | None = None
+    place_type: str | None = None
+    full_address: str | None = None
+    town_image: str | None = None
 
 class LoadTownRequest(BaseModel):
     """Request to load town data from file."""
     filename: str = "town_data.json"
 
-
 class DeleteModelRequest(BaseModel):
     """Request to delete a model from the town."""
-    id: Optional[str] = None
+    id: str | None = None
     category: str
-    position: Optional[Position] = None
-
+    position: Position | None = None
 
 class EditModelRequest(BaseModel):
     """Request to edit a model in the town."""
     id: str
     category: str
-    position: Optional[Position] = None
-    rotation: Optional[Rotation] = None
-    scale: Optional[Scale] = None
-
+    position: Position | None = None
+    rotation: Rotation | None = None
+    scale: Scale | None = None
 
 class CursorUpdate(BaseModel):
     """Cursor position update for collaborative cursors."""
@@ -89,54 +79,48 @@ class CursorUpdate(BaseModel):
     position: Position  # 3D world position where cursor is pointing
     camera_position: Position  # Camera position for better context
 
-
 class ApiResponse(BaseModel):
     """Standard API response."""
     status: str
-    message: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
-    town_id: Optional[str] = None
-
+    message: str | None = None
+    data: dict[str, Any] | None = None
+    town_id: str | None = None
 
 # ===== Batch Operations =====
 
 class BatchOperation(BaseModel):
     """Single operation in a batch request."""
     op: str  # create, update, delete, edit
-    category: Optional[str] = None
-    id: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
-    position: Optional[Position] = None
+    category: str | None = None
+    id: str | None = None
+    data: dict[str, Any] | None = None
+    position: Position | None = None
 class BuildingCreateRequest(BaseModel):
     """Request to create a new building programmatically."""
     model: str  # Model filename (e.g., "house.glb")
     category: str = "buildings"  # Category: buildings, vehicles, trees, props, street, park
     position: Position
-    rotation: Optional[Rotation] = None
-    scale: Optional[Scale] = None
-
+    rotation: Rotation | None = None
+    scale: Scale | None = None
 
 class BatchOperationRequest(BaseModel):
     """Request to execute multiple operations in a single transaction."""
-    operations: List[BatchOperation]
+    operations: list[BatchOperation]
     validate_operations: bool = True
-
 
 class BatchOperationResult(BaseModel):
     """Result of a single batch operation."""
     success: bool
     op: str
-    message: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
-
+    message: str | None = None
+    data: dict[str, Any] | None = None
 
 class BatchOperationResponse(BaseModel):
     """Response from batch operations."""
     status: str
-    results: List[BatchOperationResult]
+    results: list[BatchOperationResult]
     successful: int
     failed: int
-
 
 # ===== Spatial Queries =====
 
@@ -145,27 +129,24 @@ class SpatialQueryRadius(BaseModel):
     type: str = "radius"
     center: Position
     radius: float
-    category: Optional[str] = None
-    limit: Optional[int] = None
-
+    category: str | None = None
+    limit: int | None = None
 
 class SpatialQueryBounds(BaseModel):
     """Query objects within a bounding box."""
     type: str = "bounds"
     min: Position
     max: Position
-    category: Optional[str] = None
-    limit: Optional[int] = None
-
+    category: str | None = None
+    limit: int | None = None
 
 class SpatialQueryNearest(BaseModel):
     """Find nearest objects to a point."""
     type: str = "nearest"
     point: Position
-    category: Optional[str] = None
+    category: str | None = None
     count: int = 1
-    max_distance: Optional[float] = None
-
+    max_distance: float | None = None
 
 # ===== Advanced Filtering =====
 
@@ -175,39 +156,34 @@ class FilterCondition(BaseModel):
     operator: str  # eq, ne, gt, lt, gte, lte, contains, in
     value: Any
 
-
 class QueryRequest(BaseModel):
     """Advanced query/filter request."""
-    category: Optional[str] = None
-    filters: Optional[List[FilterCondition]] = None
-    sort_by: Optional[str] = None
+    category: str | None = None
+    filters: list[FilterCondition] | None = None
+    sort_by: str | None = None
     sort_order: str = "asc"  # asc or desc
-    limit: Optional[int] = None
+    limit: int | None = None
     offset: int = 0
-
 
 # ===== Snapshots =====
 
 class SnapshotCreate(BaseModel):
     """Create a new snapshot."""
-    name: Optional[str] = None
-    description: Optional[str] = None
-
+    name: str | None = None
+    description: str | None = None
 
 class SnapshotInfo(BaseModel):
     """Snapshot information."""
     id: str
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str | None = None
+    description: str | None = None
     timestamp: float
     size: int  # Number of objects
-
 
 class SnapshotListResponse(BaseModel):
     """List of snapshots."""
     status: str
-    snapshots: List[SnapshotInfo]
-
+    snapshots: list[SnapshotInfo]
 
 # ===== History/Undo =====
 
@@ -216,27 +192,25 @@ class HistoryEntry(BaseModel):
     id: str
     timestamp: float
     operation: str
-    category: Optional[str] = None
-    object_id: Optional[str] = None
-    before_state: Optional[Dict[str, Any]] = None
-    after_state: Optional[Dict[str, Any]] = None
-    data: Optional[Dict[str, Any]] = None
-
+    category: str | None = None
+    object_id: str | None = None
+    before_state: dict[str, Any] | None = None
+    after_state: dict[str, Any] | None = None
+    data: dict[str, Any] | None = None
 
 class HistoryResponse(BaseModel):
     """Operation history response."""
     status: str
-    history: List[HistoryEntry]
+    history: list[HistoryEntry]
     can_undo: bool
     can_redo: bool
 class BuildingUpdateRequest(BaseModel):
     """Request to update a building programmatically."""
-    position: Optional[Position] = None
-    rotation: Optional[Rotation] = None
-    scale: Optional[Scale] = None
-    model: Optional[str] = None
-    category: Optional[str] = None
-
+    position: Position | None = None
+    rotation: Rotation | None = None
+    scale: Scale | None = None
+    model: str | None = None
+    category: str | None = None
 
 class BuildingResponse(BaseModel):
     """Response with building data."""
@@ -246,4 +220,4 @@ class BuildingResponse(BaseModel):
     position: Position
     rotation: Rotation
     scale: Scale
-    driver: Optional[str] = None
+    driver: str | None = None

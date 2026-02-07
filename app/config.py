@@ -1,13 +1,12 @@
 """Configuration management for Town Builder application."""
 import os
-from typing import Optional
+
 from pydantic_settings import BaseSettings
 from pydantic import ConfigDict
 import dotenv
 
 # Load environment variables
 dotenv.load_dotenv()
-
 
 class Settings(BaseSettings):
     """Application settings."""
@@ -27,7 +26,7 @@ class Settings(BaseSettings):
 
     # External API (Django)
     api_url: str = os.getenv('TOWN_API_URL', 'http://localhost:8000/api/towns/')
-    api_token: Optional[str] = os.getenv('TOWN_API_JWT_TOKEN')
+    api_token: str | None = os.getenv('TOWN_API_JWT_TOKEN')
 
     # Redis
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -55,7 +54,6 @@ class Settings(BaseSettings):
                 "JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. "
                 "Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development."
             )
-
 
 # Global settings instance
 settings = Settings()

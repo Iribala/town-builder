@@ -2,15 +2,14 @@
 import os
 import re
 from pathlib import Path
-from typing import Optional
+
 from urllib.parse import urlparse
 
 from fastapi import HTTPException
 
 from app.config import settings
 
-
-def validate_filename(filename: str, allowed_extensions: Optional[list] = None) -> str:
+def validate_filename(filename: str, allowed_extensions: list | None = None) -> str:
     """Validate and sanitize a filename to prevent path traversal attacks.
 
     Args:
@@ -57,8 +56,7 @@ def validate_filename(filename: str, allowed_extensions: Optional[list] = None) 
 
     return clean_filename
 
-
-def get_safe_filepath(filename: str, base_dir: str, allowed_extensions: Optional[list] = None) -> Path:
+def get_safe_filepath(filename: str, base_dir: str, allowed_extensions: list | None = None) -> Path:
     """Get a safe file path within a base directory.
 
     Args:
@@ -92,7 +90,6 @@ def get_safe_filepath(filename: str, base_dir: str, allowed_extensions: Optional
         )
 
     return full_path
-
 
 def validate_model_path(category: str, model_name: str) -> tuple[str, str]:
     """Validate category and model name for path traversal attacks.
@@ -135,7 +132,6 @@ def validate_model_path(category: str, model_name: str) -> tuple[str, str]:
         )
 
     return category, model_name
-
 
 def validate_api_url(url: str) -> bool:
     """Validate that an API URL is in the allowed domains list (SSRF prevention).

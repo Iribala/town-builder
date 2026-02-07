@@ -1,6 +1,6 @@
 """Client for interacting with the external Django Towns API."""
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
 
 import httpx
 
@@ -9,13 +9,12 @@ from app.utils.security import validate_api_url
 
 logger = logging.getLogger(__name__)
 
-
 def _prepare_django_payload(
-    request_payload: Dict[str, Any],
-    normalized_town_data: Optional[Dict[str, Any]],
-    town_name_from_payload: Optional[str],
+    request_payload: dict[str, Any],
+    normalized_town_data: dict[str, Any] | None,
+    town_name_from_payload: str | None,
     is_update_operation: bool = False
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Prepare the payload dictionary for Django API requests.
 
     Args:
@@ -58,8 +57,7 @@ def _prepare_django_payload(
 
     return django_payload
 
-
-def _get_headers() -> Dict[str, str]:
+def _get_headers() -> dict[str, str]:
     """Get headers for Django API requests.
 
     Returns:
@@ -70,7 +68,6 @@ def _get_headers() -> Dict[str, str]:
     if settings.api_token and settings.api_token.strip():
         headers['Authorization'] = f"Token {settings.api_token}"
     return headers
-
 
 def _get_base_url() -> str:
     """Get the base URL for Django API with trailing slash.
@@ -92,8 +89,7 @@ def _get_base_url() -> str:
 
     return base_url
 
-
-async def search_town_by_name(town_name: str) -> Optional[int]:
+async def search_town_by_name(town_name: str) -> int | None:
     """Search for a town by name in Django API.
 
     Args:
@@ -142,8 +138,7 @@ async def search_town_by_name(town_name: str) -> Optional[int]:
         logger.error("Error decoding JSON response when searching for town by name")
         return None
 
-
-async def create_town(request_payload: Dict[str, Any], normalized_town_data: Dict[str, Any], town_name: Optional[str]) -> Dict[str, Any]:
+async def create_town(request_payload: dict[str, Any], normalized_town_data: dict[str, Any], town_name: str | None) -> dict[str, Any]:
     """Create a new town in Django API.
 
     Args:
@@ -176,13 +171,12 @@ async def create_town(request_payload: Dict[str, Any], normalized_town_data: Dic
         "response": response_data
     }
 
-
 async def update_town(
     town_id: int,
-    request_payload: Dict[str, Any],
-    normalized_town_data: Dict[str, Any],
-    town_name: Optional[str]
-) -> Dict[str, Any]:
+    request_payload: dict[str, Any],
+    normalized_town_data: dict[str, Any],
+    town_name: str | None
+) -> dict[str, Any]:
     """Update an existing town in Django API.
 
     Args:
@@ -214,8 +208,7 @@ async def update_town(
         "town_id": town_id
     }
 
-
-async def proxy_request(method: str, path: str, headers: Dict[str, str], params: Dict[str, Any] = None, data: Dict[str, Any] = None) -> httpx.Response:
+async def proxy_request(method: str, path: str, headers: dict[str, str], params: dict[str, Any] = None, data: dict[str, Any] = None) -> httpx.Response:
     """Proxy a request to the Django API.
 
     Args:
