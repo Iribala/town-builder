@@ -15,7 +15,7 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: town.iribala.org
+  - host: town.kibigia.org
     http:
       paths:
       - path: /
@@ -27,5 +27,5 @@ spec:
               number: 5000
   tls:
   - hosts:
-    - town.iribala.org
-    secretName: town-iribala-org-tls  # cert-manager will create this automatically
+    - town.kibigia.org
+    secretName: town-kibigia-org-tls  # cert-manager will create this automatically
