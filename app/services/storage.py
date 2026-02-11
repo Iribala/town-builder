@@ -32,7 +32,7 @@ async def initialize_redis() -> None:
     """Initialize the async Redis client."""
     global redis_client
     try:
-        redis_client = await AsyncRedis.from_url(settings.redis_url, decode_responses=True)
+        redis_client = await AsyncRedis.from_url(settings.redis_url, decode_responses=False)
         logger.info("Redis client initialized successfully")
     except Exception as e:
         logger.warning(f"Redis initialization failed, using in-memory storage: {e}")

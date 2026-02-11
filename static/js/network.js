@@ -170,7 +170,8 @@ export async function saveSceneToServer(payloadFromUI) { // Argument changed
 export async function loadSceneFromServer() {
     const response = await fetch((window.__BASE_PATH || '') + '/api/town/load', {
         method: 'POST',
-        headers: authHeaders()
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ filename: 'town_data.json' })
     });
     if (!response.ok) {
         throw new Error('Failed to load scene: ' + response.statusText);

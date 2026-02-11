@@ -146,33 +146,26 @@ async def save_town(
         else:
             local_save_message = "Local save skipped (no filename)."
 
-        # Save to Django backend if town_id is provided
+        # Always save to Redis/memory and broadcast, regardless of Django sync
+        await set_town_data(canonical_town_data)
+        await broadcast_sse({'type': 'full', 'town': canonical_town_data})
+
+        # Sync to Django backend (best-effort, does not block save success)
+        django_message = ""
         if town_id is not None:
             # Update existing town (PATCH)
             try:
                 await update_town(town_id, request_payload, canonical_town_data, town_name_from_payload)
-                await set_town_data(canonical_town_data)
-                await broadcast_sse({'type': 'full', 'town': canonical_town_data})
-                return {
-                    "status": "success",
-                    "message": f"{local_save_message} Town updated in Django backend (ID: {town_id}).",
-                    "town_id": town_id
-                }
+                django_message = f" Town updated in Django backend (ID: {town_id})."
             except Exception as e:
                 logger.error(f"Error updating town layout in Django backend for town_id {town_id}: {e}")
                 error_detail = str(e)
-                if e.response is not None:
+                if getattr(e, 'response', None) is not None:
                     try:
                         error_detail = e.response.json()
-                    except ValueError:
+                    except (ValueError, json.JSONDecodeError):
                         error_detail = e.response.text
-                raise HTTPException(
-                    status_code=500,
-                    detail={
-                        "status": "partial_error",
-                        "message": f"{local_save_message} Failed to update in Django backend: {error_detail}"
-                    }
-                )
+                django_message = f" Warning: failed to sync to Django backend: {error_detail}"
         else:
             # Create new town (POST) or update by name if found (PATCH)
             town_name_for_search = town_name_from_payload
@@ -187,38 +180,28 @@ async def save_town(
                 if existing_town_id:
                     # Update existing town by name
                     await update_town(existing_town_id, request_payload, canonical_town_data, town_name_from_payload)
-                    await set_town_data(canonical_town_data)
-                    await broadcast_sse({'type': 'full', 'town': canonical_town_data})
-                    return {
-                        "status": "success",
-                        "message": f"{local_save_message} Town updated in Django backend (ID: {existing_town_id}).",
-                        "town_id": existing_town_id
-                    }
+                    town_id = existing_town_id
+                    django_message = f" Town updated in Django backend (ID: {existing_town_id})."
                 else:
                     # Create new town
                     result = await create_town(request_payload, canonical_town_data, town_name_from_payload)
-                    await set_town_data(canonical_town_data)
-                    await broadcast_sse({'type': 'full', 'town': canonical_town_data})
-                    return {
-                        "status": "success",
-                        "message": f"{local_save_message} Town created in Django backend (ID: {result['town_id']}).",
-                        "town_id": result['town_id']
-                    }
+                    town_id = result['town_id']
+                    django_message = f" Town created in Django backend (ID: {town_id})."
             except Exception as e:
                 logger.error(f"Error saving town layout in Django backend: {e}")
                 error_detail = str(e)
                 if getattr(e, 'response', None) is not None:
                     try:
                         error_detail = e.response.json()
-                    except ValueError:
+                    except (ValueError, json.JSONDecodeError):
                         error_detail = e.response.text
-                raise HTTPException(
-                    status_code=500,
-                    detail={
-                        "status": "partial_error",
-                        "message": f"{local_save_message} Failed to create in Django backend: {error_detail}"
-                    }
-                )
+                django_message = f" Warning: failed to sync to Django backend: {error_detail}"
+
+        return {
+            "status": "success",
+            "message": f"{local_save_message}{django_message}",
+            "town_id": town_id
+        }
 
     except Exception as e:
         logger.error(f"Error in save_town endpoint: {e}", exc_info=True)
@@ -329,7 +312,7 @@ async def load_town_from_django(
         if hasattr(e, 'response') and e.response is not None:
             try:
                 error_detail = e.response.json()
-            except ValueError, json.JSONDecodeError:
+            except (ValueError, json.JSONDecodeError):
                 error_detail = e.response.text
         raise HTTPException(
             status_code=500,

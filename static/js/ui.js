@@ -468,13 +468,72 @@ async function onSaveScene() {
 
 async function onLoadScene() {
     try {
-        const loadedData = await loadSceneFromServer();
-        await onClearScene();
-        for (const item of loadedData) {
-            const obj = await loadModel(item.category, item.modelName);
-            obj.position.fromArray(item.position);
-            obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
-            obj.scale.fromArray(item.scale);
+        const response = await loadSceneFromServer();
+        const rawData = response.data || response;
+
+        // Build a flat array of items from either format
+        let itemsToLoad = [];
+        if (typeof rawData === 'object' && !Array.isArray(rawData)) {
+            // Dict-of-categories format (normalized backend data)
+            const categories = ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads'];
+            for (const category of categories) {
+                const items = rawData[category] || [];
+                for (const item of items) {
+                    itemsToLoad.push({
+                        category: category,
+                        modelName: item.model || item.modelName,
+                        position: item.position,
+                        rotation: item.rotation,
+                        scale: item.scale,
+                        id: item.id
+                    });
+                }
+            }
+        } else if (Array.isArray(rawData)) {
+            itemsToLoad = rawData;
+        }
+
+        // Clear existing scene objects
+        placedObjects.forEach(obj => {
+            disposeObject(obj);
+            scene.remove(obj);
+        });
+        placedObjects.length = 0;
+        movingCars.length = 0;
+
+        for (const item of itemsToLoad) {
+            try {
+                const obj = await loadModel(item.category, item.modelName);
+                if (obj) {
+                    // Handle both array [x,y,z] and object {x,y,z} formats
+                    if (item.position) {
+                        if (Array.isArray(item.position)) {
+                            obj.position.fromArray(item.position);
+                        } else if (typeof item.position === 'object') {
+                            obj.position.set(item.position.x || 0, item.position.y || 0, item.position.z || 0);
+                        }
+                    }
+                    if (item.rotation) {
+                        if (Array.isArray(item.rotation)) {
+                            obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
+                        } else if (typeof item.rotation === 'object') {
+                            obj.rotation.set(item.rotation.x || 0, item.rotation.y || 0, item.rotation.z || 0);
+                        }
+                    }
+                    if (item.scale) {
+                        if (Array.isArray(item.scale)) {
+                            obj.scale.fromArray(item.scale);
+                        } else if (typeof item.scale === 'object') {
+                            obj.scale.set(item.scale.x || 1, item.scale.y || 1, item.scale.z || 1);
+                        }
+                    }
+                    if (item.id) {
+                        obj.userData.id = item.id;
+                    }
+                }
+            } catch (err) {
+                console.error(`Error loading model ${item.category}/${item.modelName}:`, err);
+            }
         }
         showNotification('Scene loaded successfully', 'success');
     } catch (err) {
