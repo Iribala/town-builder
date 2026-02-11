@@ -2,13 +2,31 @@ import { showNotification, updateOnlineUsersList } from './ui.js';
 import { loadModel, scene, placedObjects, movingCars } from './scene.js';
 import { updateCursor } from './collaborative-cursors.js';
 
+/**
+ * Build headers object with auth token if available.
+ * @param {Object} [extra] - Additional headers to merge
+ * @returns {Object} Headers object
+ */
+function authHeaders(extra = {}) {
+    const headers = { ...extra };
+    if (window.__TOKEN) {
+        headers['Authorization'] = `Bearer ${window.__TOKEN}`;
+    }
+    return headers;
+}
+
 export function setupSSE() {
     // Setup SSE connection with automatic reconnection and backoff
     let retryDelay = 1000;
     const maxDelay = 30000;
     return new Promise((resolve, reject) => {
         function connect(isInitial = false) {
-            const evtSource = new EventSource((window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(myName));
+            let sseUrl = (window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(myName);
+            // EventSource doesn't support custom headers, so pass token as query param
+            if (window.__TOKEN) {
+                sseUrl += '&token=' + encodeURIComponent(window.__TOKEN);
+            }
+            const evtSource = new EventSource(sseUrl);
             evtSource.onopen = () => {
                 retryDelay = 1000;
                 if (isInitial) {
@@ -135,7 +153,7 @@ export async function saveSceneToServer(payloadFromUI) { // Argument changed
     // No re-wrapping needed here.
     const response = await fetch((window.__BASE_PATH || '') + '/api/town/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payloadFromUI) // Send the payload directly
     });
     if (!response.ok) {
@@ -151,7 +169,8 @@ export async function saveSceneToServer(payloadFromUI) { // Argument changed
 
 export async function loadSceneFromServer() {
     const response = await fetch((window.__BASE_PATH || '') + '/api/town/load', {
-        method: 'POST'
+        method: 'POST',
+        headers: authHeaders()
     });
     if (!response.ok) {
         throw new Error('Failed to load scene: ' + response.statusText);
@@ -162,7 +181,7 @@ export async function loadSceneFromServer() {
 export async function loadTownFromDjango(townId) {
     const response = await fetch(`${window.__BASE_PATH || ''}/api/town/load-from-django/${townId}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: authHeaders({ 'Content-Type': 'application/json' })
     });
     if (!response.ok) {
         let errorMessage = response.statusText;
@@ -200,7 +219,7 @@ export async function sendCursorUpdate(username, position, cameraPosition) {
     try {
         await fetch((window.__BASE_PATH || '') + '/api/cursor/update', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
                 username,
                 position: { x: position.x, y: position.y, z: position.z },

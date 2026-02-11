@@ -15,6 +15,34 @@ logger = logging.getLogger(__name__)
 # Security scheme (auto_error=False allows optional authentication)
 security = HTTPBearer(auto_error=False)
 
+def verify_token_string(token: str) -> dict[str, Any]:
+    """Verify a raw JWT token string and return user info.
+
+    Useful for contexts where FastAPI dependency injection isn't available,
+    such as SSE endpoints that receive the token as a query parameter.
+
+    Args:
+        token: Raw JWT token string
+
+    Returns:
+        Dictionary with username and payload
+
+    Raises:
+        HTTPException: If token is invalid or missing required fields
+    """
+    try:
+        claims = jwt.decode(token, settings.jwt_secret_key)
+        claims.validate()
+
+        payload = dict(claims)
+        username: str = payload.get("username") or payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+        return {"username": username, "payload": payload}
+    except JoseError:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+
+
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
     """Verify JWT token and return user info.
 
@@ -27,20 +55,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     Raises:
         HTTPException: If token is invalid or missing required fields
     """
-    token = credentials.credentials
-    try:
-        # Decode and validate the JWT token
-        claims = jwt.decode(token, settings.jwt_secret_key)
-        claims.validate()
-
-        # Convert claims to dict for easier access
-        payload = dict(claims)
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-        return {"username": username, "payload": payload}
-    except JoseError:
-        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return verify_token_string(credentials.credentials)
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
     """Get current user from JWT token, with development bypass option.

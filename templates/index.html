@@ -356,6 +356,12 @@
     <script>
       // Base path for reverse proxy deployments
       window.__BASE_PATH = '{{ base_path }}';
+      // JWT token for authenticated API requests
+      {% if token %}
+      window.__TOKEN = '{{ token }}';
+      {% else %}
+      window.__TOKEN = null;
+      {% endif %}
       // Set initial town_id if provided from URL parameter
       {% if town_id %}
       window.currentTownId = {{ town_id }};
