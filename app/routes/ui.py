@@ -37,7 +37,8 @@ async def index(request: Request, town_id: int = None):
     return templates.TemplateResponse("index.html", {
         "request": request,
         "models": models,
-        "town_id": town_id
+        "town_id": town_id,
+        "base_path": settings.root_path.rstrip('/')
     })
 
 

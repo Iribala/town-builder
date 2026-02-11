@@ -9,7 +9,7 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <!-- Mobile CSS -->
-    <link rel="stylesheet" href="/static/css/mobile.css">
+    <link rel="stylesheet" href="{{ base_path }}/static/css/mobile.css">
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
         #canvas-container { width: 100%; height: 100%; display: block; }
@@ -352,8 +352,10 @@
         }
     </script>
 
-    <!-- Embed town_id from server -->
+    <!-- Embed town_id and base path from server -->
     <script>
+      // Base path for reverse proxy deployments
+      window.__BASE_PATH = '{{ base_path }}';
       // Set initial town_id if provided from URL parameter
       {% if town_id %}
       window.currentTownId = {{ town_id }};
@@ -367,17 +369,17 @@
     <script type="importmap">
     {
       "imports": {
-        "three": "/static/js/three.module.js"
+        "three": "{{ base_path }}/static/js/three.module.js"
       }
     }
     </script>
 
     <!-- Load Go WASM runtime -->
-    <script src="/static/js/wasm_exec.js"></script>
+    <script src="{{ base_path }}/static/js/wasm_exec.js"></script>
     <script>
       // Load physics WASM module (Go 1.25+ with GreenTea GC experimental and car physics)
       const go = new Go();
-      WebAssembly.instantiateStreaming(fetch("/static/wasm/physics_greentea.wasm"), go.importObject).then(result => {
+      WebAssembly.instantiateStreaming(fetch(window.__BASE_PATH + "/static/wasm/physics_greentea.wasm"), go.importObject).then(result => {
         go.run(result.instance);
         console.log("✓ Physics WASM loaded (Go 1.25+ with GreenTea GC experimental)");
         console.log("  Features: Spatial grid, collision detection, car physics");
@@ -388,6 +390,6 @@
     </script>
 
     <!-- Load main application after WASM -->
-    <script type="module" src="/static/js/main.js"></script>
+    <script type="module" src="{{ base_path }}/static/js/main.js"></script>
 </body>
 </html>

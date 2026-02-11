@@ -13,7 +13,7 @@ import { updateSpatialGrid, isPhysicsWasmReady } from '../utils/physics_wasm.js'
 import { LRUCache, BloomFilter } from '../utils/data_structures.js';
 
 // Configuration constants
-const MODELS_BASE_URL = '/static/models';
+const MODELS_BASE_URL = (window.__BASE_PATH || '') + '/static/models';
 const MODEL_CACHE_SIZE = 50; // Maximum number of models to cache
 const MODEL_EXISTS_BLOOM_SIZE = 200; // Expected number of existing models
 const MODEL_NOT_FOUND_BLOOM_SIZE = 100; // Expected number of 404 models

@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     templates_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
     data_path: str = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
 
+    # Root path for reverse proxy deployments (e.g., /town-builder)
+    root_path: str = os.getenv('ROOT_PATH', '')
+
     # Allowed origins for CORS (comma-separated)
     allowed_origins: str = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:5001,http://127.0.0.1:5001')
 

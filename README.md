@@ -70,6 +70,9 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5001
 
 # Environment
 ENVIRONMENT=development
+
+# Reverse proxy path prefix (e.g., /town-builder when behind a proxy)
+ROOT_PATH=
 ```
 
 **Security Note**: Never commit your `.env` file with secrets!

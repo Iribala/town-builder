@@ -8,7 +8,7 @@ export function setupSSE() {
     const maxDelay = 30000;
     return new Promise((resolve, reject) => {
         function connect(isInitial = false) {
-            const evtSource = new EventSource('/events?name=' + encodeURIComponent(myName));
+            const evtSource = new EventSource((window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(myName));
             evtSource.onopen = () => {
                 retryDelay = 1000;
                 if (isInitial) {
@@ -133,7 +133,7 @@ async function loadTownData(townData) {
 export async function saveSceneToServer(payloadFromUI) { // Argument changed
     // The payloadFromUI is now expected to be fully formed by ui.js
     // No re-wrapping needed here.
-    const response = await fetch('/api/town/save', {
+    const response = await fetch((window.__BASE_PATH || '') + '/api/town/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payloadFromUI) // Send the payload directly
@@ -150,7 +150,7 @@ export async function saveSceneToServer(payloadFromUI) { // Argument changed
 }
 
 export async function loadSceneFromServer() {
-    const response = await fetch('/api/town/load', {
+    const response = await fetch((window.__BASE_PATH || '') + '/api/town/load', {
         method: 'POST'
     });
     if (!response.ok) {
@@ -160,7 +160,7 @@ export async function loadSceneFromServer() {
 }
 
 export async function loadTownFromDjango(townId) {
-    const response = await fetch(`/api/town/load-from-django/${townId}`, {
+    const response = await fetch(`${window.__BASE_PATH || ''}/api/town/load-from-django/${townId}`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
     });
@@ -198,7 +198,7 @@ export async function loadTownFromDjango(townId) {
  */
 export async function sendCursorUpdate(username, position, cameraPosition) {
     try {
-        await fetch('/api/cursor/update', {
+        await fetch((window.__BASE_PATH || '') + '/api/cursor/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
