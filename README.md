@@ -6,7 +6,7 @@ A web-based 3D town building application with real-time multiplayer collaboratio
 
 ### Prerequisites
 - Python 3.14+
-- Go 1.24+ (for WASM builds)
+- Go 1.24+ (for WASM builds, Go 1.25+ recommended for GreenTea GC)
 - Redis (for multiplayer)
 - [uv](https://github.com/astral-sh/uv) (recommended)
 
@@ -46,7 +46,7 @@ chmod +x scripts/*.sh
 
 ## Features
 
-- **3D Town Building**: Drag-and-drop buildings, roads, trees, and props
+- **3D Town Building**: Drag-and-drop buildings, street pieces, trees, and props
 - **Real-time Multiplayer**: Collaborate with others using Server-Sent Events
 - **Physics Engine**: Go WASM for high-performance collision detection and car physics
 - **Multiple Modes**: Place, Edit, Delete, and Drive modes
@@ -124,6 +124,7 @@ See `docs/ARCHITECTURE.md` for technical details.
 ```bash
 ./build_wasm.sh
 ```
+Outputs `static/wasm/physics_greentea.wasm` when Go 1.25+ is available.
 
 ### Running Tests
 ```bash

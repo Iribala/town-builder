@@ -19,17 +19,17 @@ This document provides a comprehensive overview of the Town Builder codebase str
 Town Builder is a real-time multiplayer 3D town building application with:
 - **Backend**: FastAPI (Python 3.14) with Redis for state management
 - **Frontend**: Three.js for 3D rendering, vanilla JavaScript
-- **WASM**: Go 1.24 for high-performance physics calculations
+- **WASM**: Go 1.24+ for high-performance physics calculations (GreenTea GC build requires Go 1.25+)
 - **Multiplayer**: Server-Sent Events (SSE) with Redis Pub/Sub
 
 ## Technology Stack
 
 ### Backend
-- **FastAPI 0.119.1+** - Modern async web framework
-- **Pydantic 2.12.0+** - Data validation and settings management
-- **Redis 5.2.0+** - In-memory data store for state sharing
-- **Authlib 1.3.0+** - JWT authentication
-- **Uvicorn** - ASGI server (development)
+- **FastAPI 0.128.0+** - Modern async web framework
+- **Pydantic 2.12.5+** - Data validation and settings management
+- **Redis 7.1.0+** - In-memory data store for state sharing
+- **Authlib 1.6.6+** - JWT authentication
+- **Uvicorn 0.40.0+** - ASGI server (development)
 - **Gunicorn + Gevent** - Production server with async support
 
 ### Frontend
@@ -58,6 +58,8 @@ app/
 │   ├── auth.py         # JWT authentication endpoints
 │   ├── models.py       # 3D model listing
 │   ├── town.py         # Town CRUD operations
+│   ├── buildings.py    # Programmatic building CRUD
+│   ├── scene.py        # Scene description/stats
 │   ├── proxy.py        # Django API proxy
 │   ├── events.py       # Server-Sent Events (SSE)
 │   ├── cursor.py       # Multiplayer cursor positions
@@ -70,11 +72,13 @@ app/
 │   ├── storage.py      # Redis + in-memory storage abstraction
 │   ├── events.py       # Event publishing/subscription
 │   ├── django_client.py # External Django API client
+│   ├── model_display_names.py # Friendly model names
 │   ├── model_loader.py  # 3D model file discovery
 │   ├── batch_operations.py # Batch operations manager
 │   ├── query.py        # Spatial queries & filtering
 │   ├── history.py      # Operation history management
 │   └── snapshots.py    # Snapshot versioning
+│   └── scene_description.py # Scene description generation
 └── utils/
     ├── static_files.py  # Static file serving with MIME types
     └── security.py      # Path traversal & SSRF prevention
@@ -120,7 +124,7 @@ app/
 - Abstract storage interface
 - Redis implementation for multiplayer state
 - In-memory fallback when Redis unavailable
-- Town data persistence (Redis + JSON files)
+- Town data persistence (Redis + optional JSON files via `/api/town/save`)
 
 #### `app/services/events.py`
 - Event publishing to Redis Pub/Sub
@@ -139,6 +143,7 @@ app/
 
 ```
 static/js/
+├── api-error-handler.js # Global fetch error handling
 ├── main.js              # Application entry point & initialization
 ├── scene.js             # Main scene orchestrator
 ├── scene/
@@ -154,10 +159,15 @@ static/js/
 │   ├── physics_wasm.js # Physics WASM wrapper
 │   ├── raycaster.js    # Mouse picking & raycasting
 │   └── disposal.js     # Three.js memory cleanup
+│   ├── device-detect.js # Mobile detection helpers
+│   └── haptics.js       # Mobile vibration helpers
 ├── controls.js          # Camera & keyboard controls
 ├── ui.js               # UI state management & event handlers
 ├── network.js          # SSE client & multiplayer sync
 └── collaborative-cursors.js # Show other users' cursors
+├── category_status.js   # Category-based status overlays
+├── joystick.js          # Mobile driving joystick
+└── mobile/              # Mobile UI, settings, tutorial
 ```
 
 ### Frontend Data Flow
@@ -215,13 +225,10 @@ User Input
 #### `network.js`
 - SSE connection management
 - Reconnection with exponential backoff
-- Event broadcasting to other clients
-- JWT token handling
+- Client-side sync for SSE updates and save/load calls
 
 #### `utils/wasm.js`
-- Go WASM runtime initialization
-- Physics module loading
-- Fallback to JavaScript if WASM fails
+- Legacy WASM readiness helper (`calc.wasm`)
 
 ## Data Flow
 
@@ -242,8 +249,8 @@ User Input
 
 4. User clicks to place
    └─▶ scene.js adds object to scene
-   └─▶ network.js broadcasts to other clients via SSE
-   └─▶ storage.js saves to Redis
+   └─▶ UI triggers API save/update (`/api/town` or `/api/town/save`)
+   └─▶ backend saves to Redis and broadcasts SSE updates
 
 5. Other clients receive update
    └─▶ network.js receives SSE event
@@ -283,7 +290,7 @@ Each placed object has:
 ```javascript
 {
     id: "unique-id",
-    type: "model-name",
+    model: "model-name",
     position: { x, y, z },
     rotation: { x, y, z },
     scale: { x, y, z },
@@ -310,6 +317,9 @@ API functions:
 - `wasmCheckCollision(id, bbox)`
 - `wasmBatchCheckCollisions(checks)`
 - `wasmFindNearestObject(x, y, category, maxDist)`
+- `wasmFindObjectsInRadius(x, y, radius, category)`
+- `wasmUpdateCarPhysics(x, y, rotation, speed, steering, deltaTime)`
+- `wasmGetGridStats()`
 
 ## File Organization
 
@@ -329,11 +339,13 @@ static/
 ├── js/              # JavaScript modules
 ├── models/          # 3D GLTF models
 │   ├── buildings/
-│   ├── vehicles/
-│   ├── roads/
-│   └── nature/
+│   ├── park/
+│   ├── props/
+│   ├── street/
+│   ├── trees/
+│   └── vehicles/
 ├── wasm/            # WebAssembly modules
-│   ├── physics.wasm
+│   ├── physics_greentea.wasm
 │   └── calc.wasm
 └── css/             # Stylesheets
 ```
@@ -349,26 +361,37 @@ templates/
 
 ```
 data/
-└── towns/           # JSON files for town saves (gitignored)
-    └── <town_id>.json
+└── *.json           # JSON files for town saves (gitignored)
 ```
 
 ## API Endpoints
 
 ### Authentication
-- `POST /api/auth/dev-token` - Generate development JWT token
+- No auth token generation endpoints (tokens are issued externally)
 
 ### Models
 - `GET /api/models` - List available 3D models by category
+- `GET /api/model/{category}/{model_name}` - Fetch a model or metadata (`?info=1`)
+
+### Buildings
+- `POST /api/buildings` - Create a building (programmatic)
+- `GET /api/buildings` - List buildings (optionally filtered by category)
+- `GET /api/buildings/{building_id}` - Get building by ID
+- `PUT /api/buildings/{building_id}` - Update building by ID
+- `DELETE /api/buildings/{building_id}` - Delete building by ID
 
 ### Town Management
-- `GET /api/town/{town_id}` - Get town data
-- `POST /api/town/{town_id}` - Save town data
-- `DELETE /api/town/{town_id}` - Delete town
-- `GET /api/towns` - List all towns
+- `GET /api/town` - Get current town data
+- `POST /api/town` - Update town data (name/driver/full)
+- `POST /api/town/save` - Save town data (local + optional Django)
+- `POST /api/town/load` - Load latest town data (local)
+- `GET /api/town/load-from-django/{town_id}` - Load town from Django
+- `DELETE /api/town/model` - Delete a model by category/id
+- `PUT /api/town/model` - Edit a model by category/id
+- `GET /api/config` - Client configuration
 
 ### Multiplayer
-- `GET /api/events` - SSE endpoint for real-time updates
+- `GET /events` - SSE endpoint for real-time updates
 - `POST /api/cursor/update` - Update user cursor position
 
 ### Proxy (Django Integration)
@@ -376,7 +399,12 @@ data/
 
 ### UI
 - `GET /` - Main application page
+- `GET /healthz` - Liveness check
 - `GET /readyz` - Health check endpoint
+
+### Scene
+- `GET /api/scene/description` - Natural language scene summary
+- `GET /api/scene/stats` - Scene statistics
 
 ### Documentation
 - `GET /docs` - Swagger UI

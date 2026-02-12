@@ -38,8 +38,8 @@ uv run uvicorn app.main:app --reload --port 5001
 # Rebuild Go WASM physics module (required after modifying physics_wasm.go)
 ./build_wasm.sh
 
-# Manual WASM build
-GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o static/wasm/physics.wasm physics_wasm.go
+# Manual WASM build (GreenTea GC requires Go 1.25+)
+GOEXPERIMENT=greenteagc GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o static/wasm/physics_greentea.wasm physics_wasm.go
 ```
 
 ### Health Checks and Maintenance
@@ -94,6 +94,7 @@ redis-cli ping
 - `events.py` - SSE (Server-Sent Events) broadcasting via Redis pub/sub
 - `auth.py` - JWT token validation
 - `django_client.py` - Integration with external Django API (optional)
+- `model_display_names.py` - Friendly display names for model filenames
 - `model_loader.py` - GLTF model file discovery
 - `batch_operations.py` - Batch scene operations
 - `query.py` - Scene querying logic
@@ -120,6 +121,7 @@ redis-cli ping
 - Integrates with WASM physics for spatial grid updates
 
 **Modules**:
+- `api-error-handler.js` - Global fetch error handling
 - `models/loader.js` - GLTF model loading with caching and abort support
 - `models/placement.js` - Placement indicator and validation
 - `models/collision.js` - Collision detection integration
@@ -130,6 +132,7 @@ redis-cli ping
 - `collaborative-cursors.js` - Multiplayer cursor tracking
 - `category_status.js` - Category-based object status visualization
 - `joystick.js` - Mobile touch controls for driving mode
+- `mobile/*` - Mobile UI, settings, tutorial, and integration wiring
 
 **Utilities** (`static/js/utils/`):
 - `physics_wasm.js` - Go WASM physics integration (spatial grid, collision detection)
@@ -137,6 +140,8 @@ redis-cli ping
 - `raycaster.js` - Mouse picking and 3D coordinate conversion
 - `disposal.js` - Three.js memory cleanup
 - `wasm.js` - WASM readiness tracking
+- `device-detect.js` - Mobile detection helpers
+- `haptics.js` - Mobile vibration feedback helpers
 
 ### Physics (Go WebAssembly)
 
@@ -147,7 +152,11 @@ redis-cli ping
 - Exposed JavaScript functions:
   - `wasmUpdateSpatialGrid` - Updates spatial grid with scene objects
   - `wasmCheckCollision` - Checks for collisions at given position
-  - `wasmSimulateCarPhysics` - Simulates car movement and physics
+  - `wasmBatchCheckCollisions` - Batch collision checks
+  - `wasmFindNearestObject` - Nearest object lookup
+  - `wasmFindObjectsInRadius` - Radius-based object queries
+  - `wasmUpdateCarPhysics` - Simulates car movement and physics
+  - `wasmGetGridStats` - Spatial grid statistics
 
 **Categories**: Uses bitmasks for fast filtering (vehicles, buildings, terrain, props, roads, trees, park)
 
@@ -156,14 +165,15 @@ redis-cli ping
 **Technology**: Server-Sent Events (SSE) + Redis Pub/Sub
 
 **Flow**:
-1. Frontend connects to `/api/events/sse` endpoint
+1. Frontend connects to `/events?name=<user>` endpoint
 2. Backend subscribes to Redis `town_events` channel
 3. User actions broadcast events via `events.py:broadcast_sse()`
 4. All connected clients receive updates in real-time
 
 **Event Types**:
+- `users` - Online users list updates
+- `full` - Full town state sync
 - `name` - Town name changes
-- `add` - Object placement
 - `delete` - Object removal
 - `edit` - Object position/rotation updates
 - `driver` - Vehicle driver assignments
@@ -212,7 +222,7 @@ app.include_router(my_feature.router)
 
 1. Place GLTF files in `static/models/<category>/`
 2. Model loader automatically discovers them on startup
-3. Categories: buildings, vehicles, terrain, props, roads, trees, park
+3. Categories: buildings, vehicles, terrain, props, roads, trees, park, street
 4. Test loading via the UI model selection panel
 
 ### Working with WASM Physics
@@ -319,7 +329,7 @@ redis-cli ping  # Should return PONG
 - Check browser console for errors
 - Verify MIME types are correct (should be `application/wasm`)
 - Rebuild WASM: `./build_wasm.sh`
-- Check that `static/wasm/physics.wasm` exists
+- Check that `static/wasm/physics_greentea.wasm` exists
 
 **JWT authentication errors** (production):
 - Verify `JWT_SECRET_KEY` is set in `.env`
@@ -329,7 +339,7 @@ redis-cli ping  # Should return PONG
 
 - **Backend**: Python 3.14+, FastAPI, Uvicorn/Gunicorn
 - **Frontend**: Three.js r181+, Vanilla JavaScript (ES6+)
-- **Physics**: Go 1.24+ (WASM with Swiss Tables)
+- **Physics**: Go 1.24+ (WASM with Swiss Tables, GreenTea GC build requires Go 1.25+)
 - **Real-time**: Server-Sent Events (SSE)
 - **Storage**: Redis (Valkey compatible)
 - **Package Management**: uv (recommended) or pip
