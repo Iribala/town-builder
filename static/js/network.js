@@ -1,5 +1,5 @@
 import { showNotification, updateOnlineUsersList } from './ui.js';
-import { loadModel, scene, placedObjects, movingCars } from './scene.js';
+import { loadModelToScene, scene, placedObjects } from './scene.js';
 import { updateCursor } from './collaborative-cursors.js';
 
 /**
@@ -108,7 +108,7 @@ async function loadTownData(townData) {
                             z: obj.position.z || 0
                         };
                         
-                        const loadedModel = await loadModel(category, obj.model, position);
+                        const loadedModel = await loadModelToScene(category, obj.model, position);
                         
                         // Set the ID and other properties
                         if (obj.id) {
