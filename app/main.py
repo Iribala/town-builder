@@ -35,6 +35,9 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI application
+# Note: Do NOT set root_path here - it changes routing for mounted sub-apps (StaticFiles).
+# The reverse proxy strips the path prefix, so the app receives requests at /.
+# URL generation for templates is handled via settings.root_path -> base_path.
 app = FastAPI(
     title=settings.app_title,
     description=settings.app_description,
