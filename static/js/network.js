@@ -1,6 +1,9 @@
 import { showNotification, updateOnlineUsersList } from './ui.js';
-import { loadModelToScene, scene, placedObjects } from './scene.js';
+import { loadModel } from './models/loader.js';
+import { scene, placedObjects, movingCars } from './state/scene-state.js';
 import { updateCursor } from './collaborative-cursors.js';
+import { getMyName } from './state/app-state.js';
+import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
 
 /**
  * Build headers object with auth token if available.
@@ -21,7 +24,7 @@ export function setupSSE() {
     const maxDelay = 30000;
     return new Promise((resolve, reject) => {
         function connect(isInitial = false) {
-            let sseUrl = (window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(window.myName || '');
+            let sseUrl = (window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(getMyName());
             // EventSource doesn't support custom headers, so pass token as query param
             if (window.__TOKEN) {
                 sseUrl += '&token=' + encodeURIComponent(window.__TOKEN);
@@ -46,7 +49,7 @@ export function setupSSE() {
                         showNotification('Town updated', 'success');
                     } else if (msg.type === 'cursor') {
                         // Handle cursor position updates from other users
-                        if (msg.username && msg.username !== window.myName) {
+                        if (msg.username && msg.username !== getMyName()) {
                             updateCursor(scene, msg.username, msg.position, msg.camera_position);
                         }
                     } else {
@@ -87,59 +90,29 @@ async function loadTownData(townData) {
             }
         });
 
-        // Process each category of objects
-        const categories = ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads'];
-        
-        for (const category of categories) {
-            const objects = townData[category] || [];
-            
-            for (const obj of objects) {
-                // Skip if object already exists
-                if (obj.id && existingIds.has(obj.id)) {
-                    continue;
-                }
-                
-                // Load the model if it has the required properties
-                if (obj.model && obj.position) {
-                    try {
-                        const position = {
-                            x: obj.position.x || 0,
-                            y: obj.position.y || 0,
-                            z: obj.position.z || 0
-                        };
-                        
-                        const loadedModel = await loadModelToScene(category, obj.model, position);
-                        
-                        // Set the ID and other properties
-                        if (obj.id) {
-                            loadedModel.userData.id = obj.id;
-                        }
-                        
-                        // Apply rotation if specified
-                        if (obj.rotation) {
-                            loadedModel.rotation.set(
-                                obj.rotation.x || 0,
-                                obj.rotation.y || 0,
-                                obj.rotation.z || 0
-                            );
-                        }
-                        
-                        // Apply scale if specified
-                        if (obj.scale) {
-                            loadedModel.scale.set(
-                                obj.scale.x || 1,
-                                obj.scale.y || 1,
-                                obj.scale.z || 1
-                            );
-                        }
-                        
-                        console.log(`Loaded ${category} model: ${obj.model} at position`, position);
-                    } catch (err) {
-                        console.error(`Failed to load ${category} model ${obj.model}:`, err);
-                    }
-                }
+        const normalizedItems = normalizeTownItems(townData).filter(item => {
+            if (item.id && existingIds.has(item.id)) {
+                return false;
             }
-        }
+            return Boolean(item.modelName);
+        });
+
+        await loadItemsWithConcurrency(normalizedItems, async (item) => {
+            const loadedModel = await loadModel(
+                scene,
+                placedObjects,
+                movingCars,
+                item.category,
+                item.modelName
+            );
+            applyTransformToObject(loadedModel, item);
+            console.log(`Loaded ${item.category} model: ${item.modelName}`);
+        }, {
+            concurrency: 8,
+            onError: (err, item) => {
+                console.error(`Failed to load ${item.category} model ${item.modelName}:`, err);
+            }
+        });
     } catch (err) {
         console.error('Error loading town data:', err);
         showNotification('Error loading town data', 'error');

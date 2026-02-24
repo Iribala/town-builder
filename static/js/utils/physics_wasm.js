@@ -19,6 +19,7 @@
  */
 
 import { CircularBuffer } from './data_structures.js';
+import * as THREE from '../three.module.js';
 
 let physicsWasmReady = false;
 let physicsWasmEnabled = false;

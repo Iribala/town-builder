@@ -1,11 +1,18 @@
 import { saveSceneToServer, loadSceneFromServer } from './network.js';
-import { loadModel, scene, placedObjects, renderer, groundPlane, disposeObject, movingCars } from './scene.js'; // Added movingCars
-import { getActiveLoaderCount } from './models/loader.js'; // Import loader count tracker
+import { loadModel, getActiveLoaderCount } from './models/loader.js';
+import { disposeObject } from './utils/disposal.js';
+import { scene, renderer, groundPlane, placementIndicator, placedObjects, movingCars } from './state/scene-state.js';
 import { cleanupJoystick, initJoystick } from './joystick.js';
+import {
+    getSelectedObject,
+    setSelectedObject,
+    getDrivingCar,
+    setDrivingCar,
+    setPendingPlacementModelDetails
+} from './state/app-state.js';
+import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
 
 let currentMode = 'place';
-window.selectedObject = null; // For edit mode
-window.drivingCar = null; // The car object currently being driven
 
 // Loading indicator element
 let loadingIndicator = null;
@@ -24,7 +31,7 @@ export function updateContextHelp() {
     let title = 'Controls';
     let controls = [];
 
-    if (window.drivingCar) {
+    if (getDrivingCar()) {
         // Driving mode
         title = 'Driving Mode';
         controls = [
@@ -32,7 +39,7 @@ export function updateContextHelp() {
             '<kbd>Z</kbd><kbd>X</kbd> Zoom in/out',
             'Click "Exit Driving Mode" to stop'
         ];
-    } else if (currentMode === 'edit' && window.selectedObject) {
+    } else if (currentMode === 'edit' && getSelectedObject()) {
         // Edit mode with selected object
         title = 'Edit Mode (Object Selected)';
         controls = [
@@ -96,7 +103,7 @@ export function setCurrentMode(mode) {
 
     // Clear selected object when switching modes (except when staying in edit mode)
     if (mode !== 'edit') {
-        window.selectedObject = null;
+        setSelectedObject(null);
     }
 
     const joystickContainer = document.getElementById('joystick-container');
@@ -119,7 +126,7 @@ export function setCurrentMode(mode) {
     if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
 
     if (mode === 'drive') {
-        if (window.drivingCar) { // Actively driving a car
+        if (getDrivingCar()) { // Actively driving a car
             if (joystickContainer) joystickContainer.style.display = 'block'; // Or 'flex'
             if (exitDrivingBtn) exitDrivingBtn.style.display = 'block';
             if (modelContainer) modelContainer.style.display = 'none';
@@ -128,7 +135,7 @@ export function setCurrentMode(mode) {
             if (townNameContainer) townNameContainer.style.display = 'none';
             if (themeToggleContainer) themeToggleContainer.style.display = 'none';
             if (categoryStatusLegend) categoryStatusLegend.style.display = 'none';
-            showNotification(`Driving ${window.drivingCar.userData.modelName || 'car'}. Use WASD/Arrows or joystick on mobile.`, 'info');
+            showNotification(`Driving ${getDrivingCar().userData.modelName || 'car'}. Use WASD/Arrows or joystick on mobile.`, 'info');
 
             // Re-initialize joystick when it becomes visible
             // Use requestAnimationFrame to ensure DOM has updated
@@ -157,16 +164,15 @@ export function setCurrentMode(mode) {
         if (townNameContainer) townNameContainer.style.display = 'block';
         if (themeToggleContainer) themeToggleContainer.style.display = 'block';
         if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
-        window.drivingCar = null; // Ensure drivingCar is cleared if mode changes from drive
+        setDrivingCar(null); // Ensure drivingCar is cleared if mode changes from drive
     }
 
 
     // If switching away from place mode (or to a mode that isn't 'place'),
     // clear pending model details and hide placement indicator.
     if (mode !== 'place') {
-        window.pendingPlacementModelDetails = null;
-        const pi = scene ? scene.getObjectByName("placementIndicator") : null;
-        if (pi) pi.visible = false;
+        setPendingPlacementModelDetails(null);
+        if (placementIndicator) placementIndicator.visible = false;
     }
     // If mode IS 'place', handleMouseMove in scene.js will manage placementIndicator visibility.
 
@@ -186,13 +192,13 @@ export function setCurrentMode(mode) {
 
 // Call this function when a car is selected to drive
 export function activateDriveModeUI(carObject) {
-    window.drivingCar = carObject;
-    setCurrentMode('drive'); // This will re-evaluate UI based on window.drivingCar
+    setDrivingCar(carObject);
+    setCurrentMode('drive'); // This will re-evaluate UI based on driving car state
 }
 
 // Call this function to stop driving
 export function deactivateDriveModeUI() {
-    window.drivingCar = null;
+    setDrivingCar(null);
     cleanupJoystick(); // Clean up joystick event listeners
     setCurrentMode('place'); // Or your preferred default mode
 }
@@ -394,7 +400,7 @@ function onModelItemClick(event) {
     const modelName = target.dataset.model;
     const displayName = target.textContent.trim(); // Get the display name from the element text
 
-    window.pendingPlacementModelDetails = { category, modelName, displayName };
+    setPendingPlacementModelDetails({ category, modelName, displayName });
     setCurrentMode('place'); // Switch to place mode
 
     // Only show the notification if this model hasn't been placed before
@@ -471,27 +477,7 @@ async function onLoadScene() {
         const response = await loadSceneFromServer();
         const rawData = response.data || response;
 
-        // Build a flat array of items from either format
-        let itemsToLoad = [];
-        if (typeof rawData === 'object' && !Array.isArray(rawData)) {
-            // Dict-of-categories format (normalized backend data)
-            const categories = ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads'];
-            for (const category of categories) {
-                const items = rawData[category] || [];
-                for (const item of items) {
-                    itemsToLoad.push({
-                        category: category,
-                        modelName: item.model || item.modelName,
-                        position: item.position,
-                        rotation: item.rotation,
-                        scale: item.scale,
-                        id: item.id
-                    });
-                }
-            }
-        } else if (Array.isArray(rawData)) {
-            itemsToLoad = rawData;
-        }
+        const itemsToLoad = normalizeTownItems(rawData);
 
         // Clear existing scene objects
         placedObjects.forEach(obj => {
@@ -501,40 +487,15 @@ async function onLoadScene() {
         placedObjects.length = 0;
         movingCars.length = 0;
 
-        for (const item of itemsToLoad) {
-            try {
-                const obj = await loadModel(item.category, item.modelName);
-                if (obj) {
-                    // Handle both array [x,y,z] and object {x,y,z} formats
-                    if (item.position) {
-                        if (Array.isArray(item.position)) {
-                            obj.position.fromArray(item.position);
-                        } else if (typeof item.position === 'object') {
-                            obj.position.set(item.position.x || 0, item.position.y || 0, item.position.z || 0);
-                        }
-                    }
-                    if (item.rotation) {
-                        if (Array.isArray(item.rotation)) {
-                            obj.rotation.set(item.rotation[0], item.rotation[1], item.rotation[2]);
-                        } else if (typeof item.rotation === 'object') {
-                            obj.rotation.set(item.rotation.x || 0, item.rotation.y || 0, item.rotation.z || 0);
-                        }
-                    }
-                    if (item.scale) {
-                        if (Array.isArray(item.scale)) {
-                            obj.scale.fromArray(item.scale);
-                        } else if (typeof item.scale === 'object') {
-                            obj.scale.set(item.scale.x || 1, item.scale.y || 1, item.scale.z || 1);
-                        }
-                    }
-                    if (item.id) {
-                        obj.userData.id = item.id;
-                    }
-                }
-            } catch (err) {
+        await loadItemsWithConcurrency(itemsToLoad, async (item) => {
+            const obj = await loadModel(scene, placedObjects, movingCars, item.category, item.modelName);
+            applyTransformToObject(obj, item);
+        }, {
+            concurrency: 8,
+            onError: (err, item) => {
                 console.error(`Error loading model ${item.category}/${item.modelName}:`, err);
             }
-        }
+        });
         showNotification('Scene loaded successfully', 'success');
     } catch (err) {
         showNotification(err.message, 'error');

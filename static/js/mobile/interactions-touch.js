@@ -3,6 +3,7 @@
 
 import { isTouchDevice } from '../utils/device-detect.js';
 import { haptics } from '../utils/haptics.js';
+import * as THREE from '../three.module.js';
 
 class TouchInteractions {
   constructor() {

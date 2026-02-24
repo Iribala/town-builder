@@ -7,6 +7,7 @@ import touchControls from './controls-touch.js';
 import touchInteractions from './interactions-touch.js';
 import mobileSettings from './settings.js';
 import { haptics } from '../utils/haptics.js';
+import { setPendingPlacementModelDetails } from '../state/app-state.js';
 
 class MobileIntegration {
   constructor() {
@@ -124,7 +125,7 @@ class MobileIntegration {
    */
   handleModelSelection(category, modelName) {
     // Store pending placement details
-    window.pendingPlacementModelDetails = { category, modelName };
+    setPendingPlacementModelDetails({ category, modelName });
 
     // Provide haptic feedback
     haptics.light();

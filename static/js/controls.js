@@ -1,7 +1,8 @@
-import { camera, renderer, placedObjects } from './scene.js'; // Added placedObjects
+import { camera, renderer, placedObjects } from './state/scene-state.js';
 import * as THREE from './three.module.js'; // Added for Vector3 and Spherical
 import { showNotification, getCurrentMode } from './ui.js'; // Import showNotification and getCurrentMode
 import { getJoystickInput, isJoystickActive } from './joystick.js'; // Import joystick functions
+import { getDrivingCar, getSelectedObject } from './state/app-state.js';
 
 let keysPressed = {};
 let isRightMouseDown = false;
@@ -35,7 +36,7 @@ export function setupKeyboardControls() {
 
         renderer.domElement.addEventListener('mousemove', function(event) {
             // Disable orbit controls if driving a car or if camera is not available
-            if (!isRightMouseDown || !camera || window.drivingCar) {
+            if (!isRightMouseDown || !camera || getDrivingCar()) {
                 return;
             }
             event.preventDefault();
@@ -127,8 +128,8 @@ export function updateControls() {
 
     // Handle edit mode - move selected object with arrow keys
     const currentMode = getCurrentMode();
-    if (currentMode === 'edit' && window.selectedObject) {
-        const obj = window.selectedObject;
+    if (currentMode === 'edit' && getSelectedObject()) {
+        const obj = getSelectedObject();
 
         // Arrow keys move the object left/right/forward/back
         if (keysPressed['arrowup']) {
@@ -166,8 +167,8 @@ export function updateControls() {
         return; // Skip other controls when in edit mode with selected object
     }
 
-    if (window.drivingCar) {
-        const car = window.drivingCar;
+    if (getDrivingCar()) {
+        const car = getDrivingCar();
 
         // Initialize collision cooldown if it doesn't exist
         if (car.userData.collisionCooldown === undefined) {

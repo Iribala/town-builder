@@ -1,30 +1,23 @@
 /**
  * API Error Handler
- * 
- * This script intercepts API responses and displays error messages
- * when API calls fail, especially for town name already exists errors.
+ *
+ * Keeps global runtime error reporting without mutating the browser fetch API.
  */
 
 import { showNotification } from './ui.js';
 
-// Wrap fetch to handle API errors
-const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-    try {
-        const response = await originalFetch(...args);
-        if (!response.ok) {
-            const errorMsg = `Error ${response.status}: ${response.statusText}`;
-            showNotification(errorMsg, 'error');
-        }
-        return response;
-    } catch (err) {
-        showNotification(err.message, 'error');
-        throw err;
-    }
-};
+const HANDLER_FLAG = '__apiErrorHandlersInstalled';
 
-// Handle unhandled promise rejections
-window.addEventListener('unhandledrejection', event => {
-    const message = event.reason?.message || 'Unhandled promise rejection';
-    showNotification(message, 'error');
-});
+if (!window[HANDLER_FLAG]) {
+    window.addEventListener('unhandledrejection', event => {
+        const message = event.reason?.message || 'Unhandled promise rejection';
+        showNotification(message, 'error');
+    });
+
+    window.addEventListener('error', event => {
+        const message = event.error?.message || event.message || 'Unhandled runtime error';
+        showNotification(message, 'error');
+    });
+
+    window[HANDLER_FLAG] = true;
+}

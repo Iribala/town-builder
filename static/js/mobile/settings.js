@@ -337,24 +337,15 @@ class MobileSettings {
     } catch (error) {
       // Handle quota exceeded error specifically
       if (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
-        console.error('localStorage quota exceeded - clearing old data and retrying');
+        console.error('localStorage quota exceeded - retrying with a compact settings payload');
 
-        // Try to clear old data and retry
         try {
-          // Keep only essential keys
-          const essentialKeys = [this.storageKey];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && !essentialKeys.includes(key)) {
-              localStorage.removeItem(key);
-            }
-          }
-
-          // Retry save
+          // Only touch this feature's key; never remove unrelated localStorage entries.
+          localStorage.removeItem(this.storageKey);
           localStorage.setItem(this.storageKey, JSON.stringify(this.settings));
-          console.log('Settings saved after clearing old data');
+          console.log('Settings saved after replacing previous mobile settings entry');
         } catch (retryError) {
-          console.error('Could not save settings even after clearing:', retryError);
+          console.error('Could not save settings after replacing existing entry:', retryError);
           // Silently fail - app will continue with in-memory settings
         }
       } else {

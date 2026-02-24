@@ -16,15 +16,29 @@ import { getMouseCoordinates, findRootObject } from './utils/raycaster.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from './utils/physics_wasm.js';
 import { animateCursors, cleanupInactiveCursors } from './collaborative-cursors.js';
 import { sendCursorUpdate } from './network.js';
+import {
+    scene,
+    camera,
+    renderer,
+    groundPlane,
+    placementIndicator,
+    placedObjects,
+    movingCars,
+    setSceneContext,
+    setPlacementIndicator
+} from './state/scene-state.js';
+import {
+    getMyName,
+    getSelectedObject,
+    setSelectedObject,
+    getDrivingCar,
+    getPendingPlacementModelDetails,
+    setPendingPlacementModelDetails
+} from './state/app-state.js';
 // Mobile touch controls
 import { isMobile } from './utils/device-detect.js';
 import touchControls from './mobile/controls-touch.js';
 import touchInteractions from './mobile/interactions-touch.js';
-
-// Scene state
-export let scene, camera, renderer, groundPlane, placementIndicator;
-export let placedObjects = [];
-export let movingCars = [];
 
 // Animation timing (Timer moved to core in r179)
 const timer = new THREE.Timer();
@@ -69,13 +83,15 @@ export function initializeScene() {
     const container = document.getElementById('canvas-container');
     const sceneComponents = initScene(container);
 
-    scene = sceneComponents.scene;
-    camera = sceneComponents.camera;
-    renderer = sceneComponents.renderer;
-    groundPlane = sceneComponents.groundPlane;
+    setSceneContext(
+        sceneComponents.scene,
+        sceneComponents.camera,
+        sceneComponents.renderer,
+        sceneComponents.groundPlane
+    );
 
     // Create placement indicator
-    placementIndicator = createPlacementIndicator(scene);
+    setPlacementIndicator(createPlacementIndicator(scene));
 
     // Setup event listeners
     setupResizeListener(camera, renderer);
@@ -89,7 +105,7 @@ export function initializeScene() {
     }
 
     // Setup pending placement model (used by UI)
-    window.pendingPlacementModelDetails = null;
+    setPendingPlacementModelDetails(null);
 }
 
 /**
@@ -122,19 +138,19 @@ async function initializeTouchControlsWhenReady(camera, renderer, scene) {
     // Setup touch interaction callbacks
     touchInteractions.onPlaceObjectCallback((position) => {
         // Place object at touch position
-        if (window.pendingPlacementModelDetails) {
-            const { category, modelName } = window.pendingPlacementModelDetails;
+        if (getPendingPlacementModelDetails()) {
+            const { category, modelName } = getPendingPlacementModelDetails();
             loadModelToScene(category, modelName, position);
         }
     });
 
     touchInteractions.onSelectObjectCallback((object) => {
-        window.selectedObject = object;
+        setSelectedObject(object);
         updateContextHelp();
     });
 
     touchInteractions.onDeleteObjectCallback((object) => {
-        deleteObjectFromScene(object);
+        handleDelete(object);
     });
 
     touchInteractions.onMoveObjectCallback((object, position) => {
@@ -212,7 +228,7 @@ function handleMouseMove(event) {
  * Send cursor position update to server
  */
 function sendCursorPositionUpdate(event) {
-    if (!window.myName || !groundPlane) return;
+    if (!getMyName() || !groundPlane) return;
     
     // Raycast to find cursor position in 3D world
     const mouse = getMouseCoordinates(event, renderer.domElement);
@@ -226,7 +242,7 @@ function sendCursorPositionUpdate(event) {
         
         // Send update to server
         sendCursorUpdate(
-            window.myName,
+            getMyName(),
             { x: point.x, y: point.y, z: point.z },
             { x: camera.position.x, y: camera.position.y, z: camera.position.z }
         );
@@ -282,7 +298,7 @@ function applyFrustumCulling() {
         const obj = placedObjects[i];
 
         // Always render the car being driven
-        if (obj === window.drivingCar) {
+        if (obj === getDrivingCar()) {
             obj.visible = true;
             visibleObjects.push(obj);
             continue;
@@ -342,7 +358,7 @@ export async function animate() {
     updateControls();
 
     // Update moving cars
-    updateMovingCars(movingCars, placedObjects, groundPlane, window.drivingCar);
+    updateMovingCars(movingCars, placedObjects, groundPlane, getDrivingCar());
 
     // Periodically update spatial grid for moving objects
     frameCounter++;
@@ -352,8 +368,8 @@ export async function animate() {
     }
 
     // Update camera if driving
-    if (window.drivingCar) {
-        updateDrivingCamera(camera, window.drivingCar);
+    if (getDrivingCar()) {
+        updateDrivingCamera(camera, getDrivingCar());
     }
 
     // Animate collaborative cursors (pulsing effect)
@@ -385,7 +401,7 @@ function onCanvasClick(event) {
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, camera);
 
-    if (mode === 'drive' && !window.drivingCar) {
+    if (mode === 'drive' && !getDrivingCar()) {
         handleDriveModeClick(raycaster);
     } else if (mode === 'place') {
         handlePlaceClick();
@@ -413,13 +429,14 @@ function handleDriveModeClick(raycaster) {
  * Handle place mode click (place a model)
  */
 function handlePlaceClick() {
-    if (placementIndicator && placementIndicator.visible && window.pendingPlacementModelDetails) {
+    const pendingPlacement = getPendingPlacementModelDetails();
+    if (placementIndicator && placementIndicator.visible && pendingPlacement) {
         if (!isPlacementValid(placementIndicator, placedObjects)) {
             showNotification('Cannot place model here, overlaps with another object.', 'error');
             return;
         }
 
-        const { category, modelName, displayName } = window.pendingPlacementModelDetails;
+        const { category, modelName, displayName } = pendingPlacement;
         const wasAlreadyPlaced = hasModelBeenPlaced(category, modelName);
         
         loadModel(scene, placedObjects, movingCars, category, modelName, placementIndicator.position)
@@ -447,7 +464,7 @@ function handleDeleteOrEditClick(raycaster, mode) {
         if (mode === 'delete') {
             handleDelete(selected);
         } else if (mode === 'edit') {
-            window.selectedObject = selected;
+            setSelectedObject(selected);
             showNotification(`Selected for edit: ${selected.userData.modelName}`, 'info');
             updateContextHelp(); // Update help panel to show edit controls
         }
@@ -458,7 +475,7 @@ function handleDeleteOrEditClick(raycaster, mode) {
  * Handle object deletion
  */
 function handleDelete(object) {
-    if (window.drivingCar === object) {
+    if (getDrivingCar() === object) {
         deactivateDriveModeUI();
     }
 
@@ -525,3 +542,4 @@ export function getFrustumCullingStats() {
 
 // Re-export disposeObject and loadModel for backwards compatibility
 export { disposeObject, loadModel };
+export { scene, camera, renderer, groundPlane, placementIndicator, placedObjects, movingCars };
