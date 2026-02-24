@@ -23,6 +23,7 @@ from app.services.django_client import (
     update_town
 )
 from app.utils.security import get_safe_filepath
+from app.utils.security import validate_api_url
 from app.utils.normalization import normalize_layout_data
 from app.config import settings
 
@@ -203,6 +204,8 @@ async def save_town(
             "town_id": town_id
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in save_town endpoint: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
@@ -249,6 +252,8 @@ async def load_town(
         logger.info(f"Town loaded from {safe_path}")
         await broadcast_sse({'type': 'full', 'town': canonical_town_data})
         return {"status": "success", "message": f"Town loaded from {safe_path.name}", "data": canonical_town_data}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error loading town: {e}")
         raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
@@ -270,6 +275,11 @@ async def load_town_from_django(
     """
     try:
         base_url = settings.api_url if settings.api_url.endswith('/') else settings.api_url + '/'
+        if not validate_api_url(base_url):
+            raise HTTPException(
+                status_code=400,
+                detail={"status": "error", "message": "Configured TOWN_API_URL is not in allowed domains"},
+            )
         url = f"{base_url}{town_id}/"
 
         headers = {'Content-Type': 'application/json'}

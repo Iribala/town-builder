@@ -75,7 +75,7 @@ class EditModelRequest(BaseModel):
 
 class CursorUpdate(BaseModel):
     """Cursor position update for collaborative cursors."""
-    username: str
+    username: str | None = None
     position: Position  # 3D world position where cursor is pointing
     camera_position: Position  # Camera position for better context
 

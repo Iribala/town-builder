@@ -21,7 +21,7 @@ export function setupSSE() {
     const maxDelay = 30000;
     return new Promise((resolve, reject) => {
         function connect(isInitial = false) {
-            let sseUrl = (window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(myName);
+            let sseUrl = (window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(window.myName || '');
             // EventSource doesn't support custom headers, so pass token as query param
             if (window.__TOKEN) {
                 sseUrl += '&token=' + encodeURIComponent(window.__TOKEN);
@@ -46,7 +46,7 @@ export function setupSSE() {
                         showNotification('Town updated', 'success');
                     } else if (msg.type === 'cursor') {
                         // Handle cursor position updates from other users
-                        if (msg.username && msg.username !== myName) {
+                        if (msg.username && msg.username !== window.myName) {
                             updateCursor(scene, msg.username, msg.position, msg.camera_position);
                         }
                     } else {

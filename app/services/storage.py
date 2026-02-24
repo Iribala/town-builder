@@ -1,4 +1,5 @@
 """Storage service for town data using Redis with in-memory fallback."""
+import copy
 import json
 import logging
 import compression.zstd as zstd
@@ -10,31 +11,37 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Default town data structure (must match _CATEGORIES in app/utils/normalization.py)
-DEFAULT_TOWN_DATA = {
-    "buildings": [],
-    "vehicles": [],
-    "trees": [],
-    "props": [],
-    "street": [],
-    "park": [],
-    "terrain": [],
-    "roads": []
-}
+def _create_default_town_data() -> dict[str, list[Any]]:
+    """Create a fresh default town data structure.
+
+    Must match _CATEGORIES in app/utils/normalization.py.
+    """
+    return {
+        "buildings": [],
+        "vehicles": [],
+        "trees": [],
+        "props": [],
+        "street": [],
+        "park": [],
+        "terrain": [],
+        "roads": [],
+    }
 
 # Async Redis client
 redis_client: AsyncRedis | None = None
 
 # In-memory town data storage (fallback)
-_town_data_storage = DEFAULT_TOWN_DATA.copy()
+_town_data_storage = _create_default_town_data()
 
 async def initialize_redis() -> None:
     """Initialize the async Redis client."""
     global redis_client
     try:
-        redis_client = await AsyncRedis.from_url(settings.redis_url, decode_responses=False)
+        redis_client = AsyncRedis.from_url(settings.redis_url, decode_responses=False)
+        await redis_client.ping()
         logger.info("Redis client initialized successfully")
     except Exception as e:
+        redis_client = None
         logger.warning(f"Redis initialization failed, using in-memory storage: {e}")
 
 async def close_redis() -> None:
@@ -62,7 +69,7 @@ async def get_town_data() -> dict[str, Any]:
             logger.warning(f"Redis get failed, using in-memory storage: {e}")
 
     # Fallback to in-memory storage
-    return _town_data_storage.copy()
+    return copy.deepcopy(_town_data_storage)
 
 async def set_town_data(data: dict[str, Any]) -> None:
     """Set town data in both Redis and in-memory storage.
@@ -71,7 +78,7 @@ async def set_town_data(data: dict[str, Any]) -> None:
         data: Dictionary containing town data to store
     """
     global _town_data_storage
-    _town_data_storage = data.copy() if isinstance(data, dict) else data
+    _town_data_storage = copy.deepcopy(data) if isinstance(data, dict) else data
 
     if redis_client:
         try:
