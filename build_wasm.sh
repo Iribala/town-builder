@@ -2,7 +2,7 @@
 # ============================================================================
 =======
 # ============================================================================
-# Build Physics WASM Module (Swiss Tables + GreenTea GC in Go 1.25+)
+# Build Physics WASM Module (Swiss Tables + GreenTea GC in Go 1.26+)
 # ============================================================================WASM Build Script - Town Builder Physics Module
 # Optimized for Go 1.24+ with Swiss Tables (enabled by default)
 # ============================================================================
@@ -11,7 +11,7 @@
 
 # ============================================================================
 # WASM Build Script - Town Builder Physics Module
-# Optimized for Go 1.25+ with Swiss Tables and GreenTea GC (experimental)
+# Optimized for Go 1.26+ with Swiss Tables and GreenTea GC
 # ========================================================================================================================================================
 # WASM Build Script - Town Builder Physics Module
 # Optimized for Go 1.24+ with Swiss Tables (enabled by default)
@@ -21,7 +21,7 @@ set -e  # Exit on error
 
 echo "================================================"
 echo "Town Builder WASM Build Script"
-echo "Go 1.24+ Swiss Tables Enabled"
+echo "Go 1.26+"
 echo "================================================"
 echo ""
 
@@ -29,10 +29,10 @@ echo ""
 GO_VERSION=$(go version | awk '{print $3}')
 echo "Go version: $GO_VERSION"
 
-# Verify Go 1.25+ for GreenTea GC
-if [[ ! $GO_VERSION =~ go1\.(2[5-9]|[3-9][0-9]) ]]; then
-    echo "⚠ Warning: GreenTea GC requires Go 1.25+. Current version: $GO_VERSION"
-    echo "  The build will continue but GreenTea GC will not be enabled."
+# Verify Go 1.26+
+if [[ ! $GO_VERSION =~ go1\.(2[6-9]|[3-9][0-9]) ]]; then
+    echo "⚠ Warning: Go 1.26+ required. Current version: $GO_VERSION"
+    echo "  Build may fail with older Go versions."
     echo ""
 fi
 
@@ -44,14 +44,14 @@ mkdir -p static/js
 # Build Physics WASM Module (Swiss Tables enabled by default in Go 1.24)
 # ============================================================================
 
-echo "Building physics WASM module with Go 1.25+ optimizations..."
+echo "Building physics WASM module with Go 1.26+ optimizations..."
 echo ""
 echo "Enabled Features:"
 echo "  ✓ Swiss Tables (default in Go 1.24+)"
 echo "    - 30% faster map access"
 echo "    - 35% faster map assignment"
 echo "    - 10-60% faster map iteration"
-echo "  ✓ GreenTea Garbage Collector (experimental, Go 1.25+)"
+echo "  ✓ GreenTea Garbage Collector (standard in Go 1.26+)"
 echo "    - 10-40% reduction in GC overhead"
 echo "    - Better locality and CPU scalability"
 echo "    - Reduced pause times for WASM"
@@ -62,8 +62,8 @@ echo "  ✓ Car physics (acceleration, steering, friction)"
 echo "  ✓ Optimized for WASM runtime"
 echo ""
 
-# Build with optimized settings and GreenTea GC (experimental in Go 1.25+)
-GOEXPERIMENT=greenteagc GOOS=js GOARCH=wasm go build \
+# Build with optimized settings
+GOOS=js GOARCH=wasm go build \
   -ldflags="-s -w" \
   -o static/wasm/physics_greentea.wasm \
   physics_wasm.go
@@ -72,23 +72,6 @@ PHYSICS_SIZE=$(du -h static/wasm/physics_greentea.wasm | cut -f1)
 echo "✓ Physics WASM build complete: static/wasm/physics_greentea.wasm ($PHYSICS_SIZE)"
 echo "  Includes: Spatial grid, collision detection, car physics"
 echo ""
-
-# ============================================================================
-# Build 3: Legacy Distance Calculator (Backward Compatibility)
-# ============================================================================
-
-if [ -f "calc.go" ]; then
-    echo "Building legacy distance calculator (backward compatibility)..."
-
-    GOOS=js GOARCH=wasm go build \
-      -ldflags="-s -w" \
-      -o static/wasm/calc.wasm \
-      calc.go
-
-    CALC_SIZE=$(du -h static/wasm/calc.wasm | cut -f1)
-    echo "✓ Legacy calc build complete: static/wasm/calc.wasm ($CALC_SIZE)"
-    echo ""
-fi
 
 # ============================================================================
 # Copy WASM Exec Runtime
@@ -125,15 +108,15 @@ echo "================================================"
 echo "Build Summary"
 echo "================================================"
 echo ""
-echo "Physics WASM Module (GreenTea GC experimental):"
+echo "Physics WASM Module:"
 echo "  File: static/wasm/physics_greentea.wasm"
 echo "  Size: $PHYSICS_SIZE"
 echo "  Go Version: $GO_VERSION"
-echo "  GC: GreenTea (experimental, requires Go 1.25+)"
+echo "  GC: GreenTea (standard in Go 1.26+)"
 echo ""
-echo "Optimizations (enabled in Go 1.25+):"
+echo "Optimizations (enabled in Go 1.26+):"
 echo "  ✓ Swiss Tables - 30-60% faster map operations"
-echo "  ✓ GreenTea GC - 10-40% reduction in GC overhead (experimental)"
+echo "  ✓ GreenTea GC - improved GC overhead and pause behavior"
 echo "  ✓ SpinbitMutex - Enhanced lock performance"
 echo "  ✓ Improved allocation - Better small object handling"
 echo "  ✓ Stack optimization - Reduced heap pressure"
@@ -143,14 +126,6 @@ echo "  ✓ Spatial grid collision detection (O(k) vs O(n²))"
 echo "  ✓ Car physics (acceleration, steering, friction)"
 echo "  ✓ Object queries (nearest, radius-based)"
 echo ""
-
-if [ -f "static/wasm/calc.wasm" ]; then
-    CALC_SIZE=$(du -h static/wasm/calc.wasm | cut -f1)
-    echo "Legacy Calculator:"
-    echo "  File: static/wasm/calc.wasm"
-    echo "  Size: $CALC_SIZE"
-    echo ""
-fi
 
 echo "JavaScript API Functions:"
 echo "  Collision Detection:"

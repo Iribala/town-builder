@@ -19,7 +19,7 @@ This document provides a comprehensive overview of the Town Builder codebase str
 Town Builder is a real-time multiplayer 3D town building application with:
 - **Backend**: FastAPI (Python 3.14) with Redis for state management
 - **Frontend**: Three.js for 3D rendering, vanilla JavaScript
-- **WASM**: Go 1.24+ for high-performance physics calculations (GreenTea GC build requires Go 1.25+)
+- **WASM**: Go 1.26+ for high-performance physics calculations
 - **Multiplayer**: Server-Sent Events (SSE) with Redis Pub/Sub
 
 ## Technology Stack
@@ -228,7 +228,7 @@ User Input
 - Client-side sync for SSE updates and save/load calls
 
 #### `utils/wasm.js`
-- Legacy WASM readiness helper (`calc.wasm`)
+- WASM readiness helper
 
 ## Data Flow
 
@@ -345,8 +345,7 @@ static/
 │   ├── trees/
 │   └── vehicles/
 ├── wasm/            # WebAssembly modules
-│   ├── physics_greentea.wasm
-│   └── calc.wasm
+│   └── physics_greentea.wasm
 └── css/             # Stylesheets
 ```
 

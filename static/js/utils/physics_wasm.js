@@ -341,7 +341,7 @@ export function findObjectsInRadius(x, z, radius, category = null) {
 /**
  * Get spatial grid statistics for debugging
  *
- * @returns {{cellCount: number, objectCount: number, avgObjectsPerCell: number, boundaryHitCount: number} | null}
+ * @returns {{cellCount: number, objectCount: number, avgObjectsPerCell: number} | null}
  */
 export function getGridStats() {
     if (!physicsWasmEnabled) {
