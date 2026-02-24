@@ -120,18 +120,6 @@ func (bv *BitVector) Set(key GridKey) {
 	bv.bits[wordIdx] |= (1 << bitIdx)
 }
 
-// Unset marks a grid cell as unoccupied.
-func (bv *BitVector) Unset(key GridKey) {
-	bv.mu.Lock()
-	defer bv.mu.Unlock()
-
-	hash := bv.gridKeyToIndex(key)
-	idx := hash % uint(len(bv.bits)*64)
-	wordIdx := idx / 64
-	bitIdx := idx % 64
-	bv.bits[wordIdx] &^= (1 << bitIdx)
-}
-
 // IsSet checks if a grid cell is occupied
 func (bv *BitVector) IsSet(key GridKey) bool {
 	bv.mu.Lock()
@@ -233,7 +221,13 @@ func (g *SpatialGrid) Remove(id int, bbox BoundingBox) {
 				updated := append(objects[:i], objects[i+1:]...)
 				if len(updated) == 0 {
 					delete(g.cells, cell)
-					g.occupancy.Unset(cell)
+					// Do not clear the occupancy bit: the BitVector uses modulo
+					// hashing so one bit can represent multiple distinct keys.
+					// Clearing it here would produce false negatives for any other
+					// key that hashes to the same bit, causing Query() to skip
+					// occupied cells. The stale set bit only causes a harmless
+					// extra map lookup, which the map existence check handles.
+					// The bit resets on the next full Clear() call.
 				} else {
 					g.cells[cell] = updated
 				}

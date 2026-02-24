@@ -1,9 +1,11 @@
 import { showNotification, updateOnlineUsersList } from './ui.js';
+import { apiFetch } from './api-error-handler.js';
 import { loadModel } from './models/loader.js';
 import { scene, placedObjects, movingCars } from './state/scene-state.js';
 import { updateCursor } from './collaborative-cursors.js';
 import { getMyName } from './state/app-state.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
+import { isPhysicsWasmReady, updateSpatialGrid } from './utils/physics_wasm.js';
 
 /**
  * Build headers object with auth token if available.
@@ -113,6 +115,15 @@ async function loadTownData(townData) {
                 console.error(`Failed to load ${item.category} model ${item.modelName}:`, err);
             }
         });
+
+        // Rebuild the WASM spatial grid once after all objects are loaded and
+        // correctly positioned. The per-model updates inside loadModel fired
+        // before applyTransformToObject ran, so those intermediate states had
+        // objects at the origin. This single final rebuild uses the correct
+        // positions for every object.
+        if (isPhysicsWasmReady()) {
+            updateSpatialGrid(placedObjects);
+        }
     } catch (err) {
         console.error('Error loading town data:', err);
         showNotification('Error loading town data', 'error');
@@ -124,14 +135,11 @@ async function loadTownData(townData) {
 export async function saveSceneToServer(payloadFromUI) { // Argument changed
     // The payloadFromUI is now expected to be fully formed by ui.js
     // No re-wrapping needed here.
-    const response = await fetch((window.__BASE_PATH || '') + '/api/town/save', {
+    const response = await apiFetch((window.__BASE_PATH || '') + '/api/town/save', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify(payloadFromUI) // Send the payload directly
+        body: JSON.stringify(payloadFromUI)
     });
-    if (!response.ok) {
-        throw new Error('Failed to save scene: ' + response.statusText);
-    }
     const result = await response.json();
     // Persist returned town_id for future updates
     if (result.town_id) {
@@ -141,36 +149,19 @@ export async function saveSceneToServer(payloadFromUI) { // Argument changed
 }
 
 export async function loadSceneFromServer() {
-    const response = await fetch((window.__BASE_PATH || '') + '/api/town/load', {
+    const response = await apiFetch((window.__BASE_PATH || '') + '/api/town/load', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ filename: 'town_data.json' })
     });
-    if (!response.ok) {
-        throw new Error('Failed to load scene: ' + response.statusText);
-    }
     return response.json();
 }
 
 export async function loadTownFromDjango(townId) {
-    const response = await fetch(`${window.__BASE_PATH || ''}/api/town/load-from-django/${townId}`, {
+    const response = await apiFetch(`${window.__BASE_PATH || ''}/api/town/load-from-django/${townId}`, {
         method: 'GET',
         headers: authHeaders({ 'Content-Type': 'application/json' })
     });
-    if (!response.ok) {
-        let errorMessage = response.statusText;
-        try {
-            const errorData = await response.json();
-            if (errorData.detail) {
-                errorMessage = typeof errorData.detail === 'string'
-                    ? errorData.detail
-                    : (errorData.detail.message || JSON.stringify(errorData.detail));
-            }
-        } catch (e) {
-            // If we can't parse the error response, use statusText
-        }
-        throw new Error('Failed to load town from Django: ' + errorMessage);
-    }
     const result = await response.json();
     // Update current town info
     if (result.town_info) {
@@ -191,11 +182,12 @@ export async function loadTownFromDjango(townId) {
  */
 export async function sendCursorUpdate(username, position, cameraPosition) {
     try {
+        // username is intentionally omitted: the server derives it from the
+        // authenticated JWT token (see app/routes/cursor.py).
         await fetch((window.__BASE_PATH || '') + '/api/cursor/update', {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({
-                username,
                 position: { x: position.x, y: position.y, z: position.z },
                 camera_position: { x: cameraPosition.x, y: cameraPosition.y, z: cameraPosition.z }
             })

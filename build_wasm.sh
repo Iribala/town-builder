@@ -1,20 +1,8 @@
-# Build Physics WASM Module (Swiss Tables enabled by default in Go 1.24)
-# ============================================================================
-=======
-# ============================================================================
-# Build Physics WASM Module (Swiss Tables + GreenTea GC in Go 1.26+)
-# ============================================================================WASM Build Script - Town Builder Physics Module
-# Optimized for Go 1.24+ with Swiss Tables (enabled by default)
-# ============================================================================
-=======
 #!/bin/bash
 
 # ============================================================================
 # WASM Build Script - Town Builder Physics Module
 # Optimized for Go 1.26+ with Swiss Tables and GreenTea GC
-# ========================================================================================================================================================
-# WASM Build Script - Town Builder Physics Module
-# Optimized for Go 1.24+ with Swiss Tables (enabled by default)
 # ============================================================================
 
 set -e  # Exit on error
