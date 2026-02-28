@@ -174,7 +174,7 @@ async def save_town(
                 if getattr(e, "response", None) is not None:
                     try:
                         error_detail = e.response.json()
-                    except ValueError, json.JSONDecodeError:
+                    except ValueError:
                         error_detail = e.response.text
                 django_message = (
                     f" Warning: failed to sync to Django backend: {error_detail}"
@@ -215,7 +215,7 @@ async def save_town(
                 if getattr(e, "response", None) is not None:
                     try:
                         error_detail = e.response.json()
-                    except ValueError, json.JSONDecodeError:
+                    except ValueError:
                         error_detail = e.response.text
                 django_message = (
                     f" Warning: failed to sync to Django backend: {error_detail}"
@@ -364,7 +364,7 @@ async def load_town_from_django(
         if hasattr(e, "response") and e.response is not None:
             try:
                 error_detail = e.response.json()
-            except ValueError, json.JSONDecodeError:
+            except ValueError:
                 error_detail = e.response.text
         raise HTTPException(
             status_code=500,
