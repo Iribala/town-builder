@@ -6,7 +6,7 @@ import logging
 from typing import Any, TypedDict
 
 import compression.zstd as zstd
-from redis.asyncio import Redis as AsyncRedis
+from redis.asyncio import Redis
 
 from app.config import settings
 
@@ -47,7 +47,7 @@ def _create_default_town_data() -> TownData:
 
 
 # Async Redis client
-redis_client: AsyncRedis | None = None
+redis_client: Redis | None = None
 
 # In-memory town data storage (fallback)
 _town_data_storage = _create_default_town_data()
@@ -57,7 +57,7 @@ async def initialize_redis() -> None:
     """Initialize the async Redis client."""
     global redis_client
     try:
-        redis_client = AsyncRedis.from_url(settings.redis_url, decode_responses=False)
+        redis_client = Redis.from_url(settings.redis_url, decode_responses=False)
         ping_result = await redis_client.ping()
         if ping_result:
             logger.info("Redis client initialized successfully")
@@ -74,7 +74,7 @@ async def close_redis() -> None:
         logger.info("Redis client closed")
 
 
-async def get_town_data() -> dict[str, Any]:
+async def get_town_data() -> TownData:
     """Get town data from Redis with fallback to in-memory storage.
 
     Returns:
@@ -113,7 +113,7 @@ async def set_town_data(data: dict[str, Any]) -> None:
             logger.warning(f"Redis set failed, data saved to memory only: {e}")
 
 
-def get_redis_client() -> AsyncRedis | None:
+def get_redis_client() -> Redis | None:
     """Get the Redis client instance.
 
     Returns:
