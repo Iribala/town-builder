@@ -1,4 +1,5 @@
 """Batch operations service for executing multiple operations atomically."""
+
 import copy
 import logging
 import uuid
@@ -10,13 +11,12 @@ from app.services.history import history_manager
 
 logger = logging.getLogger(__name__)
 
+
 class BatchOperationsManager:
     """Manages batch operations on town data."""
 
     async def execute_operations(
-        self,
-        operations: list[dict[str, Any]],
-        validate: bool = True
+        self, operations: list[dict[str, Any]], validate: bool = True
     ) -> tuple[list[dict[str, Any]], int, int]:
         """Execute a batch of operations.
 
@@ -59,15 +59,19 @@ class BatchOperationsManager:
                 await history_manager.add_entry(
                     operation="batch",
                     before_state=original_town_data,
-                    after_state=town_data
+                    after_state=town_data,
                 )
 
                 # Broadcast full update
-                await broadcast_sse({'type': 'full', 'town': town_data})
-                logger.info(f"Batch operations completed: {successful} successful, {failed} failed")
+                await broadcast_sse({"type": "full", "town": town_data})
+                logger.info(
+                    f"Batch operations completed: {successful} successful, {failed} failed"
+                )
             else:
                 # Rollback on any failure
-                logger.warning(f"Batch operations had failures, rolling back. {successful} successful, {failed} failed")
+                logger.warning(
+                    f"Batch operations had failures, rolling back. {successful} successful, {failed} failed"
+                )
                 # Don't save changes if any operation failed
 
         except Exception as e:
@@ -79,7 +83,7 @@ class BatchOperationsManager:
                 {
                     "success": False,
                     "op": op.get("op", "unknown"),
-                    "message": f"Batch execution failed: {str(e)}"
+                    "message": f"Batch execution failed: {str(e)}",
                 }
                 for op in operations
             ]
@@ -87,10 +91,7 @@ class BatchOperationsManager:
         return results, successful, failed
 
     def _execute_single_operation(
-        self,
-        town_data: dict[str, Any],
-        op_data: dict[str, Any],
-        validate: bool
+        self, town_data: dict[str, Any], op_data: dict[str, Any], validate: bool
     ) -> dict[str, Any]:
         """Execute a single operation.
 
@@ -105,35 +106,28 @@ class BatchOperationsManager:
         op_type = op_data.get("op")
 
         try:
-            if op_type == "create":
-                return self._create_object(town_data, op_data, validate)
-            elif op_type == "update":
-                return self._update_object(town_data, op_data, validate)
-            elif op_type == "delete":
-                return self._delete_object(town_data, op_data, validate)
-            elif op_type == "edit":
-                # Convert edit operations to update operations for consistency
-                return self._edit_object(town_data, op_data, validate)
-            else:
-                return {
-                    "success": False,
-                    "op": op_type,
-                    "message": f"Unknown operation type: {op_type}"
-                }
+            match op_type:
+                case "create":
+                    return self._create_object(town_data, op_data, validate)
+                case "update":
+                    return self._update_object(town_data, op_data, validate)
+                case "delete":
+                    return self._delete_object(town_data, op_data, validate)
+                case "edit":
+                    return self._edit_object(town_data, op_data, validate)
+                case _:
+                    return {
+                        "success": False,
+                        "op": op_type,
+                        "message": f"Unknown operation type: {op_type}",
+                    }
 
         except Exception as e:
             logger.error(f"Operation {op_type} failed: {e}")
-            return {
-                "success": False,
-                "op": op_type,
-                "message": str(e)
-            }
+            return {"success": False, "op": op_type, "message": str(e)}
 
     def _create_object(
-        self,
-        town_data: dict[str, Any],
-        op_data: dict[str, Any],
-        validate: bool
+        self, town_data: dict[str, Any], op_data: dict[str, Any], validate: bool
     ) -> dict[str, Any]:
         """Create a new object."""
         category = op_data.get("category")
@@ -152,7 +146,11 @@ class BatchOperationsManager:
 
         # Validate if required
         if validate and not self._validate_object(data):
-            return {"success": False, "op": "create", "message": "Object validation failed"}
+            return {
+                "success": False,
+                "op": "create",
+                "message": "Object validation failed",
+            }
 
         # Add object
         town_data[category].append(data)
@@ -161,14 +159,11 @@ class BatchOperationsManager:
             "success": True,
             "op": "create",
             "message": f"Created object in {category}",
-            "data": {"id": data["id"], "category": category}
+            "data": {"id": data["id"], "category": category},
         }
 
     def _update_object(
-        self,
-        town_data: dict[str, Any],
-        op_data: dict[str, Any],
-        validate: bool
+        self, town_data: dict[str, Any], op_data: dict[str, Any], validate: bool
     ) -> dict[str, Any]:
         """Update an existing object."""
         category = op_data.get("category")
@@ -176,31 +171,40 @@ class BatchOperationsManager:
         data = op_data.get("data", {})
 
         if not category or not object_id:
-            return {"success": False, "op": "update", "message": "Missing category or id"}
+            return {
+                "success": False,
+                "op": "update",
+                "message": "Missing category or id",
+            }
 
         if category not in town_data:
-            return {"success": False, "op": "update", "message": f"Category {category} not found"}
+            return {
+                "success": False,
+                "op": "update",
+                "message": f"Category {category} not found",
+            }
 
         # Find and update object
         for i, obj in enumerate(town_data[category]):
             if obj.get("id") == object_id:
                 # Merge data
-                town_data[category][i] = {**obj, **data}
+                town_data[category][i] = obj | data
 
                 return {
                     "success": True,
                     "op": "update",
                     "message": f"Updated object {object_id} in {category}",
-                    "data": {"id": object_id, "category": category}
+                    "data": {"id": object_id, "category": category},
                 }
 
-        return {"success": False, "op": "update", "message": f"Object {object_id} not found"}
+        return {
+            "success": False,
+            "op": "update",
+            "message": f"Object {object_id} not found",
+        }
 
     def _delete_object(
-        self,
-        town_data: dict[str, Any],
-        op_data: dict[str, Any],
-        validate: bool
+        self, town_data: dict[str, Any], op_data: dict[str, Any], validate: bool
     ) -> dict[str, Any]:
         """Delete an object by ID or by position."""
         category = op_data.get("category")
@@ -211,10 +215,18 @@ class BatchOperationsManager:
             return {"success": False, "op": "delete", "message": "Missing category"}
 
         if not object_id and not position:
-            return {"success": False, "op": "delete", "message": "Missing both id and position"}
+            return {
+                "success": False,
+                "op": "delete",
+                "message": "Missing both id and position",
+            }
 
         if category not in town_data:
-            return {"success": False, "op": "delete", "message": f"Category {category} not found"}
+            return {
+                "success": False,
+                "op": "delete",
+                "message": f"Category {category} not found",
+            }
 
         # Delete by ID
         if object_id:
@@ -225,14 +237,18 @@ class BatchOperationsManager:
                         "success": True,
                         "op": "delete",
                         "message": f"Deleted object {object_id} from {category}",
-                        "data": {"id": object_id, "category": category}
+                        "data": {"id": object_id, "category": category},
                     }
-            return {"success": False, "op": "delete", "message": f"Object {object_id} not found"}
+            return {
+                "success": False,
+                "op": "delete",
+                "message": f"Object {object_id} not found",
+            }
 
         # Delete by position (find closest model)
         elif position:
             closest_model_index = -1
-            closest_distance = float('inf')
+            closest_distance = float("inf")
             closest_id = None
 
             for i, obj in enumerate(town_data[category]):
@@ -243,29 +259,36 @@ class BatchOperationsManager:
                 dy = model_pos.get("y", 0) - position.get("y", 0)
                 dz = model_pos.get("z", 0) - position.get("z", 0)
 
-                distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+                distance = (dx * dx + dy * dy + dz * dz) ** 0.5
 
                 if distance < closest_distance:
                     closest_distance = distance
                     closest_model_index = i
                     closest_id = obj.get("id")
 
-            if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
+            if (
+                closest_model_index >= 0 and closest_distance < 2.0
+            ):  # Threshold for deletion
                 deleted_model = town_data[category].pop(closest_model_index)
                 return {
                     "success": True,
                     "op": "delete",
                     "message": f"Deleted model at position ({position.get('x')}, {position.get('y')}, {position.get('z')})",
-                    "data": {"id": closest_id, "category": category, "distance": closest_distance}
+                    "data": {
+                        "id": closest_id,
+                        "category": category,
+                        "distance": closest_distance,
+                    },
                 }
             else:
-                return {"success": False, "op": "delete", "message": f"No model found within range at position ({position.get('x')}, {position.get('y')}, {position.get('z')})"}
+                return {
+                    "success": False,
+                    "op": "delete",
+                    "message": f"No model found within range at position ({position.get('x')}, {position.get('y')}, {position.get('z')})",
+                }
 
     def _edit_object(
-        self,
-        town_data: dict[str, Any],
-        op_data: dict[str, Any],
-        validate: bool
+        self, town_data: dict[str, Any], op_data: dict[str, Any], validate: bool
     ) -> dict[str, Any]:
         """Edit object properties (position, rotation, scale)."""
         category = op_data.get("category")
@@ -278,14 +301,18 @@ class BatchOperationsManager:
             return {"success": False, "op": "edit", "message": "Missing category or id"}
 
         if category not in town_data:
-            return {"success": False, "op": "edit", "message": f"Category {category} not found"}
+            return {
+                "success": False,
+                "op": "edit",
+                "message": f"Category {category} not found",
+            }
 
         # Find and edit object
         for i, obj in enumerate(town_data[category]):
             if obj.get("id") == object_id:
                 # Track what was actually changed
                 changes_made = []
-                
+
                 if position is not None:
                     town_data[category][i]["position"] = position
                     changes_made.append("position")
@@ -300,10 +327,18 @@ class BatchOperationsManager:
                     "success": True,
                     "op": "edit",
                     "message": f"Edited object {object_id} in {category} ({', '.join(changes_made)} changed)",
-                    "data": {"id": object_id, "category": category, "changes": changes_made}
+                    "data": {
+                        "id": object_id,
+                        "category": category,
+                        "changes": changes_made,
+                    },
                 }
 
-        return {"success": False, "op": "edit", "message": f"Object {object_id} not found"}
+        return {
+            "success": False,
+            "op": "edit",
+            "message": f"Object {object_id} not found",
+        }
 
     def _validate_object(self, obj: dict[str, Any]) -> bool:
         """Validate an object.
@@ -321,6 +356,7 @@ class BatchOperationsManager:
                 return False
 
         return True
+
 
 # Global batch operations manager instance
 batch_operations_manager = BatchOperationsManager()

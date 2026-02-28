@@ -1,4 +1,5 @@
 """Query and spatial search service for town data."""
+
 import logging
 import math
 from typing import Any, Callable
@@ -6,6 +7,7 @@ from typing import Any, Callable
 from app.services.storage import get_town_data
 
 logger = logging.getLogger(__name__)
+
 
 class QueryManager:
     """Manages queries and spatial searches on town data."""
@@ -15,7 +17,7 @@ class QueryManager:
         center: dict[str, float],
         radius: float,
         category: str | None = None,
-        limit: int | None = None
+        limit: int | None = None,
     ) -> list[dict[str, Any]]:
         """Find objects within a radius from a center point.
 
@@ -46,11 +48,7 @@ class QueryManager:
                 distance = self._calculate_distance(center, pos)
 
                 if distance <= radius:
-                    results.append({
-                        **obj,
-                        "category": cat,
-                        "distance": distance
-                    })
+                    results.append({**obj, "category": cat, "distance": distance})
 
         # Sort by distance
         results.sort(key=lambda x: x["distance"])
@@ -67,7 +65,7 @@ class QueryManager:
         min_point: dict[str, float],
         max_point: dict[str, float],
         category: str | None = None,
-        limit: int | None = None
+        limit: int | None = None,
     ) -> list[dict[str, Any]]:
         """Find objects within a bounding box.
 
@@ -96,10 +94,7 @@ class QueryManager:
 
                 pos = obj.get("position", {})
                 if self._is_within_bounds(pos, min_point, max_point):
-                    results.append({
-                        **obj,
-                        "category": cat
-                    })
+                    results.append({**obj, "category": cat})
 
         # Apply limit
         if limit:
@@ -113,7 +108,7 @@ class QueryManager:
         point: dict[str, float],
         category: str | None = None,
         count: int = 1,
-        max_distance: float | None = None
+        max_distance: float | None = None,
     ) -> list[dict[str, Any]]:
         """Find nearest objects to a point.
 
@@ -144,11 +139,7 @@ class QueryManager:
                 distance = self._calculate_distance(point, pos)
 
                 if max_distance is None or distance <= max_distance:
-                    results.append({
-                        **obj,
-                        "category": cat,
-                        "distance": distance
-                    })
+                    results.append({**obj, "category": cat, "distance": distance})
 
         # Sort by distance and take top N
         results.sort(key=lambda x: x["distance"])
@@ -164,7 +155,7 @@ class QueryManager:
         sort_by: str | None = None,
         sort_order: str = "asc",
         limit: int | None = None,
-        offset: int = 0
+        offset: int = 0,
     ) -> list[dict[str, Any]]:
         """Execute advanced query with filters and sorting.
 
@@ -194,7 +185,7 @@ class QueryManager:
                     continue
 
                 # Add category to object
-                obj_with_cat = {**obj, "category": cat}
+                obj_with_cat = obj | {"category": cat}
 
                 # Apply filters
                 if filters:
@@ -205,10 +196,9 @@ class QueryManager:
 
         # Sort results
         if sort_by:
-            reverse = (sort_order == "desc")
+            reverse = sort_order == "desc"
             results.sort(
-                key=lambda x: self._get_nested_value(x, sort_by),
-                reverse=reverse
+                key=lambda x: self._get_nested_value(x, sort_by), reverse=reverse
             )
 
         # Apply pagination
@@ -221,9 +211,7 @@ class QueryManager:
         return results
 
     def _calculate_distance(
-        self,
-        point1: dict[str, float],
-        point2: dict[str, float]
+        self, point1: dict[str, float], point2: dict[str, float]
     ) -> float:
         """Calculate Euclidean distance between two points.
 
@@ -246,13 +234,13 @@ class QueryManager:
         dy = y2 - y1
         dz = z2 - z1
 
-        return math.sqrt(dx*dx + dy*dy + dz*dz)
+        return math.sqrt(dx * dx + dy * dy + dz * dz)
 
     def _is_within_bounds(
         self,
         point: dict[str, float],
         min_point: dict[str, float],
-        max_point: dict[str, float]
+        max_point: dict[str, float],
     ) -> bool:
         """Check if a point is within bounding box.
 
@@ -269,15 +257,17 @@ class QueryManager:
         z = point.get("z", 0)
 
         return (
-            min_point.get("x", float('-inf')) <= x <= max_point.get("x", float('inf')) and
-            min_point.get("y", float('-inf')) <= y <= max_point.get("y", float('inf')) and
-            min_point.get("z", float('-inf')) <= z <= max_point.get("z", float('inf'))
+            min_point.get("x", float("-inf")) <= x <= max_point.get("x", float("inf"))
+            and min_point.get("y", float("-inf"))
+            <= y
+            <= max_point.get("y", float("inf"))
+            and min_point.get("z", float("-inf"))
+            <= z
+            <= max_point.get("z", float("inf"))
         )
 
     def _matches_filters(
-        self,
-        obj: dict[str, Any],
-        filters: list[dict[str, Any]]
+        self, obj: dict[str, Any], filters: list[dict[str, Any]]
     ) -> bool:
         """Check if object matches all filters.
 
@@ -322,10 +312,7 @@ class QueryManager:
         return value
 
     def _evaluate_condition(
-        self,
-        obj_value: Any,
-        operator: str,
-        filter_value: Any
+        self, obj_value: Any, operator: str, filter_value: Any
     ) -> bool:
         """Evaluate a filter condition.
 
@@ -341,25 +328,26 @@ class QueryManager:
             return False
 
         try:
-            if operator == "eq":
-                return obj_value == filter_value
-            elif operator == "ne":
-                return obj_value != filter_value
-            elif operator == "gt":
-                return obj_value > filter_value
-            elif operator == "lt":
-                return obj_value < filter_value
-            elif operator == "gte":
-                return obj_value >= filter_value
-            elif operator == "lte":
-                return obj_value <= filter_value
-            elif operator == "contains":
-                return filter_value in str(obj_value)
-            elif operator == "in":
-                return obj_value in filter_value
-            else:
-                logger.warning(f"Unknown operator: {operator}")
-                return False
+            match operator:
+                case "eq":
+                    return obj_value == filter_value
+                case "ne":
+                    return obj_value != filter_value
+                case "gt":
+                    return obj_value > filter_value
+                case "lt":
+                    return obj_value < filter_value
+                case "gte":
+                    return obj_value >= filter_value
+                case "lte":
+                    return obj_value <= filter_value
+                case "contains":
+                    return filter_value in str(obj_value)
+                case "in":
+                    return obj_value in filter_value
+                case _:
+                    logger.warning(f"Unknown operator: {operator}")
+                    return False
         except Exception as e:
             logger.warning(f"Filter evaluation error: {e}")
             return False
@@ -374,9 +362,11 @@ class QueryManager:
             List of category names
         """
         return [
-            key for key, value in town_data.items()
+            key
+            for key, value in town_data.items()
             if isinstance(value, list) and key not in ["snapshots", "history"]
         ]
+
 
 # Global query manager instance
 query_manager = QueryManager()

@@ -1,4 +1,5 @@
 """Routes for town data management (CRUD operations)."""
+
 import json
 import logging
 import os
@@ -12,16 +13,12 @@ from app.models.schemas import (
     SaveTownRequest,
     LoadTownRequest,
     DeleteModelRequest,
-    EditModelRequest
+    EditModelRequest,
 )
 from app.services.auth import get_current_user
 from app.services.storage import get_town_data, set_town_data
 from app.services.events import broadcast_sse
-from app.services.django_client import (
-    search_town_by_name,
-    create_town,
-    update_town
-)
+from app.services.django_client import search_town_by_name, create_town, update_town
 from app.utils.security import get_safe_filepath
 from app.utils.security import validate_api_url
 from app.utils.normalization import normalize_layout_data
@@ -44,8 +41,7 @@ async def get_town(current_user: dict = Depends(get_current_user)):
 
 @router.post("/town")
 async def update_town_endpoint(
-    request_data: TownUpdateRequest,
-    current_user: dict = Depends(get_current_user)
+    request_data: TownUpdateRequest, current_user: dict = Depends(get_current_user)
 ):
     """Update the town layout.
 
@@ -65,26 +61,33 @@ async def update_town_endpoint(
     town_data = await get_town_data()
 
     # Update town name only
-    if 'townName' in data and len(data) == 1:
-        town_data['townName'] = data['townName']
+    if "townName" in data and len(data) == 1:
+        town_data["townName"] = data["townName"]
         await set_town_data(town_data)
         logger.info(f"Updated town name to: {data['townName']}")
-        await broadcast_sse({'type': 'name', 'townName': data['townName']})
+        await broadcast_sse({"type": "name", "townName": data["townName"]})
 
     # Update driver for a vehicle/model
-    elif 'driver' in data and 'id' in data and 'category' in data:
-        category = data['category']
-        model_id = data['id']
-        driver = data['driver']
+    elif "driver" in data and "id" in data and "category" in data:
+        category = data["category"]
+        model_id = data["id"]
+        driver = data["driver"]
         updated = False
 
         for i, model in enumerate(town_data.get(category, [])):
-            if model.get('id') == model_id:
-                town_data[category][i]['driver'] = driver
+            if model.get("id") == model_id:
+                town_data[category][i]["driver"] = driver
                 updated = True
                 await set_town_data(town_data)
                 logger.info(f"Updated driver for {category} id={model_id} to {driver}")
-                await broadcast_sse({'type': 'driver', 'category': category, 'id': model_id, 'driver': driver})
+                await broadcast_sse(
+                    {
+                        "type": "driver",
+                        "category": category,
+                        "id": model_id,
+                        "driver": driver,
+                    }
+                )
                 break
 
         if not updated:
@@ -94,15 +97,14 @@ async def update_town_endpoint(
     else:
         canonical_town_data = normalize_layout_data(data)
         await set_town_data(canonical_town_data)
-        await broadcast_sse({'type': 'full', 'town': canonical_town_data})
+        await broadcast_sse({"type": "full", "town": canonical_town_data})
 
     return {"status": "success"}
 
 
 @router.post("/town/save")
 async def save_town(
-    request_data: SaveTownRequest,
-    current_user: dict = Depends(get_current_user)
+    request_data: SaveTownRequest, current_user: dict = Depends(get_current_user)
 ):
     """Save the town layout.
 
@@ -120,10 +122,10 @@ async def save_town(
         if not request_payload:
             raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
-        filename = request_payload.get('filename', 'town_data.json')
-        town_data_to_save = request_payload.get('data')
-        town_id = request_payload.get('town_id')
-        town_name_from_payload = request_payload.get('townName')
+        filename = request_payload.get("filename", "town_data.json")
+        town_data_to_save = request_payload.get("data")
+        town_id = request_payload.get("town_id")
+        town_name_from_payload = request_payload.get("townName")
 
         if town_data_to_save is None:
             raise HTTPException(status_code=400, detail="No data provided to save")
@@ -133,14 +135,15 @@ async def save_town(
         # Save to local file (optional)
         local_save_message = ""
         if filename:
-            # Add .json extension if not present
-            if not filename.endswith('.json'):
-                filename += '.json'
+            # Ensure .json extension
+            filename = filename.removesuffix(".json") + ".json"
 
             # Get safe filepath (prevents path traversal)
-            safe_path = get_safe_filepath(filename, settings.data_path, allowed_extensions=['.json'])
+            safe_path = get_safe_filepath(
+                filename, settings.data_path, allowed_extensions=[".json"]
+            )
 
-            async with aiofiles.open(safe_path, 'w') as f:
+            async with aiofiles.open(safe_path, "w") as f:
                 await f.write(json.dumps(town_data_to_save, indent=2))
             logger.info(f"Town saved locally to {safe_path}")
             local_save_message = f"Town saved locally to {safe_path.name}."
@@ -149,72 +152,93 @@ async def save_town(
 
         # Always save to Redis/memory and broadcast, regardless of Django sync
         await set_town_data(canonical_town_data)
-        await broadcast_sse({'type': 'full', 'town': canonical_town_data})
+        await broadcast_sse({"type": "full", "town": canonical_town_data})
 
         # Sync to Django backend (best-effort, does not block save success)
         django_message = ""
         if town_id is not None:
             # Update existing town (PATCH)
             try:
-                await update_town(town_id, request_payload, canonical_town_data, town_name_from_payload)
+                await update_town(
+                    town_id,
+                    request_payload,
+                    canonical_town_data,
+                    town_name_from_payload,
+                )
                 django_message = f" Town updated in Django backend (ID: {town_id})."
             except Exception as e:
-                logger.error(f"Error updating town layout in Django backend for town_id {town_id}: {e}")
+                logger.error(
+                    f"Error updating town layout in Django backend for town_id {town_id}: {e}"
+                )
                 error_detail = str(e)
-                if getattr(e, 'response', None) is not None:
+                if getattr(e, "response", None) is not None:
                     try:
                         error_detail = e.response.json()
-                    except (ValueError, json.JSONDecodeError):
+                    except ValueError, json.JSONDecodeError:
                         error_detail = e.response.text
-                django_message = f" Warning: failed to sync to Django backend: {error_detail}"
+                django_message = (
+                    f" Warning: failed to sync to Django backend: {error_detail}"
+                )
         else:
             # Create new town (POST) or update by name if found (PATCH)
             town_name_for_search = town_name_from_payload
             if not town_name_for_search and isinstance(town_data_to_save, dict):
-                town_name_for_search = town_data_to_save.get('townName') or town_data_to_save.get('name')
-
-            existing_town_id = None
-            if town_name_for_search:
-                existing_town_id = await search_town_by_name(town_name_for_search)
+                town_name_for_search = town_data_to_save.get(
+                    "townName"
+                ) or town_data_to_save.get("name")
 
             try:
-                if existing_town_id:
+                if town_name_for_search and (
+                    existing_town_id := await search_town_by_name(town_name_for_search)
+                ):
                     # Update existing town by name
-                    await update_town(existing_town_id, request_payload, canonical_town_data, town_name_from_payload)
+                    await update_town(
+                        existing_town_id,
+                        request_payload,
+                        canonical_town_data,
+                        town_name_from_payload,
+                    )
                     town_id = existing_town_id
-                    django_message = f" Town updated in Django backend (ID: {existing_town_id})."
+                    django_message = (
+                        f" Town updated in Django backend (ID: {existing_town_id})."
+                    )
                 else:
                     # Create new town
-                    result = await create_town(request_payload, canonical_town_data, town_name_from_payload)
-                    town_id = result['town_id']
+                    result = await create_town(
+                        request_payload, canonical_town_data, town_name_from_payload
+                    )
+                    town_id = result["town_id"]
                     django_message = f" Town created in Django backend (ID: {town_id})."
             except Exception as e:
                 logger.error(f"Error saving town layout in Django backend: {e}")
                 error_detail = str(e)
-                if getattr(e, 'response', None) is not None:
+                if getattr(e, "response", None) is not None:
                     try:
                         error_detail = e.response.json()
-                    except (ValueError, json.JSONDecodeError):
+                    except ValueError, json.JSONDecodeError:
                         error_detail = e.response.text
-                django_message = f" Warning: failed to sync to Django backend: {error_detail}"
+                django_message = (
+                    f" Warning: failed to sync to Django backend: {error_detail}"
+                )
 
         return {
             "status": "success",
             "message": f"{local_save_message}{django_message}",
-            "town_id": town_id
+            "town_id": town_id,
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error in save_town endpoint: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
+        raise HTTPException(
+            status_code=500, detail={"status": "error", "message": str(e)}
+        )
 
 
 @router.post("/town/load")
 async def load_town(
-    request_data: LoadTownRequest,
-    current_user: dict = Depends(get_current_user)
+    request_data: LoadTownRequest, current_user: dict = Depends(get_current_user)
 ):
     """Load the town layout from a file.
 
@@ -229,40 +253,49 @@ async def load_town(
         filename = request_data.filename
 
         # Ensure the filename has .json extension
-        if not filename.endswith('.json'):
-            filename += '.json'
+        filename = filename.removesuffix(".json") + ".json"
 
         # Get safe filepath (prevents path traversal)
-        safe_path = get_safe_filepath(filename, settings.data_path, allowed_extensions=['.json'])
+        safe_path = get_safe_filepath(
+            filename, settings.data_path, allowed_extensions=[".json"]
+        )
 
         # Check if the file exists
         if not safe_path.exists():
             raise HTTPException(
                 status_code=404,
-                detail={"status": "error", "message": f"File {safe_path.name} not found"}
+                detail={
+                    "status": "error",
+                    "message": f"File {safe_path.name} not found",
+                },
             )
 
         # Load the town data from the file
-        async with aiofiles.open(safe_path, 'r') as f:
+        async with aiofiles.open(safe_path, "r") as f:
             content = await f.read()
             town_data = json.loads(content)
             canonical_town_data = normalize_layout_data(town_data)
             await set_town_data(canonical_town_data)
 
         logger.info(f"Town loaded from {safe_path}")
-        await broadcast_sse({'type': 'full', 'town': canonical_town_data})
-        return {"status": "success", "message": f"Town loaded from {safe_path.name}", "data": canonical_town_data}
+        await broadcast_sse({"type": "full", "town": canonical_town_data})
+        return {
+            "status": "success",
+            "message": f"Town loaded from {safe_path.name}",
+            "data": canonical_town_data,
+        }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error loading town: {e}")
-        raise HTTPException(status_code=500, detail={"status": "error", "message": str(e)})
+        raise HTTPException(
+            status_code=500, detail={"status": "error", "message": str(e)}
+        )
 
 
 @router.get("/town/load-from-django/{town_id}")
 async def load_town_from_django(
-    town_id: int,
-    current_user: dict = Depends(get_current_user)
+    town_id: int, current_user: dict = Depends(get_current_user)
 ):
     """Load town layout data from Django backend.
 
@@ -274,17 +307,24 @@ async def load_town_from_django(
         Status, message, and town data with layout_data
     """
     try:
-        base_url = settings.api_url if settings.api_url.endswith('/') else settings.api_url + '/'
+        base_url = (
+            settings.api_url
+            if settings.api_url.endswith("/")
+            else settings.api_url + "/"
+        )
         if not validate_api_url(base_url):
             raise HTTPException(
                 status_code=400,
-                detail={"status": "error", "message": "Configured TOWN_API_URL is not in allowed domains"},
+                detail={
+                    "status": "error",
+                    "message": "Configured TOWN_API_URL is not in allowed domains",
+                },
             )
         url = f"{base_url}{town_id}/"
 
-        headers = {'Content-Type': 'application/json'}
+        headers = {"Content-Type": "application/json"}
         if settings.api_token and settings.api_token.strip():
-            headers['Authorization'] = f"Token {settings.api_token}"
+            headers["Authorization"] = f"Token {settings.api_token}"
 
         logger.info(f"Loading town from Django: {url}")
         async with httpx.AsyncClient() as client:
@@ -292,54 +332,57 @@ async def load_town_from_django(
             response.raise_for_status()
 
         town_data = response.json()
-        logger.info(f"Successfully loaded town {town_id} from Django: {town_data.get('name')}")
+        logger.info(
+            f"Successfully loaded town {town_id} from Django: {town_data.get('name')}"
+        )
 
         # Extract layout_data if available
-        layout_data = town_data.get('layout_data', [])
+        layout_data = town_data.get("layout_data", [])
         canonical_layout = normalize_layout_data(layout_data)
 
         # Store in Redis/memory for multiplayer sync
         await set_town_data(canonical_layout)
-        await broadcast_sse({'type': 'full', 'town': canonical_layout})
+        await broadcast_sse({"type": "full", "town": canonical_layout})
 
         return {
             "status": "success",
             "message": f"Town '{town_data.get('name')}' loaded from Django",
             "data": canonical_layout,
             "town_info": {
-                "id": town_data.get('id'),
-                "name": town_data.get('name'),
-                "description": town_data.get('description'),
-                "latitude": town_data.get('latitude'),
-                "longitude": town_data.get('longitude'),
-                "category_statuses": town_data.get('category_statuses', [])
-            }
+                "id": town_data.get("id"),
+                "name": town_data.get("name"),
+                "description": town_data.get("description"),
+                "latitude": town_data.get("latitude"),
+                "longitude": town_data.get("longitude"),
+                "category_statuses": town_data.get("category_statuses", []),
+            },
         }
 
     except httpx.HTTPError as e:
         logger.error(f"Error loading town from Django: {e}")
         error_detail = str(e)
-        if hasattr(e, 'response') and e.response is not None:
+        if hasattr(e, "response") and e.response is not None:
             try:
                 error_detail = e.response.json()
-            except (ValueError, json.JSONDecodeError):
+            except ValueError, json.JSONDecodeError:
                 error_detail = e.response.text
         raise HTTPException(
             status_code=500,
-            detail={"status": "error", "message": f"Failed to load town from Django: {error_detail}"}
+            detail={
+                "status": "error",
+                "message": f"Failed to load town from Django: {error_detail}",
+            },
         )
     except Exception as e:
         logger.error(f"Unexpected error loading town: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500,
-            detail={"status": "error", "message": str(e)}
+            status_code=500, detail={"status": "error", "message": str(e)}
         )
 
 
 @router.delete("/town/model")
 async def delete_model(
-    request_data: DeleteModelRequest,
-    current_user: dict = Depends(get_current_user)
+    request_data: DeleteModelRequest, current_user: dict = Depends(get_current_user)
 ):
     """Delete a model from the town layout.
 
@@ -357,7 +400,9 @@ async def delete_model(
     position = request_data.position
 
     if not category or (not model_id and not position):
-        raise HTTPException(status_code=400, detail={"error": "Missing required parameters"})
+        raise HTTPException(
+            status_code=400, detail={"error": "Missing required parameters"}
+        )
 
     town_data = await get_town_data()
 
@@ -365,44 +410,53 @@ async def delete_model(
     if model_id is not None:
         if category in town_data and isinstance(town_data[category], list):
             for i, model in enumerate(town_data[category]):
-                if isinstance(model, dict) and model.get('id') == model_id:
+                if isinstance(model, dict) and model.get("id") == model_id:
                     town_data[category].pop(i)
                     await set_town_data(town_data)
-                    await broadcast_sse({'type': 'delete', 'category': category, 'id': model_id})
-                    return {"status": "success", "message": f"Deleted model with ID {model_id}"}
+                    await broadcast_sse(
+                        {"type": "delete", "category": category, "id": model_id}
+                    )
+                    return {
+                        "status": "success",
+                        "message": f"Deleted model with ID {model_id}",
+                    }
 
     # Delete by position (find closest model)
     elif position:
         closest_model_index = -1
-        closest_distance = float('inf')
+        closest_distance = float("inf")
 
         if category in town_data and isinstance(town_data[category], list):
             for i, model in enumerate(town_data[category]):
                 if not isinstance(model, dict):
                     continue
-                model_pos = model.get('position', {})
-                dx = model_pos.get('x', 0) - position.x
-                dy = model_pos.get('y', 0) - position.y
-                dz = model_pos.get('z', 0) - position.z
+                model_pos = model.get("position", {})
+                dx = model_pos.get("x", 0) - position.x
+                dy = model_pos.get("y", 0) - position.y
+                dz = model_pos.get("z", 0) - position.z
 
-                distance = (dx*dx + dy*dy + dz*dz) ** 0.5
+                distance = (dx * dx + dy * dy + dz * dz) ** 0.5
 
                 if distance < closest_distance:
                     closest_distance = distance
                     closest_model_index = i
 
-            if closest_model_index >= 0 and closest_distance < 2.0:  # Threshold for deletion
+            if (
+                closest_model_index >= 0 and closest_distance < 2.0
+            ):  # Threshold for deletion
                 deleted_model = town_data[category].pop(closest_model_index)
                 await set_town_data(town_data)
-                await broadcast_sse({
-                    'type': 'delete',
-                    'category': category,
-                    'position': position.model_dump(),
-                    'deleted_id': deleted_model.get('id')
-                })
+                await broadcast_sse(
+                    {
+                        "type": "delete",
+                        "category": category,
+                        "position": position.model_dump(),
+                        "deleted_id": deleted_model.get("id"),
+                    }
+                )
                 return {
                     "status": "success",
-                    "message": f"Deleted model at position ({position.x}, {position.y}, {position.z})"
+                    "message": f"Deleted model at position ({position.x}, {position.y}, {position.z})",
                 }
 
     raise HTTPException(status_code=404, detail={"error": "Model not found"})
@@ -410,8 +464,7 @@ async def delete_model(
 
 @router.put("/town/model")
 async def edit_model(
-    request_data: EditModelRequest,
-    current_user: dict = Depends(get_current_user)
+    request_data: EditModelRequest, current_user: dict = Depends(get_current_user)
 ):
     """Edit a model in the town layout (position, rotation, scale).
 
@@ -426,31 +479,39 @@ async def edit_model(
     category = request_data.category
 
     if not category or not model_id:
-        raise HTTPException(status_code=400, detail={"error": "Missing required parameters"})
+        raise HTTPException(
+            status_code=400, detail={"error": "Missing required parameters"}
+        )
 
     town_data = await get_town_data()
 
     if category in town_data and isinstance(town_data[category], list):
         for i, model in enumerate(town_data[category]):
-            if isinstance(model, dict) and model.get('id') == model_id:
+            if isinstance(model, dict) and model.get("id") == model_id:
                 # Update model properties
                 if request_data.position is not None:
-                    town_data[category][i]['position'] = request_data.position.model_dump()
+                    town_data[category][i]["position"] = (
+                        request_data.position.model_dump()
+                    )
                 if request_data.rotation is not None:
-                    town_data[category][i]['rotation'] = request_data.rotation.model_dump()
+                    town_data[category][i]["rotation"] = (
+                        request_data.rotation.model_dump()
+                    )
                 if request_data.scale is not None:
-                    town_data[category][i]['scale'] = request_data.scale.model_dump()
+                    town_data[category][i]["scale"] = request_data.scale.model_dump()
 
                 await set_town_data(town_data)
-                await broadcast_sse({
-                    'type': 'edit',
-                    'category': category,
-                    'id': model_id,
-                    'data': town_data[category][i]
-                })
+                await broadcast_sse(
+                    {
+                        "type": "edit",
+                        "category": category,
+                        "id": model_id,
+                        "data": town_data[category][i],
+                    }
+                )
                 return {
                     "status": "success",
-                    "message": f"Updated model with ID {model_id}"
+                    "message": f"Updated model with ID {model_id}",
                 }
 
     raise HTTPException(status_code=404, detail={"error": "Model not found"})
@@ -466,5 +527,5 @@ async def get_api_config(current_user: dict = Depends(get_current_user)):
     return {
         "apiUrl": "/api/proxy/towns",
         "authenticated": True,
-        "user": current_user.get("username")
+        "user": current_user.get("username"),
     }

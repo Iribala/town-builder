@@ -1,4 +1,5 @@
 """Server-Sent Events (SSE) service for real-time updates via Redis pub/sub."""
+
 import asyncio
 import json
 import logging
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Track users: {name: last_seen_timestamp}
 _connected_users: dict[str, float] = {}
+
 
 async def broadcast_sse(data: dict) -> None:
     """Send data to all connected SSE clients via Redis pub/sub.
@@ -28,6 +30,7 @@ async def broadcast_sse(data: dict) -> None:
         # Redis is optional for multiplayer features - log error but don't fail
         logger.warning(f"Failed to broadcast SSE event (Redis unavailable): {e}")
 
+
 def get_online_users() -> list[str]:
     """Get a list of currently online user names.
 
@@ -43,6 +46,7 @@ def get_online_users() -> list[str]:
         if name in _connected_users:
             del _connected_users[name]
     return list(_connected_users.keys())
+
 
 async def event_stream(player_name: str | None = None) -> AsyncGenerator[str, None]:
     """Generate Server-Sent Events stream for a client.
@@ -73,7 +77,7 @@ async def event_stream(player_name: str | None = None) -> AsyncGenerator[str, No
     # Register user and broadcast updated user list
     if player_name:
         _connected_users[player_name] = time.time()
-        await broadcast_sse({'type': 'users', 'users': get_online_users()})
+        await broadcast_sse({"type": "users", "users": get_online_users()})
 
     try:
         # Send initial town data upon connection
@@ -88,12 +92,13 @@ async def event_stream(player_name: str | None = None) -> AsyncGenerator[str, No
         while True:
             try:
                 # Get message from Redis pubsub with timeout
-                message = await asyncio.wait_for(pubsub.get_message(ignore_subscribe_messages=True), timeout=10.0)
+                message = await asyncio.wait_for(
+                    pubsub.get_message(ignore_subscribe_messages=True), timeout=10.0
+                )
 
-                if message and message['type'] == 'message':
-                    data = message['data']
-                    if isinstance(data, bytes):
-                        data = data.decode('utf-8')
+                if message and message["type"] == "message":
+                    if isinstance(data := message["data"], bytes):
+                        data = data.decode("utf-8")
                     yield f"data: {data}\n\n"
 
                 # Update last seen timestamp periodically
@@ -106,7 +111,7 @@ async def event_stream(player_name: str | None = None) -> AsyncGenerator[str, No
                 if player_name:
                     _connected_users[player_name] = time.time()
                     # Broadcast updated user list
-                    await broadcast_sse({'type': 'users', 'users': get_online_users()})
+                    await broadcast_sse({"type": "users", "users": get_online_users()})
                 # Send a keep-alive comment to prevent connection timeout
                 yield ": keepalive\n\n"
                 last_keepalive = time.time()
@@ -116,7 +121,7 @@ async def event_stream(player_name: str | None = None) -> AsyncGenerator[str, No
         if player_name and player_name in _connected_users:
             del _connected_users[player_name]
             # Update user list on disconnect
-            await broadcast_sse({'type': 'users', 'users': get_online_users()})
+            await broadcast_sse({"type": "users", "users": get_online_users()})
         raise
     finally:
         await pubsub.unsubscribe(settings.pubsub_channel)

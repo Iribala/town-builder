@@ -1,6 +1,7 @@
 """Routes for 3D model discovery and metadata."""
+
 import logging
-import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
@@ -31,7 +32,7 @@ async def get_model_info(
     category: str,
     model_name: str,
     info: str = Query(None),
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """Serve the model file or its metadata.
 
@@ -47,24 +48,23 @@ async def get_model_info(
     Returns:
         FileResponse with model file or JSON with metadata
     """
-    # Validate category and model_name to prevent path traversal
     validated_category, validated_model_name = validate_model_path(category, model_name)
 
-    model_path = os.path.join(settings.models_path, validated_category, validated_model_name)
-    if not os.path.exists(model_path):
+    model_path = Path(settings.models_path) / validated_category / validated_model_name
+    if not model_path.exists():
         raise HTTPException(status_code=404, detail="Model not found")
 
     # If ?info=1, return metadata
     if info == "1":
         try:
             gltf = GLTF2().load(model_path)
-            bin_path = model_path.replace('.gltf', '.bin')
-            has_bin = os.path.exists(bin_path)
+            bin_path = model_path.with_suffix(".bin")
+            has_bin = bin_path.exists()
             return {
                 "name": model_name,
                 "category": category,
                 "nodes": len(gltf.nodes),
-                "has_bin": has_bin
+                "has_bin": has_bin,
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
