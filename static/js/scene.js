@@ -122,19 +122,13 @@ export function initializeScene() {
  * @param {THREE.Scene} scene
  */
 async function initializeTouchControlsWhenReady(camera, renderer, scene) {
-    // Wait for WASM to be ready (with timeout)
-    const maxWaitTime = 10000; // 10 seconds max
-    const startTime = Date.now();
-
-    while (!isPhysicsWasmReady()) {
-        if (Date.now() - startTime > maxWaitTime) {
-            console.warn('WASM not ready after 10s, initializing touch controls anyway');
-            break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
+    try {
+        await wasmReady;
+        console.log('WASM ready, initializing touch controls for mobile');
+    } catch (err) {
+        console.warn('WASM promise rejected, initializing touch controls anyway:', err);
     }
 
-    console.log('WASM ready, initializing touch controls for mobile');
     touchControls.init(camera, renderer.domElement);
 
     // Create raycaster for touch interactions

@@ -3,16 +3,14 @@ import { initializeScene, animate, loadModelToScene, placedObjects } from './sce
 import { setupSSE, loadTownFromDjango } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
-import { initPhysicsWasm } from './utils/physics_wasm.js';
+import { initPhysicsWasm, markWasmReady } from './utils/physics_wasm.js';
 import { applyCategoryStatuses, createStatusLegend } from './category_status.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
 import {
     setMyName,
-    setWasmReady,
-    isWasmReady,
     getCurrentTownId
 } from './state/app-state.js';
-// Mobile modules
+import { wasmReady } from './utils/wasm.js';
 import { isMobile } from './utils/device-detect.js';
 import mobileUI from './mobile/mobile-ui.js';
 import mobileSettings from './mobile/settings.js';
@@ -21,18 +19,10 @@ import mobileIntegration from './mobile/integration.js';
 
 // Wait for Go WASM module to be ready
 async function waitForWasm() {
-    // Poll for WASM functions to be available
-    for (let i = 0; i < 50; i++) {
-        if (typeof window.wasmUpdateSpatialGrid === 'function') {
-            await initPhysicsWasm();
-            setWasmReady(true);
-            return true;
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    console.warn("WASM module did not load in time, continuing without WASM optimization");
-    setWasmReady(false);
-    return false;
+    await wasmReady;
+    await initPhysicsWasm();
+    markWasmReady();
+    return true;
 }
 
 // Cookie helper functions

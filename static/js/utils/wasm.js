@@ -1,15 +1,33 @@
 /**
  * WASM initialization utilities
+ * Promise-based readiness signal to avoid race conditions
  */
 
+let wasmResolve;
+let wasmReject;
+
 /**
- * Wait for Go WASM calcDistance function to be available
- * @returns {Promise<void>} Resolves when WASM is ready
+ * Promise that resolves when WASM is ready
+ * Exported as a thenable for easy awaiting
  */
-async function initWasm() {
-    while (typeof calcDistance !== 'function') {
-        await new Promise(r => setTimeout(r, 50));
+export const wasmReady = new Promise((resolve, reject) => {
+    wasmResolve = resolve;
+    wasmReject = reject;
+});
+
+/**
+ * Initialize WASM readiness tracking
+ * Call this when WASM functions become available
+ */
+export function markWasmReady() {
+    if (wasmResolve) {
+        wasmResolve();
     }
 }
 
-export const wasmReady = initWasm();
+/**
+ * Check if WASM is ready synchronously
+ */
+export function isWasmReadySync() {
+    return typeof window.wasmUpdateSpatialGrid === 'function';
+}
