@@ -7,56 +7,36 @@
 
 ## Critical — Fix Before Production
 
-### TD-001: Missing `zstandard` Dependency
+### ~~TD-001: Missing `zstandard` Dependency~~ ✅ RESOLVED
 
-**Files**: `pyproject.toml`, `app/services/storage.py:8`, `app/services/snapshots.py:6`
-
-The `compression` (zstandard) library is imported in storage and snapshots but not declared
-as a dependency in `pyproject.toml`. The app will crash at runtime when Redis storage or
-snapshots are accessed.
-
-**Fix**: Add `"zstandard>=0.22.0"` to `dependencies` in `pyproject.toml`.
+**Resolved**: 2026-03-16 — Added `"zstandard>=0.22.0"` to `dependencies` in `pyproject.toml`.
 
 ---
 
-### TD-002: Path Traversal in Static File Handlers
+### ~~TD-002: Path Traversal in Static File Handlers~~ ✅ RESOLVED
 
-**Files**: `app/utils/static_files.py:20,35`
-
-`serve_js_files()` and `serve_wasm_files()` pass user-controlled `file_path` directly to
-the filesystem without boundary validation. An attacker could use `../` sequences to escape
-the intended directory. The `security.py:get_safe_filepath()` pattern already exists but
-isn't used here.
-
-**Fix**: Resolve paths and verify they remain within the base directory using
-`Path.resolve()` and `.relative_to()`, matching the pattern in `security.py`.
+**Resolved**: 2026-03-16 — Both `serve_js_files()` and `serve_wasm_files()` in
+`app/utils/static_files.py` now resolve paths via `Path.resolve()` and validate them with
+`.relative_to()` before serving, rejecting any `../` escape attempts with a 400 error.
 
 ---
 
-### TD-003: Global Mutable State Without Locks (Async Race Conditions)
+### ~~TD-003: Global Mutable State Without Locks (Async Race Conditions)~~ ✅ RESOLVED
 
-**Files**:
-- `app/services/events.py:13` — `_connected_users: dict`
-- `app/services/storage.py:53` — `_town_data_storage` dict
-- `app/services/history.py:18-19` — `_history_stack` and `_redo_stack` deques
-- `app/services/batch_operations.py:362` — singleton manager
-
-Multiple module-level mutable structures are modified from async handlers with no
-synchronization. Concurrent requests can corrupt shared state.
-
-**Fix**: Add `asyncio.Lock` guards around all read-modify-write operations on shared state.
+**Resolved**: 2026-03-16 — Added `asyncio.Lock` guards to all module-level mutable state:
+- `app/services/events.py` — `_users_lock` protects `_connected_users`; `get_online_users()`
+  is now async
+- `app/services/storage.py` — `_storage_lock` protects `_town_data_storage` reads/writes
+- `app/services/history.py` — `_history_lock` protects `_history_stack` and `_redo_stack`
 
 ---
 
-### TD-004: Batch Operations Lost-Update Problem
+### ~~TD-004: Batch Operations Lost-Update Problem~~ ✅ RESOLVED
 
-**Files**: `app/services/batch_operations.py:35-56`
-
-Read-modify-write pattern with no locking. If two requests read, modify, and save
-concurrently, the second write silently overwrites the first.
-
-**Fix**: Implement optimistic locking with a version/timestamp field, or use Redis
-WATCH/MULTI/EXEC for atomic updates.
+**Resolved**: 2026-03-16 — Added `_batch_lock` (`asyncio.Lock`) in
+`app/services/batch_operations.py` to serialize the entire read-modify-write cycle in
+`execute_operations()`. A `_data_version` counter is incremented and stamped on each
+successful save to support optimistic locking.
 
 ---
 
@@ -359,12 +339,12 @@ text labels alongside color indicators.
 
 ## Priority Matrix
 
-| Priority | ID | Description | Effort |
-|----------|----|-------------|--------|
-| P0 | TD-001 | Add `zstandard` dependency | 5 min |
-| P0 | TD-002 | Fix path traversal in static file handlers | 30 min |
-| P0 | TD-003 | Add `asyncio.Lock` to global mutable state | 1-2 hr |
-| P1 | TD-004 | Implement optimistic locking for batch ops | 2-3 hr |
+| Priority | ID | Description | Effort | Status |
+|----------|----|-------------|--------|--------|
+| ~~P0~~ | ~~TD-001~~ | ~~Add `zstandard` dependency~~ | ~~5 min~~ | ✅ Done |
+| ~~P0~~ | ~~TD-002~~ | ~~Fix path traversal in static file handlers~~ | ~~30 min~~ | ✅ Done |
+| ~~P0~~ | ~~TD-003~~ | ~~Add `asyncio.Lock` to global mutable state~~ | ~~1-2 hr~~ | ✅ Done |
+| ~~P1~~ | ~~TD-004~~ | ~~Implement optimistic locking for batch ops~~ | ~~2-3 hr~~ | ✅ Done |
 | P1 | TD-006 | Add rate limiting middleware | 1-2 hr |
 | P1 | TD-007 | Fix SSRF in proxy request | 1 hr |
 | P1 | TD-008 | Replace `Any` types with concrete schemas | 2-3 hr |
