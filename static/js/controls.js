@@ -9,7 +9,10 @@ let keysPressed = {};
 let isRightMouseDown = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
-const ORBIT_TARGET = new THREE.Vector3(0, 0, 0); // Point to orbit around
+const ORBIT_TARGET = new THREE.Vector3(0, 0, 0);
+const TEMP_BOX = new THREE.Box3();
+const TEMP_VECTOR = new THREE.Vector3();
+const FORWARD_DIR = new THREE.Vector3();
 
 export function setupKeyboardControls() {
     // Keyboard listeners
@@ -231,18 +234,16 @@ export function updateControls() {
             );
 
             // Use centralized collision detection
-            const potentialPosition = new THREE.Vector3(newState.x, car.position.y, newState.z);
-            const potentialBoundingBox = new THREE.Box3().setFromObject(car);
-            potentialBoundingBox.translate(attemptedMoveVector);
+            TEMP_VECTOR.set(newState.x, car.position.y, newState.z);
+            TEMP_BOX.setFromObject(car);
+            TEMP_BOX.translate(attemptedMoveVector);
 
             let collisionDetected = false;
-            const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion);
+            FORWARD_DIR.set(0, 0, 1).applyQuaternion(car.quaternion);
 
-            if (checkCollision(potentialBoundingBox, placedObjects, car)) {
-                // Only block forward motion; allow backing out
-                if (attemptedMoveVector.dot(forwardDir) > 0) {
+            if (checkCollision(TEMP_BOX, placedObjects, car)) {
+                if (attemptedMoveVector.dot(FORWARD_DIR) > 0) {
                     collisionDetected = true;
-                    // Only show notification if cooldown expired
                     if (car.userData.collisionCooldown === 0) {
                         showNotification("Bonk!", "error");
                         car.userData.collisionCooldown = 90;
@@ -294,11 +295,11 @@ export function updateControls() {
 
             const attemptedMoveVector = car.userData.velocity;
             if (attemptedMoveVector.lengthSq() > 0) {
-                const potentialPosition = car.position.clone().add(attemptedMoveVector);
-                const potentialBoundingBox = new THREE.Box3().setFromObject(car);
-                potentialBoundingBox.translate(attemptedMoveVector);
+                TEMP_VECTOR.copy(car.position).add(attemptedMoveVector);
+                TEMP_BOX.setFromObject(car);
+                TEMP_BOX.translate(attemptedMoveVector);
 
-                let collisionDetected = checkCollision(potentialBoundingBox, placedObjects, car);
+                let collisionDetected = checkCollision(TEMP_BOX, placedObjects, car);
 
                 if (collisionDetected && car.userData.collisionCooldown === 0) {
                     showNotification("Bonk!", "error");
@@ -307,7 +308,7 @@ export function updateControls() {
                 }
 
                 if (!collisionDetected) {
-                    car.position.copy(potentialPosition);
+                    car.position.copy(TEMP_VECTOR);
                 }
             }
         }

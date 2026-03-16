@@ -134,9 +134,6 @@ export function updateCursor(scene, username, position, cameraPosition) {
 export function removeCursor(scene, username) {
     const cursor = activeCursors.get(username);
     if (cursor) {
-        scene.remove(cursor);
-        
-        // Dispose of geometries and materials
         cursor.traverse((obj) => {
             if (obj.geometry) obj.geometry.dispose();
             if (obj.material) {
@@ -145,6 +142,7 @@ export function removeCursor(scene, username) {
             }
         });
         
+        scene.remove(cursor);
         activeCursors.delete(username);
     }
 }

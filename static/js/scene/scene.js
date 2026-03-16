@@ -7,7 +7,7 @@
  * - ACESFilmic tone mapping for better color and contrast
  */
 import * as THREE from '../three.module.js';
-import { setEnvMapTexture, getEnvMapTexture } from '../state/app-state.js';
+import { getEnvMapTexture, setEnvMapTexture } from '../state/app-state.js';
 
 /**
  * Create an HDR-capable environment map with PMREM prefiltering
@@ -201,4 +201,16 @@ export function onWindowResize(camera, renderer) {
  */
 export function setupResizeListener(camera, renderer) {
     window.addEventListener('resize', () => onWindowResize(camera, renderer));
+}
+
+/**
+ * Dispose environment map texture to prevent memory leaks
+ * Call this when tearing down the scene
+ */
+export function disposeEnvironmentMap() {
+    const texture = getEnvMapTexture();
+    if (texture) {
+        texture.dispose();
+        setEnvMapTexture(null);
+    }
 }
