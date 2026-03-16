@@ -217,17 +217,18 @@ exception handler in `main.py` that wraps `HTTPException` detail into the standa
 
 ---
 
-### TD-014: Debug Logging Hardcoded for All Environments
+### ~~TD-014: Debug Logging Hardcoded for All Environments~~ ✅ RESOLVED
 
-**Files**: `app/main.py:16`
+**Resolved**: 2026-03-16 — Updated `app/main.py` to set log level based on environment.
 
-`logging.basicConfig(level=logging.DEBUG)` regardless of environment. Debug logs can
-expose sensitive info and degrade performance.
+**Files**: `app/main.py:16-17`
 
-**Fix**: Set log level based on `settings.environment`:
-```python
-log_level = logging.DEBUG if settings.environment == "development" else logging.INFO
-```
+**Changes made**:
+- Imported `settings` from `app.config`
+- Set `log_level = logging.DEBUG if settings.environment == "development" else logging.INFO`
+- Updated `logging.basicConfig(level=log_level)` to use environment-aware level
+
+**Benefits**: Prevents sensitive information exposure in production, improves performance by reducing debug log volume, and follows security best practices.
 
 ---
 
@@ -400,7 +401,7 @@ text labels alongside color indicators.
 | P2 | TD-011 | Consolidate collision detection | 2-3 hr | None | |
 | P2 | TD-012 | Split god objects into focused modules | 4-6 hr | None | |
 | P2 | TD-013 | Standardize API error responses | 1-2 hr | **Medium** — audit error parsing | |
-| P2 | TD-014 | Environment-based log levels | 30 min | None | |
+| ~~P2~~ | ~~TD-014~~ | ~~Environment-based log levels~~ | ~~30 min~~ | None | ✅ Done |
 | P2 | TD-016 | Fix JS memory leaks | 2-3 hr | None | |
 | P2 | TD-017 | Promise-based WASM initialization | 1-2 hr | None | |
 | P2 | TD-018 | Fix SSE reconnection logic | 1 hr | None | |

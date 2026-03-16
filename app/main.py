@@ -11,9 +11,11 @@ from app.config import settings
 from app.routes import ui, auth, models, town, proxy, events, cursor, batch, query, history, snapshots, buildings, scene
 from app.services.storage import initialize_redis, close_redis
 from app.utils.static_files import serve_js_files, serve_wasm_files
+from app.config import settings
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
+# Configure logging based on environment
+log_level = logging.DEBUG if settings.environment == "development" else logging.INFO
+logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
 # Configure MIME types for WASM and JS files
