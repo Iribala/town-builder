@@ -252,28 +252,6 @@ export function applyCategoryStatuses(categoryStatuses, placedObjects) {
 }
 
 /**
- * Remove status coloring from an object (reset to original)
- * @param {THREE.Object3D} object3D - The 3D object to reset
- */
-export function removeStatusColor(object3D) {
-    if (!object3D) return;
-
-    object3D.traverse(child => {
-        if (child.isMesh) {
-            // Reset to white color
-            child.material.color.setHex(0xffffff);
-            child.material.emissive.setHex(0x000000);
-            child.material.emissiveIntensity = 0;
-            child.material.needsUpdate = true;
-        }
-    });
-
-    // Remove status data from userData
-    delete object3D.userData.statusLevel;
-    delete object3D.userData.statusColor;
-}
-
-/**
  * Create a visual legend/dashboard for category statuses
  * @param {Array<Object>} categoryStatuses - Array of category status objects
  * @returns {HTMLElement} DOM element containing the legend

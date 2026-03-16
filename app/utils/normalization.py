@@ -1,7 +1,18 @@
 """Helpers for normalizing town layout data shapes."""
+
 from typing import Any
 
-_CATEGORIES = ["buildings", "vehicles", "trees", "props", "street", "park", "terrain", "roads"]
+_CATEGORIES = [
+    "buildings",
+    "vehicles",
+    "trees",
+    "props",
+    "street",
+    "park",
+    "terrain",
+    "roads",
+]
+
 
 def _vec_from_array(values: Any, default: dict[str, float]) -> dict[str, float]:
     if isinstance(values, (list, tuple)) and len(values) >= 3:
@@ -13,6 +24,7 @@ def _vec_from_array(values: Any, default: dict[str, float]) -> dict[str, float]:
             "z": float(values.get("z", default["z"])),
         }
     return default.copy()
+
 
 def normalize_layout_data(layout_data: Any) -> dict[str, list[dict[str, Any]]]:
     """Normalize layout data into canonical dict-of-categories shape."""
@@ -40,45 +52,14 @@ def normalize_layout_data(layout_data: Any) -> dict[str, list[dict[str, Any]]]:
 
     return {category: [] for category in _CATEGORIES}
 
-def denormalize_to_layout_list(town_data: dict[str, Any]) -> list[dict[str, Any]]:
-    """Convert canonical dict-of-categories into list layout_data shape.
-
-    NOTE: This function is currently unused. It's kept for potential future use
-    if Django or other consumers need the flat list format with array vectors
-    instead of the dict-of-categories format with {x,y,z} dict vectors.
-
-    The output format is:
-    [
-        {"category": "buildings", "modelName": "...", "position": [x, y, z], ...},
-        {"category": "vehicles", "modelName": "...", "position": [x, y, z], ...},
-        ...
-    ]
-    """
-    results: list[dict[str, Any]] = []
-    if not isinstance(town_data, dict):
-        return results
-
-    for category in _CATEGORIES:
-        items = town_data.get(category, [])
-        if not isinstance(items, list):
-            continue
-        for obj in items:
-            if not isinstance(obj, dict):
-                continue
-            results.append({
-                "category": category,
-                "modelName": obj.get("model"),
-                "position": _array_from_vec(obj.get("position"), [0.0, 0.0, 0.0]),
-                "rotation": _array_from_vec(obj.get("rotation"), [0.0, 0.0, 0.0]),
-                "scale": _array_from_vec(obj.get("scale"), [1.0, 1.0, 1.0]),
-                "id": obj.get("id"),
-            })
-    return results
 
 def _normalize_objects_list(items: Any, category: str) -> list[dict[str, Any]]:
     if not isinstance(items, list):
         return []
-    return [_normalize_object(item, category) for item in items if isinstance(item, dict)]
+    return [
+        _normalize_object(item, category) for item in items if isinstance(item, dict)
+    ]
+
 
 def _normalize_object(item: dict[str, Any], category: str) -> dict[str, Any]:
     model = item.get("model") or item.get("modelName")
@@ -86,18 +67,11 @@ def _normalize_object(item: dict[str, Any], category: str) -> dict[str, Any]:
         **item,
         "category": category,
         "model": model,
-        "position": _vec_from_array(item.get("position"), {"x": 0.0, "y": 0.0, "z": 0.0}),
-        "rotation": _vec_from_array(item.get("rotation"), {"x": 0.0, "y": 0.0, "z": 0.0}),
+        "position": _vec_from_array(
+            item.get("position"), {"x": 0.0, "y": 0.0, "z": 0.0}
+        ),
+        "rotation": _vec_from_array(
+            item.get("rotation"), {"x": 0.0, "y": 0.0, "z": 0.0}
+        ),
         "scale": _vec_from_array(item.get("scale"), {"x": 1.0, "y": 1.0, "z": 1.0}),
     }
-
-def _array_from_vec(values: Any, default: list[float]) -> list[float]:
-    if isinstance(values, (list, tuple)) and len(values) >= 3:
-        return [float(values[0]), float(values[1]), float(values[2])]
-    if isinstance(values, dict):
-        return [
-            float(values.get("x", default[0])),
-            float(values.get("y", default[1])),
-            float(values.get("z", default[2])),
-        ]
-    return list(default)

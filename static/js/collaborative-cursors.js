@@ -183,14 +183,6 @@ export function animateCursors(deltaTime) {
 }
 
 /**
- * Get all active cursor usernames
- * @returns {Array<string>} Array of usernames
- */
-export function getActiveCursorUsers() {
-    return Array.from(activeCursors.keys());
-}
-
-/**
  * Clear all cursors
  * @param {THREE.Scene} scene - Three.js scene
  */
