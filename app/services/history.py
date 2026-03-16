@@ -1,4 +1,5 @@
 """History service for undo/redo functionality."""
+import asyncio
 import json
 import logging
 import time
@@ -17,6 +18,7 @@ MAX_HISTORY_SIZE = 100
 # In-memory history storage (fallback)
 _history_stack = deque(maxlen=MAX_HISTORY_SIZE)
 _redo_stack = deque(maxlen=MAX_HISTORY_SIZE)
+_history_lock = asyncio.Lock()
 
 class HistoryManager:
     """Manages operation history for undo/redo functionality."""
@@ -73,11 +75,13 @@ class HistoryManager:
 
             except Exception as e:
                 logger.warning(f"Redis history add failed, using in-memory storage: {e}")
+                async with _history_lock:
+                    _history_stack.append(entry)
+                    _redo_stack.clear()
+        else:
+            async with _history_lock:
                 _history_stack.append(entry)
                 _redo_stack.clear()
-        else:
-            _history_stack.append(entry)
-            _redo_stack.clear()
 
         logger.info(f"Added history entry: {operation} on {category}/{object_id}")
         return entry_id
@@ -103,7 +107,8 @@ class HistoryManager:
             except Exception as e:
                 logger.warning(f"Redis history get failed, using in-memory storage: {e}")
 
-        return list(reversed(list(_history_stack)[:limit]))
+        async with _history_lock:
+            return list(reversed(list(_history_stack)[:limit]))
 
     async def can_undo(self) -> bool:
         """Check if undo is possible.
@@ -118,7 +123,8 @@ class HistoryManager:
             except Exception:
                 pass
 
-        return len(_history_stack) > 0
+        async with _history_lock:
+            return len(_history_stack) > 0
 
     async def can_redo(self) -> bool:
         """Check if redo is possible.
@@ -133,7 +139,8 @@ class HistoryManager:
             except Exception:
                 pass
 
-        return len(_redo_stack) > 0
+        async with _history_lock:
+            return len(_redo_stack) > 0
 
     async def get_last_entry(self) -> dict[str, Any] | None:
         """Get the last history entry without removing it.
@@ -150,9 +157,10 @@ class HistoryManager:
             except Exception as e:
                 logger.warning(f"Redis get last entry failed: {e}")
 
-        if _history_stack:
-            return _history_stack[-1]
-        return None
+        async with _history_lock:
+            if _history_stack:
+                return _history_stack[-1]
+            return None
 
     async def pop_last_entry(self) -> dict[str, Any] | None:
         """Remove and return the last history entry.
@@ -169,9 +177,10 @@ class HistoryManager:
             except Exception as e:
                 logger.warning(f"Redis pop failed, using in-memory storage: {e}")
 
-        if _history_stack:
-            return _history_stack.pop()
-        return None
+        async with _history_lock:
+            if _history_stack:
+                return _history_stack.pop()
+            return None
 
     async def push_redo_entry(self, entry: dict[str, Any]) -> None:
         """Add an entry to the redo stack.
@@ -191,9 +200,11 @@ class HistoryManager:
 
             except Exception as e:
                 logger.warning(f"Redis redo push failed, using in-memory storage: {e}")
-                _redo_stack.append(entry)
+                async with _history_lock:
+                    _redo_stack.append(entry)
         else:
-            _redo_stack.append(entry)
+            async with _history_lock:
+                _redo_stack.append(entry)
 
     async def pop_redo_entry(self) -> dict[str, Any] | None:
         """Remove and return the last redo entry.
@@ -210,9 +221,10 @@ class HistoryManager:
             except Exception as e:
                 logger.warning(f"Redis redo pop failed, using in-memory storage: {e}")
 
-        if _redo_stack:
-            return _redo_stack.pop()
-        return None
+        async with _history_lock:
+            if _redo_stack:
+                return _redo_stack.pop()
+            return None
 
     async def clear_history(self) -> None:
         """Clear all history and redo stacks."""
@@ -224,8 +236,9 @@ class HistoryManager:
             except Exception as e:
                 logger.warning(f"Redis clear failed: {e}")
 
-        _history_stack.clear()
-        _redo_stack.clear()
+        async with _history_lock:
+            _history_stack.clear()
+            _redo_stack.clear()
         logger.info("History cleared")
 
 # Global history manager instance

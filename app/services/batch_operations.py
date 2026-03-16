@@ -1,15 +1,23 @@
 """Batch operations service for executing multiple operations atomically."""
 
+import asyncio
 import copy
 import logging
+import time
 import uuid
 from typing import Any
 
-from app.services.storage import get_town_data, set_town_data
+from app.services.storage import get_town_data, set_town_data, get_redis_client
 from app.services.events import broadcast_sse
 from app.services.history import history_manager
 
 logger = logging.getLogger(__name__)
+
+# Lock to serialize batch read-modify-write cycles
+_batch_lock = asyncio.Lock()
+
+# In-memory version counter for optimistic locking fallback
+_data_version: int = 0
 
 
 class BatchOperationsManager:
@@ -18,7 +26,10 @@ class BatchOperationsManager:
     async def execute_operations(
         self, operations: list[dict[str, Any]], validate: bool = True
     ) -> tuple[list[dict[str, Any]], int, int]:
-        """Execute a batch of operations.
+        """Execute a batch of operations atomically with optimistic locking.
+
+        Uses an asyncio lock to serialize read-modify-write cycles, preventing
+        lost updates when concurrent requests modify town data.
 
         Args:
             operations: List of operations to execute
@@ -27,6 +38,14 @@ class BatchOperationsManager:
         Returns:
             Tuple of (results, successful_count, failed_count)
         """
+        async with _batch_lock:
+            return await self._execute_locked(operations, validate)
+
+    async def _execute_locked(
+        self, operations: list[dict[str, Any]], validate: bool
+    ) -> tuple[list[dict[str, Any]], int, int]:
+        """Execute operations while holding the batch lock."""
+        global _data_version
         results = []
         successful = 0
         failed = 0
@@ -53,6 +72,8 @@ class BatchOperationsManager:
 
             # If all operations succeeded, save the changes
             if failed == 0:
+                _data_version += 1
+                town_data["_version"] = _data_version
                 await set_town_data(town_data)
 
                 # Add to history
