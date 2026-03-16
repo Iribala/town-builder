@@ -32,53 +32,67 @@ function authHeaders(extra = {}) {
     return headers;
 }
 
+let currentEvtSource = null;
+let isConnecting = false;
+
 export function setupSSE() {
-    // Setup SSE connection with automatic reconnection and backoff
     let retryDelay = 1000;
     const maxDelay = 30000;
+    
     return new Promise((resolve, reject) => {
         function connect(isInitial = false) {
+            if (isConnecting) {
+                console.debug('SSE connection already in progress');
+                return;
+            }
+            
+            isConnecting = true;
+            
             let sseUrl = (getBasePath() || '') + '/events?name=' + encodeURIComponent(getMyName());
-            // EventSource doesn't support custom headers, so pass token as query param
             const token = getToken();
             if (token) {
                 sseUrl += '&token=' + encodeURIComponent(token);
             }
+            
             const evtSource = new EventSource(sseUrl);
+            currentEvtSource = evtSource;
+            
             evtSource.onopen = () => {
                 retryDelay = 1000;
+                isConnecting = false;
                 if (isInitial) {
                     resolve(evtSource);
                 } else {
                     showNotification('Reconnected to multiplayer server', 'success');
                 }
             };
+            
             evtSource.onmessage = function (event) {
                 try {
                     const msg = JSON.parse(event.data);
-                    if (msg.type === 'users') { // Changed 'onlineUsers' to 'users'
-                        updateOnlineUsersList(msg.users); // Changed msg.payload to msg.users
+                    if (msg.type === 'users') {
+                        updateOnlineUsersList(msg.users);
                     } else if (msg.type === 'full' && msg.town) {
-                        // Handle full town updates - render new buildings
                         loadTownData(msg.town);
                         showNotification('Town updated', 'success');
                     } else if (msg.type === 'cursor') {
-                        // Handle cursor position updates from other users
                         if (msg.username && msg.username !== getMyName()) {
                             updateCursor(scene, msg.username, msg.position, msg.camera_position);
                         }
                     } else {
-                        // Pass the whole message to showNotification for more context if needed
-                        // For now, keeping it simple as before, but logging the full message might be useful for debugging other events
-                        // console.log("Received SSE message:", msg); 
                         showNotification(`Event: ${msg.type}`, 'info');
                     }
                 } catch (err) {
                     console.error('Failed to handle SSE message', err);
                 }
             };
+            
             evtSource.onerror = (err) => {
-                evtSource.close();
+                isConnecting = false;
+                if (currentEvtSource) {
+                    currentEvtSource.close();
+                    currentEvtSource = null;
+                }
                 if (isInitial) {
                     reject(err);
                 } else {
@@ -90,6 +104,7 @@ export function setupSSE() {
                 }
             };
         }
+        
         connect(true);
     });
 }
