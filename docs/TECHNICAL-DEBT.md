@@ -67,6 +67,11 @@ endpoints and save endpoints accept unbounded payloads.
 **Fix**: Add `slowapi` or `fastapi-limiter` for rate limiting. Configure request body size
 limits in the ASGI server or via middleware.
 
+> **Kibigia Interop — LOW RISK**: Kibigia's `django_client.py` makes service-to-service
+> calls to town-builder. Ensure rate limits exempt internal traffic (e.g., via an
+> allowlist or separate rate-limit tier for the Django backend's IP/token) so that
+> legitimate sync and proxy requests are not throttled.
+
 ---
 
 ### TD-007: SSRF in Proxy Request
@@ -78,6 +83,13 @@ bypassing domain validation in `validate_api_url()`.
 
 **Fix**: Validate the fully-constructed URL (not just the base) against the allowlist.
 Reject paths containing `..`, `//`, or scheme changes.
+
+> **Kibigia Interop — HIGH RISK**: `proxy_request()` is the primary path kibigia
+> uses for proxied API calls. The new validation must be tested against all proxy
+> paths kibigia sends (see `app/routes/proxy.py` endpoints). If kibigia ever sends
+> paths with double slashes or trailing-slash variations, stricter validation would
+> break those requests. Run integration tests covering the full kibigia ↔
+> town-builder proxy round-trip before merging.
 
 ---
 
@@ -94,6 +106,15 @@ Critical data fields use `Any` with no validation:
 **Fix**: Create concrete Pydantic models for object structures (e.g., `PlacedObject`,
 `BuildingData`). Use `Literal["eq", "ne", "gt", "lt", "gte", "lte", "contains", "in"]`
 for filter operators.
+
+> **Kibigia Interop — HIGH RISK**: `SaveTownRequest.data: Any` carries layout data
+> that is stored in kibigia's `Town.layout_data` JSONField. Tightening this to a
+> strict schema could reject existing data on round-trip (load from kibigia → save
+> back). Before implementing, audit actual `layout_data` values stored in kibigia's
+> database. During transition, use `model_config = ConfigDict(extra='allow')` to
+> avoid rejecting unexpected keys. The same applies to `TownUpdateRequest` fields
+> (`buildings`, `terrain`, `roads`, `props`) and `BatchOperation.data` — any
+> concrete models must accept whatever kibigia has already persisted.
 
 ---
 
@@ -119,6 +140,11 @@ for filter operators.
 - `calculate_distance(pos_a, pos_b)` in a shared math utility
 - Single `CATEGORIES` constant imported everywhere
 - `DELETE_PROXIMITY_THRESHOLD` constant
+
+> **Kibigia Interop — LOW RISK**: The `save_town` refactor touches the code path
+> that calls `django_client.create_town()` and `django_client.update_town()`.
+> Extracted helpers must preserve the same call signatures and ensure
+> `_prepare_django_payload()` receives identical arguments.
 
 ---
 
@@ -179,6 +205,12 @@ modules should import and call it.
 
 **Fix**: Standardize all error responses on the `ApiResponse` schema. Add a custom
 exception handler in `main.py` that wraps `HTTPException` detail into the standard format.
+
+> **Kibigia Interop — MEDIUM RISK**: If kibigia's frontend JavaScript or any Django
+> view parses error responses from town-builder (e.g., checking for `{"error": ...}`
+> vs `{"status": "error", "message": ...}`), changing the format will break that
+> parsing. Audit kibigia's proxy response handling and frontend error handlers before
+> standardizing.
 
 ---
 
@@ -258,6 +290,13 @@ creating a new one. Add a `connecting` guard flag.
 **Fix**: Add `@model_validator` to enforce at least one field present. Add `Field(ge=, le=)`
 constraints for coordinate bounds.
 
+> **Kibigia Interop — MEDIUM RISK**: If kibigia's frontend sends edit requests with
+> no position/rotation/scale fields (e.g., a metadata-only update), the new
+> validator would reject them. Bounds constraints on `Position`/`Rotation`/`Scale`
+> could also reject coordinates that kibigia currently allows. Check kibigia's
+> frontend edit flows and any existing `layout_data` values for out-of-bounds
+> coordinates before setting limits.
+
 ---
 
 ### TD-020: Unvalidated Sort/Filter Fields in Query Service
@@ -268,6 +307,10 @@ constraints for coordinate bounds.
 arbitrary strings.
 
 **Fix**: Whitelist allowed sort fields. Use `Literal` type for operators.
+
+> **Kibigia Interop — MEDIUM RISK**: If kibigia's frontend uses the query/filter API
+> with field names or operators not on the new whitelist, those queries will fail.
+> Audit kibigia's frontend query usage before finalizing the whitelist.
 
 ---
 
@@ -339,30 +382,30 @@ text labels alongside color indicators.
 
 ## Priority Matrix
 
-| Priority | ID | Description | Effort | Status |
-|----------|----|-------------|--------|--------|
-| ~~P0~~ | ~~TD-001~~ | ~~Add `zstandard` dependency~~ | ~~5 min~~ | ✅ Done |
-| ~~P0~~ | ~~TD-002~~ | ~~Fix path traversal in static file handlers~~ | ~~30 min~~ | ✅ Done |
-| ~~P0~~ | ~~TD-003~~ | ~~Add `asyncio.Lock` to global mutable state~~ | ~~1-2 hr~~ | ✅ Done |
-| ~~P1~~ | ~~TD-004~~ | ~~Implement optimistic locking for batch ops~~ | ~~2-3 hr~~ | ✅ Done |
-| P1 | TD-006 | Add rate limiting middleware | 1-2 hr |
-| P1 | TD-007 | Fix SSRF in proxy request | 1 hr |
-| P1 | TD-008 | Replace `Any` types with concrete schemas | 2-3 hr |
-| P1 | TD-010 | Centralize JS state management | 3-4 hr |
-| P2 | TD-005 | Add pytest test suite for critical paths | 4-8 hr |
-| P2 | TD-009 | Extract shared Python helpers | 2-3 hr |
-| P2 | TD-011 | Consolidate collision detection | 2-3 hr |
-| P2 | TD-012 | Split god objects into focused modules | 4-6 hr |
-| P2 | TD-013 | Standardize API error responses | 1-2 hr |
-| P2 | TD-014 | Environment-based log levels | 30 min |
-| P2 | TD-016 | Fix JS memory leaks | 2-3 hr |
-| P2 | TD-017 | Promise-based WASM initialization | 1-2 hr |
-| P2 | TD-018 | Fix SSE reconnection logic | 1 hr |
-| P3 | TD-015 | Add snapshot Redis fallback | 1-2 hr |
-| P3 | TD-019 | Add schema field validators | 1-2 hr |
-| P3 | TD-020 | Whitelist sort/filter fields | 1 hr |
-| P3 | TD-021 | Remove dead code | 1 hr |
-| P3 | TD-022 | Standardize JS module patterns | 2-3 hr |
-| P3 | TD-023 | Move magic numbers to config | 1-2 hr |
-| P3 | TD-024 | Redact sensitive log data | 30 min |
-| P3 | TD-025 | Accessibility improvements | 3-4 hr |
+| Priority | ID | Description | Effort | Kibigia Interop Risk | Status |
+|----------|----|-------------|--------|----------------------|--------|
+| ~~P0~~ | ~~TD-001~~ | ~~Add `zstandard` dependency~~ | ~~5 min~~ | None | ✅ Done |
+| ~~P0~~ | ~~TD-002~~ | ~~Fix path traversal in static file handlers~~ | ~~30 min~~ | None | ✅ Done |
+| ~~P0~~ | ~~TD-003~~ | ~~Add `asyncio.Lock` to global mutable state~~ | ~~1-2 hr~~ | None | ✅ Done |
+| ~~P1~~ | ~~TD-004~~ | ~~Implement optimistic locking for batch ops~~ | ~~2-3 hr~~ | None | ✅ Done |
+| P1 | TD-006 | Add rate limiting middleware | 1-2 hr | **Low** — exempt service traffic | |
+| P1 | TD-007 | Fix SSRF in proxy request | 1 hr | **HIGH** — test all proxy paths | |
+| P1 | TD-008 | Replace `Any` types with concrete schemas | 2-3 hr | **HIGH** — audit layout_data first | |
+| P1 | TD-010 | Centralize JS state management | 3-4 hr | None | |
+| P2 | TD-005 | Add pytest test suite for critical paths | 4-8 hr | None | |
+| P2 | TD-009 | Extract shared Python helpers | 2-3 hr | **Low** — preserve django_client calls | |
+| P2 | TD-011 | Consolidate collision detection | 2-3 hr | None | |
+| P2 | TD-012 | Split god objects into focused modules | 4-6 hr | None | |
+| P2 | TD-013 | Standardize API error responses | 1-2 hr | **Medium** — audit error parsing | |
+| P2 | TD-014 | Environment-based log levels | 30 min | None | |
+| P2 | TD-016 | Fix JS memory leaks | 2-3 hr | None | |
+| P2 | TD-017 | Promise-based WASM initialization | 1-2 hr | None | |
+| P2 | TD-018 | Fix SSE reconnection logic | 1 hr | None | |
+| P3 | TD-015 | Add snapshot Redis fallback | 1-2 hr | None | |
+| P3 | TD-019 | Add schema field validators | 1-2 hr | **Medium** — check frontend edit flows | |
+| P3 | TD-020 | Whitelist sort/filter fields | 1 hr | **Medium** — audit query usage | |
+| P3 | TD-021 | Remove dead code | 1 hr | None | |
+| P3 | TD-022 | Standardize JS module patterns | 2-3 hr | None | |
+| P3 | TD-023 | Move magic numbers to config | 1-2 hr | None | |
+| P3 | TD-024 | Redact sensitive log data | 30 min | None | |
+| P3 | TD-025 | Accessibility improvements | 3-4 hr | None | |
