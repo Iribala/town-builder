@@ -7,6 +7,7 @@
  * - ACESFilmic tone mapping for better color and contrast
  */
 import * as THREE from '../three.module.js';
+import { setEnvMapTexture, getEnvMapTexture } from '../state/app-state.js';
 
 /**
  * Create an HDR-capable environment map with PMREM prefiltering
@@ -93,7 +94,7 @@ function createHDREnvironmentMap(renderer) {
         cubeTexture.dispose();
 
         // Store the prefiltered texture
-        window.__envMapTexture = envTexture;
+        setEnvMapTexture(envTexture);
     });
 
     return cubeTexture;
@@ -140,8 +141,9 @@ export function initScene(container) {
 
     // After environment loads, replace with prefiltered version
     setTimeout(() => {
-        if (window.__envMapTexture) {
-            scene.environment = window.__envMapTexture;
+        const envMapTexture = getEnvMapTexture();
+        if (envMapTexture) {
+            scene.environment = envMapTexture;
         }
     }, 100);
 

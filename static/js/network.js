@@ -3,7 +3,18 @@ import { apiFetch } from './api-error-handler.js';
 import { loadModel } from './models/loader.js';
 import { scene, placedObjects, movingCars } from './state/scene-state.js';
 import { updateCursor } from './collaborative-cursors.js';
-import { getMyName } from './state/app-state.js';
+import {
+    getMyName,
+    getToken,
+    setToken,
+    getBasePath,
+    setBasePath,
+    setCurrentTownId,
+    setCurrentTownName,
+    setCurrentTownDescription,
+    setCurrentTownLatitude,
+    setCurrentTownLongitude
+} from './state/app-state.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
 import { isPhysicsWasmReady, updateSpatialGrid } from './utils/physics_wasm.js';
 
@@ -14,8 +25,9 @@ import { isPhysicsWasmReady, updateSpatialGrid } from './utils/physics_wasm.js';
  */
 function authHeaders(extra = {}) {
     const headers = { ...extra };
-    if (window.__TOKEN) {
-        headers['Authorization'] = `Bearer ${window.__TOKEN}`;
+    const token = getToken();
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
 }
@@ -26,10 +38,11 @@ export function setupSSE() {
     const maxDelay = 30000;
     return new Promise((resolve, reject) => {
         function connect(isInitial = false) {
-            let sseUrl = (window.__BASE_PATH || '') + '/events?name=' + encodeURIComponent(getMyName());
+            let sseUrl = (getBasePath() || '') + '/events?name=' + encodeURIComponent(getMyName());
             // EventSource doesn't support custom headers, so pass token as query param
-            if (window.__TOKEN) {
-                sseUrl += '&token=' + encodeURIComponent(window.__TOKEN);
+            const token = getToken();
+            if (token) {
+                sseUrl += '&token=' + encodeURIComponent(token);
             }
             const evtSource = new EventSource(sseUrl);
             evtSource.onopen = () => {
@@ -135,7 +148,7 @@ async function loadTownData(townData) {
 export async function saveSceneToServer(payloadFromUI) { // Argument changed
     // The payloadFromUI is now expected to be fully formed by ui.js
     // No re-wrapping needed here.
-    const response = await apiFetch((window.__BASE_PATH || '') + '/api/town/save', {
+    const response = await apiFetch((getBasePath() || '') + '/api/town/save', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payloadFromUI)
@@ -143,13 +156,13 @@ export async function saveSceneToServer(payloadFromUI) { // Argument changed
     const result = await response.json();
     // Persist returned town_id for future updates
     if (result.town_id) {
-        window.currentTownId = result.town_id;
+        setCurrentTownId(result.town_id);
     }
     return result;
 }
 
 export async function loadSceneFromServer() {
-    const response = await apiFetch((window.__BASE_PATH || '') + '/api/town/load', {
+    const response = await apiFetch((getBasePath() || '') + '/api/town/load', {
         method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ filename: 'town_data.json' })
@@ -158,18 +171,18 @@ export async function loadSceneFromServer() {
 }
 
 export async function loadTownFromDjango(townId) {
-    const response = await apiFetch(`${window.__BASE_PATH || ''}/api/town/load-from-django/${townId}`, {
+    const response = await apiFetch(`${getBasePath() || ''}/api/town/load-from-django/${townId}`, {
         method: 'GET',
         headers: authHeaders({ 'Content-Type': 'application/json' })
     });
     const result = await response.json();
     // Update current town info
     if (result.town_info) {
-        window.currentTownId = result.town_info.id;
-        window.currentTownName = result.town_info.name;
-        window.currentTownDescription = result.town_info.description;
-        window.currentTownLatitude = result.town_info.latitude;
-        window.currentTownLongitude = result.town_info.longitude;
+        setCurrentTownId(result.town_info.id);
+        setCurrentTownName(result.town_info.name);
+        setCurrentTownDescription(result.town_info.description);
+        setCurrentTownLatitude(result.town_info.latitude);
+        setCurrentTownLongitude(result.town_info.longitude);
     }
     return result;
 }
@@ -184,7 +197,7 @@ export async function sendCursorUpdate(username, position, cameraPosition) {
     try {
         // username is intentionally omitted: the server derives it from the
         // authenticated JWT token (see app/routes/cursor.py).
-        await fetch((window.__BASE_PATH || '') + '/api/cursor/update', {
+        await fetch((getBasePath() || '') + '/api/cursor/update', {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify({

@@ -8,7 +8,19 @@ import {
     setSelectedObject,
     getDrivingCar,
     setDrivingCar,
-    setPendingPlacementModelDetails
+    setPendingPlacementModelDetails,
+    getCurrentTownId,
+    getCurrentTownName,
+    getCurrentTownDescription,
+    getCurrentTownLatitude,
+    getCurrentTownLongitude,
+    getCurrentTownPopulation,
+    getCurrentTownArea,
+    getCurrentTownEstablishedDate,
+    getCurrentTownPlaceType,
+    getCurrentTownFullAddress,
+    getCurrentTownImage,
+    setCurrentTownName
 } from './state/app-state.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
 
@@ -446,20 +458,20 @@ async function onSaveScene() {
         // Construct the payload for app.py, including all relevant Django fields
         const payloadForAppPy = {
             data: sceneDataArray, // For layout_data
-            town_id: window.currentTownId || null,
+            town_id: getCurrentTownId() || null,
             townName: currentTownName, // For Django's 'name' field, or search by name
 
             // Add other Django fields. Assumes these are available in global scope or UI.
             // If not available, they will be sent as null.
-            latitude: window.currentTownLatitude || null,
-            longitude: window.currentTownLongitude || null,
-            description: window.currentTownDescription || null,
-            population: window.currentTownPopulation || null,
-            area: window.currentTownArea || null,
-            established_date: window.currentTownEstablishedDate || null, // Expected format "YYYY-MM-DD"
-            place_type: window.currentTownPlaceType || null,
-            full_address: window.currentTownFullAddress || null,
-            town_image: window.currentTownImage || null, // Expected as URL string or similar
+            latitude: getCurrentTownLatitude() || null,
+            longitude: getCurrentTownLongitude() || null,
+            description: getCurrentTownDescription() || null,
+            population: getCurrentTownPopulation() || null,
+            area: getCurrentTownArea() || null,
+            established_date: getCurrentTownEstablishedDate() || null, // Expected format "YYYY-MM-DD"
+            place_type: getCurrentTownPlaceType() || null,
+            full_address: getCurrentTownFullAddress() || null,
+            town_image: getCurrentTownImage() || null, // Expected as URL string or similar
         };
         
         // filename is optional for local save in app.py, can be added if needed:
@@ -505,7 +517,7 @@ async function onLoadScene() {
 async function onTownNameChange() {
     const input = document.getElementById('town-name-input');
     const newName = input.value.trim() || 'Unnamed Town';
-    window.currentTownName = newName;
+    setCurrentTownName(newName);
     // Update display
     const display = document.getElementById('town-name-display');
     if (display) {

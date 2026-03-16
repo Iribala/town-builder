@@ -11,9 +11,10 @@ import { GLTFLoader } from '../three/examples/jsm/loaders/GLTFLoader.js';
 import { updateBoundingBox } from './collision.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from '../utils/physics_wasm.js';
 import { LRUCache, BloomFilter } from '../utils/data_structures.js';
+import { getBasePath } from '../state/app-state.js';
 
 // Configuration constants
-const MODELS_BASE_URL = (window.__BASE_PATH || '') + '/static/models';
+const MODELS_BASE_URL = (getBasePath() || '') + '/static/models';
 const MODEL_CACHE_SIZE = 50; // Maximum number of models to cache
 const MODEL_EXISTS_BLOOM_SIZE = 200; // Expected number of existing models
 const MODEL_NOT_FOUND_BLOOM_SIZE = 100; // Expected number of 404 models

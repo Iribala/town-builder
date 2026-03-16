@@ -28,6 +28,12 @@ import {
     setPlacementIndicator
 } from './state/scene-state.js';
 import {
+    setDeltaTime,
+    setElapsedTime,
+    getDeltaTime,
+    getElapsedTime
+} from './state/app-state.js';
+import {
     getMyName,
     getSelectedObject,
     setSelectedObject,
@@ -350,9 +356,9 @@ export async function animate() {
     const deltaTime = timer.getDelta();
     const elapsedTime = timer.getElapsed();
 
-    // Export timing info for physics updates
-    window.deltaTime = deltaTime;
-    window.elapsedTime = elapsedTime;
+    // Update centralized timing state
+    setDeltaTime(deltaTime);
+    setElapsedTime(elapsedTime);
 
     // Update keyboard controls (for driving)
     updateControls();

@@ -6,7 +6,12 @@ import { showNotification, initUI } from './ui.js';
 import { initPhysicsWasm } from './utils/physics_wasm.js';
 import { applyCategoryStatuses, createStatusLegend } from './category_status.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
-import { setMyName } from './state/app-state.js';
+import {
+    setMyName,
+    setWasmReady,
+    isWasmReady,
+    getCurrentTownId
+} from './state/app-state.js';
 // Mobile modules
 import { isMobile } from './utils/device-detect.js';
 import mobileUI from './mobile/mobile-ui.js';
@@ -20,11 +25,13 @@ async function waitForWasm() {
     for (let i = 0; i < 50; i++) {
         if (typeof window.wasmUpdateSpatialGrid === 'function') {
             await initPhysicsWasm();
+            setWasmReady(true);
             return true;
         }
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     console.warn("WASM module did not load in time, continuing without WASM optimization");
+    setWasmReady(false);
     return false;
 }
 
@@ -85,10 +92,11 @@ async function init() {
     // Joystick will be initialized when entering drive mode (see ui.js)
 
     // Auto-load town data if town_id is present
-    if (window.currentTownId) {
-        console.log(`Auto-loading town ${window.currentTownId} from Django...`);
+    const currentTownId = getCurrentTownId();
+    if (currentTownId) {
+        console.log(`Auto-loading town ${currentTownId} from Django...`);
         try {
-            const result = await loadTownFromDjango(window.currentTownId);
+            const result = await loadTownFromDjango(currentTownId);
             console.log("Town loaded:", result);
 
             // Update town name display

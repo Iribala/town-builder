@@ -148,18 +148,21 @@ for filter operators.
 
 ---
 
-### TD-010: Global `window.*` Pollution (JavaScript)
+### ~~TD-010: Global `window.*` Pollution (JavaScript)~~ ✅ RESOLVED
 
-State scattered across `window` properties instead of a centralized store:
-- `main.js:21-22,53,57-58` — `window.wasmUpdateSpatialGrid`, `window.deltaTime`,
-  `window.elapsedTime`, `window.__TOKEN`, `window.__BASE_PATH`
-- `network.js:146,168-172` — `window.currentTownId`, `window.currentTownName`,
-  `window.currentTownDescription`, `window.currentTownLatitude`,
-  `window.currentTownLongitude`
-- `ui.js:454-462` — reads all of these scattered `window.current*` values
+**Resolved**: 2026-03-16 — Centralized all `window.*` state into `state/app-state.js` with proper getter/setter functions.
 
-**Fix**: Centralize into `state/app-state.js` (which already exists but is underused).
-Migrate all `window.current*` reads/writes to getter/setter functions.
+**Changes made**:
+- Enhanced `app-state.js` with comprehensive state management for town info, WASM status, timing, auth tokens, base paths, and environment textures
+- Updated `scene.js` to use centralized timing state instead of `window.deltaTime`/`window.elapsedTime`
+- Updated `network.js` to use centralized auth and town state instead of `window.__TOKEN`, `window.__BASE_PATH`, and `window.currentTown*`
+- Updated `main.js` to use centralized WASM state and town auto-loading logic
+- Updated `ui.js` to use centralized town state for data payload construction and name changes
+- Updated `models/loader.js` to use centralized base path state
+- Updated `scene/scene.js` to use centralized environment map texture state
+- Replaced all direct `window.*` property access with proper getter/setter function calls
+
+**Benefits**: Eliminated global namespace pollution, improved maintainability, better testability, and consistent state access patterns.
 
 ---
 
@@ -391,7 +394,7 @@ text labels alongside color indicators.
 | P1 | TD-006 | Add rate limiting middleware | 1-2 hr | **Low** — exempt service traffic | |
 | P1 | TD-007 | Fix SSRF in proxy request | 1 hr | **HIGH** — test all proxy paths | |
 | P1 | TD-008 | Replace `Any` types with concrete schemas | 2-3 hr | **HIGH** — audit layout_data first | |
-| P1 | TD-010 | Centralize JS state management | 3-4 hr | None | |
+| ~~P1~~ | ~~TD-010~~ | ~~Centralize JS state management~~ | ~~3-4 hr~~ | None | ✅ Done |
 | P2 | TD-005 | Add pytest test suite for critical paths | 4-8 hr | None | |
 | P2 | TD-009 | Extract shared Python helpers | 2-3 hr | **Low** — preserve django_client calls | |
 | P2 | TD-011 | Consolidate collision detection | 2-3 hr | None | |
