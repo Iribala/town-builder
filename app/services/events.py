@@ -11,6 +11,7 @@ from app.services.storage import get_redis_client, get_town_data
 logger = logging.getLogger(__name__)
 
 _connected_users: dict[str, float] = {}
+_users_lock = asyncio.Lock()
 
 
 async def broadcast_sse(data: dict) -> None:
@@ -24,14 +25,20 @@ async def broadcast_sse(data: dict) -> None:
         logger.warning(f"Failed to broadcast SSE event (Redis unavailable): {e}")
 
 
-def get_online_users() -> list[str]:
-    """Get list of currently online user names."""
+def _cleanup_and_get_users() -> list[str]:
+    """Get list of currently online user names (must be called with _users_lock held)."""
     now = time.time()
     to_remove = [name for name, ts in _connected_users.items() if now - ts > 30]
     for name in to_remove:
         if name in _connected_users:
             del _connected_users[name]
     return list(_connected_users.keys())
+
+
+async def get_online_users() -> list[str]:
+    """Get list of currently online user names."""
+    async with _users_lock:
+        return _cleanup_and_get_users()
 
 
 async def event_stream(player_name: str | None = None):
@@ -52,13 +59,16 @@ async def event_stream(player_name: str | None = None):
     logger.info(f"Subscribed to Redis channel: {settings.pubsub_channel}")
 
     if player_name:
-        _connected_users[player_name] = time.time()
-        await broadcast_sse({"type": "users", "users": get_online_users()})
+        async with _users_lock:
+            _connected_users[player_name] = time.time()
+            users = _cleanup_and_get_users()
+        await broadcast_sse({"type": "users", "users": users})
 
     try:
         initial_town_data = await get_town_data()
         yield f"data: {json.dumps({'type': 'full', 'town': initial_town_data})}\n\n"
-        yield f"data: {json.dumps({'type': 'users', 'users': get_online_users()})}\n\n"
+        users = await get_online_users()
+        yield f"data: {json.dumps({'type': 'users', 'users': users})}\n\n"
 
         last_keepalive = time.time()
         while True:
@@ -73,21 +83,26 @@ async def event_stream(player_name: str | None = None):
                     yield f"data: {data}\n\n"
 
                 if player_name and time.time() - last_keepalive > 10:
-                    _connected_users[player_name] = time.time()
+                    async with _users_lock:
+                        _connected_users[player_name] = time.time()
                     last_keepalive = time.time()
 
             except asyncio.TimeoutError:
                 if player_name:
-                    _connected_users[player_name] = time.time()
-                    await broadcast_sse({"type": "users", "users": get_online_users()})
+                    async with _users_lock:
+                        _connected_users[player_name] = time.time()
+                        users = _cleanup_and_get_users()
+                    await broadcast_sse({"type": "users", "users": users})
                 yield ": keepalive\n\n"
                 last_keepalive = time.time()
 
     except asyncio.CancelledError:
         logger.info(f"SSE client {player_name or 'Unknown'} disconnected.")
-        if player_name and player_name in _connected_users:
-            del _connected_users[player_name]
-            await broadcast_sse({"type": "users", "users": get_online_users()})
+        if player_name:
+            async with _users_lock:
+                _connected_users.pop(player_name, None)
+                users = _cleanup_and_get_users()
+            await broadcast_sse({"type": "users", "users": users})
         raise
     finally:
         await pubsub.unsubscribe(settings.pubsub_channel)

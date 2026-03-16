@@ -17,7 +17,12 @@ async def serve_js_files(file_path: str):
     Returns:
         FileResponse with application/javascript MIME type
     """
-    file_full_path = STATIC_DIR / "js" / file_path
+    base_dir = (STATIC_DIR / "js").resolve()
+    file_full_path = (base_dir / file_path).resolve()
+    try:
+        file_full_path.relative_to(base_dir)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid file path")
     if not file_full_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(file_full_path, media_type="application/javascript")
@@ -32,7 +37,12 @@ async def serve_wasm_files(file_path: str):
     Returns:
         FileResponse with appropriate MIME type
     """
-    file_full_path = STATIC_DIR / "wasm" / file_path
+    base_dir = (STATIC_DIR / "wasm").resolve()
+    file_full_path = (base_dir / file_path).resolve()
+    try:
+        file_full_path.relative_to(base_dir)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid file path")
     if not file_full_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
 

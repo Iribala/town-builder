@@ -1,5 +1,6 @@
 """Storage service for town data using Redis with in-memory fallback."""
 
+import asyncio
 import copy
 import json
 import logging
@@ -51,6 +52,7 @@ redis_client: Redis | None = None
 
 # In-memory town data storage (fallback)
 _town_data_storage = _create_default_town_data()
+_storage_lock = asyncio.Lock()
 
 
 async def initialize_redis() -> None:
@@ -92,7 +94,8 @@ async def get_town_data() -> TownData:
             logger.warning(f"Redis get failed, using in-memory storage: {e}")
 
     # Fallback to in-memory storage
-    return copy.deepcopy(_town_data_storage)
+    async with _storage_lock:
+        return copy.deepcopy(_town_data_storage)
 
 
 async def set_town_data(data: dict[str, Any]) -> None:
@@ -102,7 +105,8 @@ async def set_town_data(data: dict[str, Any]) -> None:
         data: Dictionary containing town data to store
     """
     global _town_data_storage
-    _town_data_storage = copy.deepcopy(data) if isinstance(data, dict) else data
+    async with _storage_lock:
+        _town_data_storage = copy.deepcopy(data) if isinstance(data, dict) else data
 
     if redis_client:
         try:
