@@ -166,15 +166,16 @@ for filter operators.
 
 ---
 
-### TD-011: Collision Detection Duplicated 3 Ways (JavaScript)
+### ~~TD-011: Collision Detection Duplicated 3 Ways (JavaScript)~~ ✅ RESOLVED
 
-Three independent implementations with slightly different logic:
-- `models/collision.js:19-37` — WASM fallback pattern
-- `controls.js:240-257` — embedded collision detection
-- `physics/car.js:65` — car collision logic
+**Resolved**: 2026-03-16 — Consolidated collision detection into `models/collision.js`.
 
-**Fix**: Consolidate into `models/collision.js` as the single source of truth. Other
-modules should import and call it.
+**Changes made**:
+- Updated `controls.js` to import and use `checkCollision()` from `collision.js`
+- Removed two duplicated O(n) collision detection loops in car physics code
+- Eliminated ~40 lines of duplicated code
+
+**Benefits**: Single source of truth for collision logic, improved maintainability.
 
 ---
 
@@ -244,40 +245,43 @@ fallback. Feature completely breaks without Redis.
 
 ---
 
-### TD-016: JavaScript Memory Leaks
+### ~~TD-016: JavaScript Memory Leaks~~ ✅ RESOLVED
 
-- `scene/scene.js:85-97` — Environment map texture assigned to `window.__envMapTexture`
-  and never disposed
-- `controls.js:235,302` — Creates new `THREE.Box3()` and `THREE.Vector3()` every frame in
-  collision detection instead of reusing
-- `collaborative-cursors.js:139-146` — Disposes geometry/material but doesn't remove
-  sprites from scene first
+**Resolved**: 2026-03-16 — Fixed three memory leak patterns.
 
-**Fix**: Hoist reusable Three.js objects to module scope. Dispose environment textures on
-scene teardown. Remove objects from scene before disposing.
+**Changes made**:
+- `controls.js`: Reuse `THREE.Box3` and `THREE.Vector3` instances instead of allocating new objects every frame in collision detection
+- `collaborative-cursors.js`: Remove cursor from scene before disposing geometry/material to prevent orphaned references
+- `scene/scene.js`: Add `disposeEnvironmentMap()` helper to properly clean up PMREM-generated environment textures on teardown
 
----
-
-### TD-017: WASM Initialization Race Conditions (JavaScript)
-
-- `main.js:18-29` — Polls 50 times with backoff; silently continues if WASM never loads
-- `scene.js:118-129` — Polls WASM with hardcoded 10s timeout
-- `scene/scene.js:142-146` — 100ms `setTimeout` for environment texture
-
-**Fix**: Replace polling with a Promise-based readiness signal. WASM loader should resolve
-a global promise that dependents can `await`.
+**Benefits**: Reduced garbage collection pressure, prevented texture memory leaks.
 
 ---
 
-### TD-018: SSE Reconnection Can Create Parallel Connections
+### ~~TD-017: WASM Initialization Race Conditions (JavaScript)~~ ✅ RESOLVED
 
-**Files**: `static/js/network.js:28-80`
+**Resolved**: 2026-03-16 — Replaced polling-based WASM readiness checks with Promise-based signal.
 
-Closure captures `retryDelay` and `evtSource`. Multiple reconnect attempts could create
-parallel connections without closing old ones.
+**Changes made**:
+- `utils/wasm.js`: Export `wasmReady` as a Promise that resolves when WASM loads
+- `main.js`: Await `wasmReady` Promise instead of polling 50 times
+- `scene.js`: Await `wasmReady` Promise for touch controls init instead of manual 10s timeout loop
 
-**Fix**: Track connection state explicitly. Close any existing `EventSource` before
-creating a new one. Add a `connecting` guard flag.
+**Benefits**: Eliminates race conditions, cleaner async/await pattern, proper error handling.
+
+---
+
+### ~~TD-018: SSE Reconnection Can Create Parallel Connections~~ ✅ RESOLVED
+
+**Resolved**: 2026-03-16 — Added explicit connection state tracking to prevent parallel EventSource connections.
+
+**Changes made**:
+- Track `currentEvtSource` reference to properly close old connections
+- Add `isConnecting` guard flag to prevent duplicate connection attempts
+- Reset connection state on open/error events
+- Close existing EventSource before creating new one on reconnect
+
+**Benefits**: Eliminates parallel SSE connections during reconnection, proper cleanup.
 
 ---
 
@@ -320,15 +324,17 @@ arbitrary strings.
 
 ## Low — Code Quality & Best Practices
 
-### TD-021: Dead/Unused Code
+### ~~TD-021: Dead/Unused Code~~ ✅ RESOLVED
 
-- `app/utils/normalization.py:43-76` — `denormalize_to_layout_list()` acknowledged unused
-  in its own docstring
-- `static/js/models/loader.js:331-363` — `preloadModel()` exported but never imported
-- `static/js/collaborative-cursors.js:191-193` — `getActiveCursorUsers()` never called
-- `static/js/category_status.js:258-274` — `removeStatusColor()` never called
+**Resolved**: 2026-03-16 — Removed four unused functions.
 
-**Fix**: Remove dead code or add `// TODO: integrate` markers if planned for future use.
+**Changes made**:
+- `app/utils/normalization.py`: Removed `denormalize_to_layout_list()` (acknowledged unused in docstring) and `_array_from_vec()` helper
+- `static/js/models/loader.js`: Removed `preloadModel()` function (exported but never imported)
+- `static/js/collaborative-cursors.js`: Removed `getActiveCursorUsers()` (never called)
+- `static/js/category_status.js`: Removed `removeStatusColor()` (never called)
+
+**Total**: 121 lines removed.
 
 ---
 
@@ -398,17 +404,17 @@ text labels alongside color indicators.
 | ~~P1~~ | ~~TD-010~~ | ~~Centralize JS state management~~ | ~~3-4 hr~~ | None | ✅ Done |
 | P2 | TD-005 | Add pytest test suite for critical paths | 4-8 hr | None | |
 | P2 | TD-009 | Extract shared Python helpers | 2-3 hr | **Low** — preserve django_client calls | |
-| P2 | TD-011 | Consolidate collision detection | 2-3 hr | None | |
+| ~~P2~~ | ~~TD-011~~ | ~~Consolidate collision detection~~ | ~~2-3 hr~~ | None | ✅ Done |
 | P2 | TD-012 | Split god objects into focused modules | 4-6 hr | None | |
 | P2 | TD-013 | Standardize API error responses | 1-2 hr | **Medium** — audit error parsing | |
 | ~~P2~~ | ~~TD-014~~ | ~~Environment-based log levels~~ | ~~30 min~~ | None | ✅ Done |
-| P2 | TD-016 | Fix JS memory leaks | 2-3 hr | None | |
-| P2 | TD-017 | Promise-based WASM initialization | 1-2 hr | None | |
-| P2 | TD-018 | Fix SSE reconnection logic | 1 hr | None | |
+| ~~P2~~ | ~~TD-016~~ | ~~Fix JS memory leaks~~ | ~~2-3 hr~~ | None | ✅ Done |
+| ~~P2~~ | ~~TD-017~~ | ~~Promise-based WASM initialization~~ | ~~1-2 hr~~ | None | ✅ Done |
+| ~~P2~~ | ~~TD-018~~ | ~~Fix SSE reconnection logic~~ | ~~1 hr~~ | None | ✅ Done |
 | P3 | TD-015 | Add snapshot Redis fallback | 1-2 hr | None | |
 | P3 | TD-019 | Add schema field validators | 1-2 hr | **Medium** — check frontend edit flows | |
 | P3 | TD-020 | Whitelist sort/filter fields | 1 hr | **Medium** — audit query usage | |
-| P3 | TD-021 | Remove dead code | 1 hr | None | |
+| ~~P3~~ | ~~TD-021~~ | ~~Remove dead code~~ | ~~1 hr~~ | None | ✅ Done |
 | P3 | TD-022 | Standardize JS module patterns | 2-3 hr | None | |
 | P3 | TD-023 | Move magic numbers to config | 1-2 hr | None | |
 | P3 | TD-024 | Redact sensitive log data | 30 min | None | |
