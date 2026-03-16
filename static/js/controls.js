@@ -1,8 +1,9 @@
 import { camera, renderer, placedObjects } from './state/scene-state.js';
-import * as THREE from './three.module.js'; // Added for Vector3 and Spherical
-import { showNotification, getCurrentMode } from './ui.js'; // Import showNotification and getCurrentMode
-import { getJoystickInput, isJoystickActive } from './joystick.js'; // Import joystick functions
+import * as THREE from './three.module.js';
+import { showNotification, getCurrentMode } from './ui.js';
+import { getJoystickInput } from './joystick.js';
 import { getDrivingCar, getSelectedObject } from './state/app-state.js';
+import { checkCollision, updateBoundingBox } from './models/collision.js';
 
 let keysPressed = {};
 let isRightMouseDown = false;
@@ -229,30 +230,25 @@ export function updateControls() {
                 newState.z - oldZ
             );
 
-            // Collision detection remains in JS
+            // Use centralized collision detection
             const potentialPosition = new THREE.Vector3(newState.x, car.position.y, newState.z);
             const potentialBoundingBox = new THREE.Box3().setFromObject(car);
             potentialBoundingBox.translate(attemptedMoveVector);
 
             let collisionDetected = false;
-            // Determine movement direction relative to car's current orientation
             const forwardDir = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion);
-            for (const otherObject of placedObjects) {
-                if (otherObject === car || (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_'))) continue;
-                if (!otherObject.userData.boundingBox) otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
-                if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
-                    // Only block forward motion; allow backing out
-                    if (attemptedMoveVector.dot(forwardDir) > 0) {
-                        collisionDetected = true;
-                        // Only show notification if cooldown expired
-                        if (car.userData.collisionCooldown === 0) {
-                            showNotification("Bonk!", "error");
-                            car.userData.collisionCooldown = 90; // ~1.5 seconds at 60 FPS
-                        }
-                        car.userData.velocity_x = 0;
-                        car.userData.velocity_z = 0;
+
+            if (checkCollision(potentialBoundingBox, placedObjects, car)) {
+                // Only block forward motion; allow backing out
+                if (attemptedMoveVector.dot(forwardDir) > 0) {
+                    collisionDetected = true;
+                    // Only show notification if cooldown expired
+                    if (car.userData.collisionCooldown === 0) {
+                        showNotification("Bonk!", "error");
+                        car.userData.collisionCooldown = 90;
                     }
-                    break;
+                    car.userData.velocity_x = 0;
+                    car.userData.velocity_z = 0;
                 }
             }
 
@@ -302,21 +298,14 @@ export function updateControls() {
                 const potentialBoundingBox = new THREE.Box3().setFromObject(car);
                 potentialBoundingBox.translate(attemptedMoveVector);
 
-                let collisionDetected = false;
-                for (const otherObject of placedObjects) {
-                    if (otherObject === car || (otherObject.userData.modelName && otherObject.userData.modelName.includes('road_'))) continue;
-                    if (!otherObject.userData.boundingBox) otherObject.userData.boundingBox = new THREE.Box3().setFromObject(otherObject);
-                    if (potentialBoundingBox.intersectsBox(otherObject.userData.boundingBox)) {
-                        collisionDetected = true;
-                        // Only show notification if cooldown expired
-                        if (car.userData.collisionCooldown === 0) {
-                            showNotification("Bonk!", "error");
-                            car.userData.collisionCooldown = 90; // ~1.5 seconds at 60 FPS
-                        }
-                        car.userData.velocity.set(0, 0, 0); // Stop the car
-                        break;
-                    }
+                let collisionDetected = checkCollision(potentialBoundingBox, placedObjects, car);
+
+                if (collisionDetected && car.userData.collisionCooldown === 0) {
+                    showNotification("Bonk!", "error");
+                    car.userData.collisionCooldown = 90;
+                    car.userData.velocity.set(0, 0, 0);
                 }
+
                 if (!collisionDetected) {
                     car.position.copy(potentialPosition);
                 }
