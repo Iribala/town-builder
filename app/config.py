@@ -48,6 +48,15 @@ class Settings(BaseSettings):
     # Root path for reverse proxy deployments (e.g., /town-builder)
     root_path: str = os.getenv("ROOT_PATH", "")
 
+    # Timeouts and intervals (seconds)
+    sse_timeout: float = 10.0
+    sse_keepalive_interval: float = 10.0
+    user_activity_timeout: float = 30.0
+
+    # History and snapshot limits
+    max_history_size: int = 100
+    max_snapshots: int = 50
+
     # Allowed origins for CORS (comma-separated)
     allowed_origins: str = os.getenv(
         "ALLOWED_ORIGINS",

@@ -28,7 +28,11 @@ async def broadcast_sse(data: dict) -> None:
 def _cleanup_and_get_users() -> list[str]:
     """Get list of currently online user names (must be called with _users_lock held)."""
     now = time.time()
-    to_remove = [name for name, ts in _connected_users.items() if now - ts > 30]
+    to_remove = [
+        name
+        for name, ts in _connected_users.items()
+        if now - ts > settings.user_activity_timeout
+    ]
     for name in to_remove:
         if name in _connected_users:
             del _connected_users[name]
@@ -74,7 +78,8 @@ async def event_stream(player_name: str | None = None):
         while True:
             try:
                 message = await asyncio.wait_for(
-                    pubsub.get_message(ignore_subscribe_messages=True), timeout=10.0
+                    pubsub.get_message(ignore_subscribe_messages=True),
+                    timeout=settings.sse_timeout,
                 )
 
                 if message and message["type"] == "message":
@@ -82,7 +87,10 @@ async def event_stream(player_name: str | None = None):
                         data = data.decode("utf-8")
                     yield f"data: {data}\n\n"
 
-                if player_name and time.time() - last_keepalive > 10:
+                if (
+                    player_name
+                    and time.time() - last_keepalive > settings.sse_keepalive_interval
+                ):
                     async with _users_lock:
                         _connected_users[player_name] = time.time()
                     last_keepalive = time.time()

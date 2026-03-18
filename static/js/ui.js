@@ -222,7 +222,7 @@ export function showNotification(message, type = 'info') {
     const toast = document.createElement('div');
     toast.className = 'toast align-items-center border-0';
     toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
     toast.setAttribute('aria-atomic', 'true');
 
     // Set color based on type using Bootstrap classes

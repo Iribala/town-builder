@@ -253,6 +253,7 @@ export function applyCategoryStatuses(categoryStatuses, placedObjects) {
 
 /**
  * Create a visual legend/dashboard for category statuses
+ * Includes accessibility support with text labels and ARIA attributes
  * @param {Array<Object>} categoryStatuses - Array of category status objects
  * @returns {HTMLElement} DOM element containing the legend
  */
@@ -260,6 +261,8 @@ export function createStatusLegend(categoryStatuses) {
     const legend = document.createElement('div');
     legend.id = 'category-status-legend';
     legend.className = 'card shadow-sm';
+    legend.setAttribute('role', 'region');
+    legend.setAttribute('aria-label', 'Town Category Status');
     legend.style.cssText = `
         position: fixed;
         top: 50%;
@@ -279,8 +282,19 @@ export function createStatusLegend(categoryStatuses) {
     title.style.cssText = 'margin: 0 0 10px 0; font-size: 14px; padding-bottom: 5px; border-bottom: 1px solid var(--bs-border-color);';
     cardBody.appendChild(title);
 
+    // Add legend key with color names
+    const keyHeader = document.createElement('div');
+    keyHeader.style.cssText = 'margin-bottom: 10px; font-size: 11px; color: #666;';
+    keyHeader.innerHTML = '<strong>Status levels:</strong> ' + Object.values(STATUS_NAMES).join(' • ');
+    cardBody.appendChild(keyHeader);
+
+    const statusList = document.createElement('ul');
+    statusList.setAttribute('role', 'list');
+    statusList.style.cssText = 'list-style: none; padding: 0; margin: 0;';
+
     categoryStatuses.forEach(status => {
-        const item = document.createElement('div');
+        const item = document.createElement('li');
+        item.setAttribute('role', 'listitem');
         item.style.cssText = 'margin: 5px 0; display: flex; align-items: center;';
 
         const colorBox = document.createElement('span');
@@ -292,14 +306,27 @@ export function createStatusLegend(categoryStatuses) {
             margin-right: 8px;
             border: 1px solid var(--bs-border-color);
         `;
+        colorBox.setAttribute('aria-hidden', 'true'); // Hide decorative element from screen readers
 
         const text = document.createElement('span');
-        text.textContent = `${status.category_name}: ${getStatusName(status.status_level)}`;
+        const statusName = getStatusName(status.status_level);
+        text.textContent = `${status.category_name}: ${statusName}`;
+        text.setAttribute('aria-label', `${status.category_name}, status: ${statusName}`);
 
         item.appendChild(colorBox);
         item.appendChild(text);
-        cardBody.appendChild(item);
+        statusList.appendChild(item);
     });
+
+    cardBody.appendChild(statusList);
+
+    // Add screen reader only summary
+    const srSummary = document.createElement('div');
+    srSummary.setAttribute('role', 'status');
+    srSummary.setAttribute('aria-live', 'polite');
+    srSummary.style.cssText = 'position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;';
+    srSummary.textContent = `Town category status legend showing ${categoryStatuses.length} categories`;
+    cardBody.appendChild(srSummary);
 
     legend.appendChild(cardBody);
     return legend;

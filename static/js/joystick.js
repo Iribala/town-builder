@@ -27,6 +27,8 @@ export function cleanupJoystick() {
     joystickBase.removeEventListener('mousedown', handleJoystickMouseDown);
     document.removeEventListener('mousemove', handleJoystickMouseMove);
     document.removeEventListener('mouseup', handleJoystickMouseUp);
+    document.removeEventListener('keydown', handleJoystickKeyDown);
+    document.removeEventListener('keyup', handleJoystickKeyUp);
 
     isInitialized = false;
 }
@@ -61,6 +63,18 @@ export function initJoystick() {
     joystickBase.addEventListener('mousedown', handleJoystickMouseDown);
     document.addEventListener('mousemove', handleJoystickMouseMove);
     document.addEventListener('mouseup', handleJoystickMouseUp);
+
+    // Add keyboard accessibility (WASD/Arrow keys)
+    document.addEventListener('keydown', handleJoystickKeyDown);
+    document.addEventListener('keyup', handleJoystickKeyUp);
+
+    // Add ARIA attributes for accessibility
+    joystickBase.setAttribute('role', 'slider');
+    joystickBase.setAttribute('aria-label', 'Driving controls - use WASD or arrow keys');
+    joystickBase.setAttribute('aria-valuemin', '-1');
+    joystickBase.setAttribute('aria-valuemax', '1');
+    joystickBase.setAttribute('aria-valuenow', '0');
+    joystickBase.setAttribute('tabindex', '0');
 
     isInitialized = true;
     console.log('Joystick initialized');
@@ -102,6 +116,98 @@ function handleJoystickMouseMove(event) {
 function handleJoystickMouseUp(event) {
     joystickActive = false;
     resetJoystickPosition();
+}
+
+// Keyboard event handlers for accessibility
+function handleJoystickKeyDown(event) {
+    if (!joystickBase) return;
+
+    const key = event.key.toLowerCase();
+    let handled = false;
+
+    switch (key) {
+        case 'w':
+        case 'arrowup':
+            joystickInput.forward = 1;
+            joystickInput.backward = 0;
+            handled = true;
+            break;
+        case 's':
+        case 'arrowdown':
+            joystickInput.forward = 0;
+            joystickInput.backward = 1;
+            handled = true;
+            break;
+        case 'a':
+        case 'arrowleft':
+            joystickInput.left = 1;
+            joystickInput.right = 0;
+            handled = true;
+            break;
+        case 'd':
+        case 'arrowright':
+            joystickInput.left = 0;
+            joystickInput.right = 1;
+            handled = true;
+            break;
+    }
+
+    if (handled) {
+        event.preventDefault();
+        joystickActive = true;
+        updateJoystickAriaValues();
+    }
+}
+
+function handleJoystickKeyUp(event) {
+    if (!joystickBase) return;
+
+    const key = event.key.toLowerCase();
+    let handled = false;
+
+    switch (key) {
+        case 'w':
+        case 'arrowup':
+            joystickInput.forward = 0;
+            handled = true;
+            break;
+        case 's':
+        case 'arrowdown':
+            joystickInput.backward = 0;
+            handled = true;
+            break;
+        case 'a':
+        case 'arrowleft':
+            joystickInput.left = 0;
+            handled = true;
+            break;
+        case 'd':
+        case 'arrowright':
+            joystickInput.right = 0;
+            handled = true;
+            break;
+    }
+
+    if (handled) {
+        event.preventDefault();
+        // Check if all inputs are released
+        if (joystickInput.forward === 0 && joystickInput.backward === 0 &&
+            joystickInput.left === 0 && joystickInput.right === 0) {
+            joystickActive = false;
+        }
+        updateJoystickAriaValues();
+    }
+}
+
+function updateJoystickAriaValues() {
+    if (!joystickBase) return;
+
+    // Calculate normalized values for ARIA
+    const forwardBack = joystickInput.forward - joystickInput.backward;
+    const leftRight = joystickInput.right - joystickInput.left;
+
+    joystickBase.setAttribute('aria-valuenow', forwardBack.toFixed(2));
+    joystickBase.setAttribute('aria-valuetext', `Forward/Back: ${forwardBack.toFixed(2)}, Left/Right: ${leftRight.toFixed(2)}`);
 }
 
 function updateJoystickPosition(touch) {
@@ -163,6 +269,9 @@ function resetJoystickPosition() {
     joystickInput.backward = 0;
     joystickInput.left = 0;
     joystickInput.right = 0;
+
+    // Reset ARIA values
+    updateJoystickAriaValues();
 }
 
 // Get current joystick input state

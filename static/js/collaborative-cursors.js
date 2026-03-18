@@ -1,10 +1,14 @@
 /**
  * Collaborative Cursors - Show other users' cursor positions in 3D space
+ * Includes screen reader support for accessibility
  */
 import * as THREE from './three.module.js';
 
 // Store active cursors: {username: cursorObject}
 const activeCursors = new Map();
+
+// Screen reader announcement element
+let srAnnounceElement = null;
 
 // Color palette for different users (bright, distinguishable colors)
 const userColors = [
@@ -99,6 +103,38 @@ function getUserColor(username) {
 }
 
 /**
+ * Create screen reader announcement element
+ * @returns {HTMLElement} The aria-live element for cursor announcements
+ */
+function getOrCreateSrAnnounceElement() {
+    if (srAnnounceElement) return srAnnounceElement;
+
+    srAnnounceElement = document.createElement('div');
+    srAnnounceElement.setAttribute('aria-live', 'polite');
+    srAnnounceElement.setAttribute('aria-atomic', 'true');
+    srAnnounceElement.style.position = 'absolute';
+    srAnnounceElement.style.left = '-10000px';
+    srAnnounceElement.style.width = '1px';
+    srAnnounceElement.style.height = '1px';
+    srAnnounceElement.style.overflow = 'hidden';
+    document.body.appendChild(srAnnounceElement);
+
+    return srAnnounceElement;
+}
+
+/**
+ * Announce cursor activity to screen readers
+ * @param {string} username - User's name
+ * @param {string} action - Description of the action
+ */
+function announceCursorActivity(username, action) {
+    const announcer = getOrCreateSrAnnounceElement();
+    if (announcer) {
+        announcer.textContent = `${username} ${action}`;
+    }
+}
+
+/**
  * Update or create a cursor for a user
  * @param {THREE.Scene} scene - Three.js scene
  * @param {string} username - User's name
@@ -114,6 +150,7 @@ export function updateCursor(scene, username, position, cameraPosition) {
         cursor = createCursorIndicator(username, color);
         activeCursors.set(username, cursor);
         scene.add(cursor);
+        announceCursorActivity(username, 'has joined the scene');
     }
     
     // Update cursor position
@@ -141,9 +178,10 @@ export function removeCursor(scene, username) {
                 obj.material.dispose();
             }
         });
-        
+
         scene.remove(cursor);
         activeCursors.delete(username);
+        announceCursorActivity(username, 'has left the scene');
     }
 }
 

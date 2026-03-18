@@ -1,4 +1,5 @@
 """Snapshot service for town versioning and save points."""
+
 import json
 import logging
 import time
@@ -11,8 +12,9 @@ from app.services.storage import get_redis_client
 
 logger = logging.getLogger(__name__)
 
-# Max snapshots to keep per town
-MAX_SNAPSHOTS = 50
+# Max snapshots to keep per town (from settings)
+MAX_SNAPSHOTS = settings.max_snapshots
+
 
 class SnapshotManager:
     """Manages town snapshots for versioning and save points."""
@@ -25,7 +27,7 @@ class SnapshotManager:
         self,
         town_data: dict[str, Any],
         name: str | None = None,
-        description: str | None = None
+        description: str | None = None,
     ) -> str:
         """Create a new snapshot.
 
@@ -43,7 +45,15 @@ class SnapshotManager:
         # Count total objects
         size = sum(
             len(town_data.get(category, []))
-            for category in ["buildings", "terrain", "roads", "props", "vehicles", "trees", "park"]
+            for category in [
+                "buildings",
+                "terrain",
+                "roads",
+                "props",
+                "vehicles",
+                "trees",
+                "park",
+            ]
         )
 
         # Snapshot metadata
@@ -52,7 +62,7 @@ class SnapshotManager:
             "name": name or f"Snapshot {time.strftime('%Y-%m-%d %H:%M:%S')}",
             "description": description,
             "timestamp": timestamp,
-            "size": size
+            "size": size,
         }
 
         redis_client = get_redis_client()
@@ -207,6 +217,7 @@ class SnapshotManager:
         except Exception as e:
             logger.error(f"Failed to get snapshot metadata {snapshot_id}: {e}")
             return None
+
 
 # Global snapshot manager instance
 snapshot_manager = SnapshotManager()

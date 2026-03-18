@@ -282,13 +282,19 @@ async def proxy_request(
                     url, headers=headers, params=params, timeout=10.0
                 )
             case "POST":
-                logger.debug(f"POST data: {str(data)[:200] if data else 'None'}...")
+                logger.debug(
+                    f"POST request to {url} with payload keys: {list(data.keys()) if data else 'None'}"
+                )
                 return await client.post(url, headers=headers, json=data, timeout=10.0)
             case "PUT":
-                logger.debug(f"PUT data: {str(data)[:200] if data else 'None'}...")
+                logger.debug(
+                    f"PUT request to {url} with payload keys: {list(data.keys()) if data else 'None'}"
+                )
                 return await client.put(url, headers=headers, json=data, timeout=10.0)
             case "PATCH":
-                logger.debug(f"PATCH data: {str(data)[:200] if data else 'None'}...")
+                logger.debug(
+                    f"PATCH request to {url} with payload keys: {list(data.keys()) if data else 'None'}"
+                )
                 return await client.patch(url, headers=headers, json=data, timeout=10.0)
             case "DELETE":
                 return await client.delete(url, headers=headers, timeout=10.0)

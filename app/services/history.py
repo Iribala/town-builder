@@ -1,4 +1,5 @@
 """History service for undo/redo functionality."""
+
 import asyncio
 import json
 import logging
@@ -12,13 +13,14 @@ from app.services.storage import get_redis_client
 
 logger = logging.getLogger(__name__)
 
-# Max history entries to keep
-MAX_HISTORY_SIZE = 100
+# Max history entries to keep (from settings)
+MAX_HISTORY_SIZE = settings.max_history_size
 
 # In-memory history storage (fallback)
 _history_stack = deque(maxlen=MAX_HISTORY_SIZE)
 _redo_stack = deque(maxlen=MAX_HISTORY_SIZE)
 _history_lock = asyncio.Lock()
+
 
 class HistoryManager:
     """Manages operation history for undo/redo functionality."""
@@ -34,7 +36,7 @@ class HistoryManager:
         category: str | None = None,
         object_id: str | None = None,
         before_state: dict[str, Any] | None = None,
-        after_state: dict[str, Any] | None = None
+        after_state: dict[str, Any] | None = None,
     ) -> str:
         """Add a new history entry.
 
@@ -56,7 +58,7 @@ class HistoryManager:
             "category": category,
             "object_id": object_id,
             "before_state": before_state,
-            "after_state": after_state
+            "after_state": after_state,
         }
 
         redis_client = get_redis_client()
@@ -74,7 +76,9 @@ class HistoryManager:
                 await redis_client.delete(self.redo_key)
 
             except Exception as e:
-                logger.warning(f"Redis history add failed, using in-memory storage: {e}")
+                logger.warning(
+                    f"Redis history add failed, using in-memory storage: {e}"
+                )
                 async with _history_lock:
                     _history_stack.append(entry)
                     _redo_stack.clear()
@@ -105,7 +109,9 @@ class HistoryManager:
                 return history
 
             except Exception as e:
-                logger.warning(f"Redis history get failed, using in-memory storage: {e}")
+                logger.warning(
+                    f"Redis history get failed, using in-memory storage: {e}"
+                )
 
         async with _history_lock:
             return list(reversed(list(_history_stack)[:limit]))
@@ -240,6 +246,7 @@ class HistoryManager:
             _history_stack.clear()
             _redo_stack.clear()
         logger.info("History cleared")
+
 
 # Global history manager instance
 history_manager = HistoryManager()
