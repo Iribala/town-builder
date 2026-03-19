@@ -3,8 +3,8 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-from authlib.jose import jwt
-from authlib.jose.errors import JoseError
+import jwt
+from jwt.exceptions import InvalidTokenError
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -31,15 +31,16 @@ def verify_token_string(token: str) -> dict[str, Any]:
         HTTPException: If token is invalid or missing required fields
     """
     try:
-        claims = jwt.decode(token, settings.jwt_secret_key)
-        claims.validate()
-
-        payload = dict(claims)
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
         username: str = payload.get("username") or payload.get("sub")
         if username is None:
             raise HTTPException(status_code=401, detail="Invalid authentication credentials")
         return {"username": username, "payload": payload}
-    except JoseError:
+    except InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid authentication credentials")
 
 
@@ -96,19 +97,14 @@ def create_access_token(username: str, expires_hours: int = 24) -> dict[str, Any
     if settings.environment.lower() == 'production':
         raise HTTPException(status_code=404, detail="Not found")
 
-    # Create JWT header with algorithm
-    header = {"alg": settings.jwt_algorithm}
-
-    # Create token payload with expiration
     expire = datetime.utcnow() + timedelta(hours=expires_hours)
     payload = {"sub": username, "exp": expire}
 
-    # Encode and sign the JWT
-    encoded_jwt = jwt.encode(header, payload, settings.jwt_secret_key)
-
-    # authlib returns bytes, decode to string
-    if isinstance(encoded_jwt, bytes):
-        encoded_jwt = encoded_jwt.decode('utf-8')
+    encoded_jwt = jwt.encode(
+        payload,
+        settings.jwt_secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
 
     return {
         "access_token": encoded_jwt,
