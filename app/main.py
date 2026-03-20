@@ -3,9 +3,11 @@ import logging
 import mimetypes
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
 from app.routes import ui, auth, models, town, proxy, events, cursor, batch, query, history, snapshots, buildings, scene
@@ -65,6 +67,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
+    """Reject requests with bodies exceeding the configured size limit."""
+
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > settings.max_request_body_bytes:
+            return JSONResponse(
+                status_code=413,
+                content={
+                    "status": "error",
+                    "message": f"Request body too large. Maximum size: {settings.max_request_body_bytes} bytes",
+                },
+            )
+        return await call_next(request)
+
+
+app.add_middleware(RequestBodyLimitMiddleware)
 
 # Custom static file handlers for correct MIME types
 app.get("/static/js/{file_path:path}")(serve_js_files)

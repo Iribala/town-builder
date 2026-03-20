@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Position(BaseModel):
@@ -174,7 +174,7 @@ class BuildingCreateRequest(BaseModel):
 class BatchOperationRequest(BaseModel):
     """Request to execute multiple operations in a single transaction."""
 
-    operations: list[BatchOperation]
+    operations: list[BatchOperation] = Field(max_length=100)
     validate_operations: bool = True
 
 

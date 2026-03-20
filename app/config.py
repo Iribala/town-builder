@@ -1,10 +1,9 @@
 """Configuration management for Town Builder application."""
 
-import os
 from pathlib import Path
 
+from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
 import dotenv
 
 # Load environment variables
@@ -14,9 +13,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    """Application settings."""
+    """Application settings.
 
-    model_config = ConfigDict(extra="allow")
+    Field defaults are used as fallbacks. Pydantic Settings automatically reads
+    matching environment variables (case-insensitive). For fields whose env var
+    name differs from the field name, use ``validation_alias``.
+    """
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     # Server settings
     app_title: str = "Town Builder API"
@@ -24,19 +28,25 @@ class Settings(BaseSettings):
         "Interactive 3D town building application with real-time collaboration"
     )
     app_version: str = "1.0.0"
-    environment: str = os.getenv("ENVIRONMENT", "development")
+    environment: str = "development"
 
     # JWT Authentication
-    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "")
-    jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
-    disable_jwt_auth: bool = os.getenv("DISABLE_JWT_AUTH", "").lower() == "true"
+    jwt_secret_key: str = ""
+    jwt_algorithm: str = "HS256"
+    disable_jwt_auth: bool = False
 
     # External API (Django)
-    api_url: str = os.getenv("TOWN_API_URL", "http://localhost:8000/api/towns/")
-    api_token: str | None = os.getenv("TOWN_API_JWT_TOKEN")
+    api_url: str = Field(
+        default="http://localhost:8000/api/towns/",
+        validation_alias="TOWN_API_URL",
+    )
+    api_token: str | None = Field(
+        default=None,
+        validation_alias="TOWN_API_JWT_TOKEN",
+    )
 
     # Redis
-    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    redis_url: str = "redis://localhost:6379/0"
     pubsub_channel: str = "town_events"
 
     # Paths
@@ -46,7 +56,7 @@ class Settings(BaseSettings):
     data_path: str = str(BASE_DIR / "data")
 
     # Root path for reverse proxy deployments (e.g., /town-builder)
-    root_path: str = os.getenv("ROOT_PATH", "")
+    root_path: str = ""
 
     # Timeouts and intervals (seconds)
     sse_timeout: float = 10.0
@@ -57,18 +67,28 @@ class Settings(BaseSettings):
     max_history_size: int = 100
     max_snapshots: int = 50
 
+    # Request limits
+    max_request_body_bytes: int = 10 * 1024 * 1024  # 10 MB default
+    max_batch_operations: int = 100
+    max_sse_connections_per_user: int = 3
+
     # Allowed origins for CORS (comma-separated).
     # Defaults to empty; main.py adds localhost origins automatically in development.
     # Always set ALLOWED_ORIGINS explicitly in production.
-    allowed_origins: str = os.getenv("ALLOWED_ORIGINS", "")
+    allowed_origins: str = ""
+
+    # Allowed API domains (comma-separated) for SSRF prevention
+    allowed_domains: str = "localhost,127.0.0.1"
+
+    # Parsed list of allowed API domains (computed from allowed_domains in __init__)
+    allowed_api_domains: list[str] = Field(default_factory=list, exclude=True)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Parse allowed_api_domains from environment variable (using ALLOWED_DOMAINS to avoid Pydantic auto-mapping)
-        allowed_domains_env = os.getenv("ALLOWED_DOMAINS", "localhost,127.0.0.1")
+        # Parse allowed_api_domains from the comma-separated allowed_domains field
         self.allowed_api_domains = [
-            domain.strip() for domain in allowed_domains_env.split(",")
+            domain.strip() for domain in self.allowed_domains.split(",")
         ]
 
         # Fail fast if JWT_SECRET_KEY is not set and JWT auth is enabled
