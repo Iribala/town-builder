@@ -92,3 +92,41 @@ class TestProxyRoutes:
         )
         resp = await app_client.get("/api/proxy/towns/")
         assert resp.status_code == 503
+
+
+class TestProxySSRFProtection:
+    """SSRF protection tests — malicious paths must be rejected."""
+
+    async def test_scheme_in_path_rejected(self, app_client):
+        resp = await app_client.get("/api/proxy/towns/http://evil.com/")
+        assert resp.status_code == 400
+
+    async def test_authority_in_path_rejected(self, app_client):
+        resp = await app_client.get("/api/proxy/towns/user@evil.com/")
+        assert resp.status_code == 400
+
+    async def test_traversal_rejected(self, app_client):
+        """Path with '..' is rejected (sent URL-encoded to bypass FastAPI normalization)."""
+        resp = await app_client.get(
+            "/api/proxy/towns/%2e%2e/other-api/"
+        )
+        assert resp.status_code == 400
+
+    async def test_double_slash_rejected(self, app_client):
+        resp = await app_client.get("/api/proxy/towns///evil.com/steal")
+        # FastAPI may normalize // but the path still reaches our handler
+        assert resp.status_code in (400, 404)
+
+    async def test_encoded_traversal_rejected(self, app_client):
+        resp = await app_client.get("/api/proxy/towns/%2e%2e/secret")
+        assert resp.status_code == 400
+
+    @respx.mock
+    async def test_legitimate_paths_still_work(self, app_client):
+        """Normal kibigia proxy paths must not be blocked."""
+        route = respx.get("http://localhost:8000/api/towns/42/").mock(
+            return_value=Response(200, json={"id": 42})
+        )
+        resp = await app_client.get("/api/proxy/towns/42/")
+        assert resp.status_code == 200
+        assert route.called

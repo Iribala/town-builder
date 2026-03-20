@@ -247,3 +247,18 @@ class TestProxyRequest:
     async def test_unsupported_method_raises(self):
         with pytest.raises(ValueError, match="Unsupported HTTP method"):
             await proxy_request("OPTIONS", "", {})
+
+    async def test_traversal_path_rejected(self):
+        """Path traversal in proxy path raises ValueError."""
+        with pytest.raises(ValueError, match="\\.\\."):
+            await proxy_request("GET", "../../other-api/", {})
+
+    async def test_scheme_in_path_rejected(self):
+        """Full URL in proxy path raises ValueError."""
+        with pytest.raises(ValueError, match="scheme"):
+            await proxy_request("GET", "http://evil.com/", {})
+
+    async def test_authority_in_path_rejected(self):
+        """@ in proxy path raises ValueError."""
+        with pytest.raises(ValueError, match="@"):
+            await proxy_request("GET", "user@evil.com/", {})

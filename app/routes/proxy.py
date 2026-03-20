@@ -55,6 +55,9 @@ async def _handle_proxy_request(request: Request, method: str, path: str = "", d
     except httpx.ConnectError:
         logger.error(f"Connection error proxying request")
         raise HTTPException(status_code=503, detail="Could not connect to upstream service")
+    except ValueError as e:
+        logger.warning(f"Rejected proxy request: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error proxying request: {e}")
         raise HTTPException(status_code=500, detail=str(e))

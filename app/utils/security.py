@@ -166,3 +166,67 @@ def validate_api_url(url: str) -> bool:
         return False
     except Exception:
         return False
+
+
+def validate_proxy_path(path: str) -> str:
+    """Validate and sanitize a proxy path to prevent SSRF and path traversal.
+
+    Ensures the path:
+    - Contains no scheme (http://, https://)
+    - Contains no authority components (@)
+    - Contains no parent directory traversal (..)
+    - Contains no double slashes (//)
+    - Contains no encoded traversal sequences
+    - Resolves to a safe relative path
+
+    Args:
+        path: The raw path from the proxy request
+
+    Returns:
+        Sanitized path safe to append to the base URL
+
+    Raises:
+        ValueError: If the path contains disallowed patterns
+    """
+    if not path:
+        return ""
+
+    # Reject schemes — path should never be a full URL
+    if "://" in path:
+        raise ValueError("Proxy path must not contain a URL scheme")
+
+    # Reject authority component (@) — prevents http://user@evil.com tricks
+    if "@" in path:
+        raise ValueError("Proxy path must not contain '@'")
+
+    # Reject parent directory traversal (both encoded and literal)
+    # Check before and after URL decoding
+    if ".." in path:
+        raise ValueError("Proxy path must not contain '..'")
+
+    # Reject double slashes — prevents //evil.com protocol-relative URLs
+    if "//" in path:
+        raise ValueError("Proxy path must not contain '//'")
+
+    # Reject encoded variants: %2e = '.', %2f = '/'
+    lower = path.lower()
+    if "%2e" in lower or "%2f" in lower or "%5c" in lower:
+        raise ValueError("Proxy path must not contain encoded traversal characters")
+
+    # Reject backslashes
+    if "\\" in path:
+        raise ValueError("Proxy path must not contain backslashes")
+
+    # Reject null bytes
+    if "\0" in path:
+        raise ValueError("Proxy path must not contain null bytes")
+
+    # Only allow safe URL path characters
+    # Letters, digits, hyphen, dot, underscore, tilde, colon, @-sign (already rejected above),
+    # slash, question mark, hash, brackets, equals, ampersand, plus, comma, semicolon, percent
+    # But we keep it simple: the path should only contain path segments and trailing slashes
+    # that look like /42/ or /search/ etc.
+    if not re.match(r'^[a-zA-Z0-9_.~:/?#\[\]=&+,;%-]*$', path):
+        raise ValueError("Proxy path contains disallowed characters")
+
+    return path.lstrip("/")

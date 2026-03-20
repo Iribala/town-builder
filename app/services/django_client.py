@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from app.config import settings
-from app.utils.security import validate_api_url
+from app.utils.security import validate_api_url, validate_proxy_path
 
 logger = logging.getLogger(__name__)
 
@@ -267,7 +267,12 @@ async def proxy_request(
         httpx.HTTPError: If the request fails
     """
     base_url = _get_base_url()
-    url = f"{base_url}{path.lstrip('/')}"
+    safe_path = validate_proxy_path(path)
+    url = f"{base_url}{safe_path}"
+
+    # Verify the final URL still points to an allowed domain
+    if not validate_api_url(url):
+        raise ValueError(f"Constructed proxy URL is not allowed: {url}")
 
     # Add authorization if we have a token
     if settings.api_token:
