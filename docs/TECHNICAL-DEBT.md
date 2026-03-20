@@ -82,28 +82,15 @@ kibigia proxy paths (numeric IDs, nested resources) verified working via integra
 
 ---
 
-### TD-008: Overly Permissive Schema Types
+### ~~TD-008: Overly Permissive Schema Types~~ ✅ RESOLVED
 
-**Files**: `app/models/schemas.py`
-
-Critical data fields use `Any` with no validation:
-- Lines 46-49: `buildings`, `terrain`, `roads`, `props` are `list[dict[str, Any]]`
-- Line 59: `SaveTownRequest.data: Any`
-- Line 122: `BatchOperation.data: dict[str, Any]`
-- Line 204: `FilterCondition.value: Any`, `operator: str` (should be `Literal`)
-
-**Fix**: Create concrete Pydantic models for object structures (e.g., `PlacedObject`,
-`BuildingData`). Use `Literal["eq", "ne", "gt", "lt", "gte", "lte", "contains", "in"]`
-for filter operators.
-
-> **Kibigia Interop — HIGH RISK**: `SaveTownRequest.data: Any` carries layout data
-> that is stored in kibigia's `Town.layout_data` JSONField. Tightening this to a
-> strict schema could reject existing data on round-trip (load from kibigia → save
-> back). Before implementing, audit actual `layout_data` values stored in kibigia's
-> database. During transition, use `model_config = ConfigDict(extra='allow')` to
-> avoid rejecting unexpected keys. The same applies to `TownUpdateRequest` fields
-> (`buildings`, `terrain`, `roads`, `props`) and `BatchOperation.data` — any
-> concrete models must accept whatever kibigia has already persisted.
+**Resolved**: 2026-03-19 (commit `7240546`) — Added `PlacedObject` model with
+`ConfigDict(extra="allow")` for kibigia backward compatibility. Replaced `Any` types:
+`SaveTownRequest.data` → `dict | list`, `BatchOperation.op` → `Literal[4 ops]`,
+`FilterCondition.operator` → `Literal[8 ops]`, `QueryRequest.sort_order` → `Literal`.
+Added `@model_validator` to `DeleteModelRequest` (require id or position) and
+`EditModelRequest` (require at least one transform). All models receiving kibigia data
+use `extra="allow"` to preserve unknown keys during round-trip.
 
 ---
 
@@ -368,7 +355,7 @@ arbitrary strings.
 | ~~P1~~ | ~~TD-004~~ | ~~Implement optimistic locking for batch ops~~ | ~~2-3 hr~~ | None | ✅ Done |
 | P1 | TD-006 | Add rate limiting middleware | 1-2 hr | **Low** — exempt service traffic | |
 | ~~P1~~ | ~~TD-007~~ | ~~Fix SSRF in proxy request~~ | ~~1 hr~~ | ~~**HIGH** — test all proxy paths~~ | ✅ Done |
-| P1 | TD-008 | Replace `Any` types with concrete schemas | 2-3 hr | **HIGH** — audit layout_data first | |
+| ~~P1~~ | ~~TD-008~~ | ~~Replace `Any` types with concrete schemas~~ | ~~2-3 hr~~ | ~~**HIGH** — audit layout_data first~~ | ✅ Done |
 | ~~P1~~ | ~~TD-010~~ | ~~Centralize JS state management~~ | ~~3-4 hr~~ | None | ✅ Done |
 | ~~P2~~ | ~~TD-005~~ | ~~Add pytest test suite for critical paths~~ | ~~4-8 hr~~ | None | ✅ Done |
 | P2 | TD-009 | Extract shared Python helpers | 2-3 hr | **Low** — preserve django_client calls | |
