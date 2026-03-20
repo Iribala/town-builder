@@ -71,22 +71,14 @@ limits in the ASGI server or via middleware.
 
 ---
 
-### TD-007: SSRF in Proxy Request
+### ~~TD-007: SSRF in Proxy Request~~ ✅ RESOLVED
 
-**Files**: `app/services/django_client.py:270`
-
-`proxy_request()` constructs URLs from user-controlled `path` parameter, potentially
-bypassing domain validation in `validate_api_url()`.
-
-**Fix**: Validate the fully-constructed URL (not just the base) against the allowlist.
-Reject paths containing `..`, `//`, or scheme changes.
-
-> **Kibigia Interop — HIGH RISK**: `proxy_request()` is the primary path kibigia
-> uses for proxied API calls. The new validation must be tested against all proxy
-> paths kibigia sends (see `app/routes/proxy.py` endpoints). If kibigia ever sends
-> paths with double slashes or trailing-slash variations, stricter validation would
-> break those requests. Run integration tests covering the full kibigia ↔
-> town-builder proxy round-trip before merging.
+**Resolved**: 2026-03-19 (commit `524dbac`) — Added `validate_proxy_path()` in
+`app/utils/security.py` that rejects schemes, authority components, parent traversal,
+double slashes, encoded traversal sequences, backslashes, and null bytes. The final
+constructed URL is also re-validated against the allowed domains list. Proxy route
+handler returns 400 for invalid paths. 23 new tests cover SSRF vectors. All existing
+kibigia proxy paths (numeric IDs, nested resources) verified working via integration tests.
 
 ---
 
@@ -375,7 +367,7 @@ arbitrary strings.
 | ~~P0~~ | ~~TD-003~~ | ~~Add `asyncio.Lock` to global mutable state~~ | ~~1-2 hr~~ | None | ✅ Done |
 | ~~P1~~ | ~~TD-004~~ | ~~Implement optimistic locking for batch ops~~ | ~~2-3 hr~~ | None | ✅ Done |
 | P1 | TD-006 | Add rate limiting middleware | 1-2 hr | **Low** — exempt service traffic | |
-| P1 | TD-007 | Fix SSRF in proxy request | 1 hr | **HIGH** — test all proxy paths | |
+| ~~P1~~ | ~~TD-007~~ | ~~Fix SSRF in proxy request~~ | ~~1 hr~~ | ~~**HIGH** — test all proxy paths~~ | ✅ Done |
 | P1 | TD-008 | Replace `Any` types with concrete schemas | 2-3 hr | **HIGH** — audit layout_data first | |
 | ~~P1~~ | ~~TD-010~~ | ~~Centralize JS state management~~ | ~~3-4 hr~~ | None | ✅ Done |
 | ~~P2~~ | ~~TD-005~~ | ~~Add pytest test suite for critical paths~~ | ~~4-8 hr~~ | None | ✅ Done |
