@@ -40,18 +40,15 @@ successful save to support optimistic locking.
 
 ---
 
-### TD-005: Zero Test Coverage
+### ~~TD-005: Zero Test Coverage~~ ✅ RESOLVED
 
-No test files exist anywhere in the project. No unit tests, integration tests, or
-regression tests for auth, security, storage fallback, batch transactions, or any business
-logic.
-
-**Fix**: Add a `tests/` directory with pytest. Priority areas:
-- `app/services/storage.py` — Redis/in-memory fallback behavior
-- `app/services/auth.py` — JWT validation and bypass logic
-- `app/utils/security.py` — path validation functions
-- `app/services/batch_operations.py` — transaction semantics
-- `app/routes/town.py` — CRUD endpoint behavior
+**Resolved**: 2026-03-18 — Added comprehensive pytest test suite with 120 tests across
+10 test files in `external/tests/`. Coverage includes auth (JWT verification), security
+(path traversal, SSRF validation), storage (Redis/in-memory fallback), normalization
+(layout data round-trip), django_client (HTTP client mocking), town routes, proxy routes,
+batch operations, and Pydantic schemas. Additionally, 26 Django integration tests in
+kibigia validate the cross-repo contract (JWT interop, serializer shapes, layout round-trip).
+See `docs/TEST-PLAN-TOWN-BUILDER.md` in kibigia for the full test plan.
 
 ---
 
@@ -351,42 +348,21 @@ arbitrary strings.
 
 ---
 
-### TD-023: Hardcoded Magic Numbers
+### ~~TD-023: Hardcoded Magic Numbers~~ ✅ RESOLVED
 
-Python:
-- `events.py:66-67,75` — `timeout=10.0` repeated
-- `history.py:15` — `MAX_HISTORY_SIZE = 100`
-- `snapshots.py:15` — `MAX_SNAPSHOTS = 50`
-
-JavaScript:
-- `scene.js:47-49` — `SPATIAL_GRID_UPDATE_INTERVAL`, `CURSOR_UPDATE_INTERVAL`,
-  `FRUSTUM_CULLING_THRESHOLD`
-- `controls.js:50,92-96,106-107` — orbit speed, FOV ranges, movement speeds
-
-**Fix**: Move Python constants to `config.py` as settings. Keep JS constants but document
-their purpose.
+**Resolved**: 2026-03-18 (commit `82f7af2`) — Moved magic numbers to config.
 
 ---
 
-### TD-024: Sensitive Data in Logs
+### ~~TD-024: Sensitive Data in Logs~~ ✅ RESOLVED
 
-**Files**: `app/services/django_client.py:285-291`
-
-Logs POST request payloads at DEBUG level which could contain sensitive information.
-
-**Fix**: Redact or truncate payload logging. Never log auth tokens or user data.
+**Resolved**: 2026-03-18 (commit `82f7af2`) — Redacted sensitive log data.
 
 ---
 
-### TD-025: Accessibility Gaps (JavaScript)
+### ~~TD-025: Accessibility Gaps (JavaScript)~~ ✅ RESOLVED
 
-- Toast notifications lack proper ARIA beyond generic `role="alert"`
-- Joystick controls have zero keyboard accessibility
-- Collaborative cursors are visual-only with no screen reader support
-- Category status legend uses colors only without text alternatives
-
-**Fix**: Add `aria-live="polite"` regions, keyboard alternatives for touch controls, and
-text labels alongside color indicators.
+**Resolved**: 2026-03-18 (commit `82f7af2`) — Improved accessibility for toast notifications, joystick controls, collaborative cursors, and category status legend.
 
 ---
 
@@ -402,7 +378,7 @@ text labels alongside color indicators.
 | P1 | TD-007 | Fix SSRF in proxy request | 1 hr | **HIGH** — test all proxy paths | |
 | P1 | TD-008 | Replace `Any` types with concrete schemas | 2-3 hr | **HIGH** — audit layout_data first | |
 | ~~P1~~ | ~~TD-010~~ | ~~Centralize JS state management~~ | ~~3-4 hr~~ | None | ✅ Done |
-| P2 | TD-005 | Add pytest test suite for critical paths | 4-8 hr | None | |
+| ~~P2~~ | ~~TD-005~~ | ~~Add pytest test suite for critical paths~~ | ~~4-8 hr~~ | None | ✅ Done |
 | P2 | TD-009 | Extract shared Python helpers | 2-3 hr | **Low** — preserve django_client calls | |
 | ~~P2~~ | ~~TD-011~~ | ~~Consolidate collision detection~~ | ~~2-3 hr~~ | None | ✅ Done |
 | P2 | TD-012 | Split god objects into focused modules | 4-6 hr | None | |
@@ -416,6 +392,6 @@ text labels alongside color indicators.
 | P3 | TD-020 | Whitelist sort/filter fields | 1 hr | **Medium** — audit query usage | |
 | ~~P3~~ | ~~TD-021~~ | ~~Remove dead code~~ | ~~1 hr~~ | None | ✅ Done |
 | P3 | TD-022 | Standardize JS module patterns | 2-3 hr | None | |
-| P3 | TD-023 | Move magic numbers to config | 1-2 hr | None | |
-| P3 | TD-024 | Redact sensitive log data | 30 min | None | |
-| P3 | TD-025 | Accessibility improvements | 3-4 hr | None | |
+| ~~P3~~ | ~~TD-023~~ | ~~Move magic numbers to config~~ | ~~1-2 hr~~ | None | ✅ Done |
+| ~~P3~~ | ~~TD-024~~ | ~~Redact sensitive log data~~ | ~~30 min~~ | None | ✅ Done |
+| ~~P3~~ | ~~TD-025~~ | ~~Accessibility improvements~~ | ~~3-4 hr~~ | None | ✅ Done |
