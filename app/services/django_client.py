@@ -121,12 +121,11 @@ async def search_town_by_name(town_name: str) -> int | None:
         httpx.RequestError: On network failures (timeout, DNS, connection)
     """
     base_url = _get_base_url()
-    search_url = f"{base_url}?name={town_name}"
     headers = _get_headers()
 
-    logger.debug(f"Searching for town by name: {search_url}")
+    logger.debug("Searching for town by name: %s", town_name)
     async with httpx.AsyncClient() as client:
-        resp = await client.get(search_url, headers=headers, timeout=5.0)
+        resp = await client.get(base_url, headers=headers, params={"name": town_name}, timeout=5.0)
 
     if resp.status_code == 404:
         logger.info(f"No town found with name '{town_name}' (404)")

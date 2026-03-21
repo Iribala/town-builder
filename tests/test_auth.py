@@ -5,7 +5,7 @@ accepted, and that edge cases (expired, wrong secret, missing fields)
 are properly rejected.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import jwt as pyjwt
 import pytest
@@ -24,8 +24,8 @@ class TestVerifyTokenString:
             "user_id": 1,
             "username": "testuser",
             "email": "test@example.com",
-            "exp": datetime.utcnow() + timedelta(hours=8),
-            "iat": datetime.utcnow(),
+            "exp": datetime.now(UTC) + timedelta(hours=8),
+            "iat": datetime.now(UTC),
             "sub": "1",
             "town_id": 42,
         }
@@ -40,7 +40,7 @@ class TestVerifyTokenString:
     def test_username_extracted_from_username_field(self, jwt_secret):
         """When both username and sub exist, username takes priority."""
         token = pyjwt.encode(
-            {"username": "alice", "sub": "99", "exp": datetime.utcnow() + timedelta(hours=1)},
+            {"username": "alice", "sub": "99", "exp": datetime.now(UTC) + timedelta(hours=1)},
             jwt_secret,
             algorithm="HS256",
         )
@@ -50,7 +50,7 @@ class TestVerifyTokenString:
     def test_username_falls_back_to_sub(self, jwt_secret):
         """When payload has only sub (no username), sub is used."""
         token = pyjwt.encode(
-            {"sub": "bob", "exp": datetime.utcnow() + timedelta(hours=1)},
+            {"sub": "bob", "exp": datetime.now(UTC) + timedelta(hours=1)},
             jwt_secret,
             algorithm="HS256",
         )
@@ -60,7 +60,7 @@ class TestVerifyTokenString:
     def test_expired_token_rejected(self, jwt_secret):
         """Token with past exp raises 401."""
         token = pyjwt.encode(
-            {"username": "x", "exp": datetime.utcnow() - timedelta(hours=1)},
+            {"username": "x", "exp": datetime.now(UTC) - timedelta(hours=1)},
             jwt_secret,
             algorithm="HS256",
         )
@@ -71,7 +71,7 @@ class TestVerifyTokenString:
     def test_wrong_secret_rejected(self, jwt_secret):
         """Token signed with a different key raises 401."""
         token = pyjwt.encode(
-            {"username": "x", "exp": datetime.utcnow() + timedelta(hours=1)},
+            {"username": "x", "exp": datetime.now(UTC) + timedelta(hours=1)},
             "completely-different-secret-key-here!!",
             algorithm="HS256",
         )
@@ -82,7 +82,7 @@ class TestVerifyTokenString:
     def test_missing_username_and_sub_rejected(self, jwt_secret):
         """Token without username or sub raises 401."""
         token = pyjwt.encode(
-            {"email": "x@y.com", "exp": datetime.utcnow() + timedelta(hours=1)},
+            {"email": "x@y.com", "exp": datetime.now(UTC) + timedelta(hours=1)},
             jwt_secret,
             algorithm="HS256",
         )

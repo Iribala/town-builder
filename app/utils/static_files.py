@@ -47,14 +47,16 @@ async def serve_wasm_files(file_path: str):
         raise HTTPException(status_code=404, detail="File not found")
 
     # Determine correct MIME type based on file extension
-    match file_full_path.suffix:
-        case ".js":
-            media_type = "application/javascript"
-        case ".wasm":
-            media_type = "application/wasm"
-        case ".d.ts":
-            media_type = "text/plain"
-        case _:
-            media_type = "application/octet-stream"
+    # Check .d.ts before .ts since Path.suffix only returns the last suffix
+    if file_full_path.suffixes[-2:] == [".d", ".ts"]:
+        media_type = "text/plain"
+    else:
+        match file_full_path.suffix:
+            case ".js":
+                media_type = "application/javascript"
+            case ".wasm":
+                media_type = "application/wasm"
+            case _:
+                media_type = "application/octet-stream"
 
     return FileResponse(file_full_path, media_type=media_type)

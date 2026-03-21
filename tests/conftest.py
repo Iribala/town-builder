@@ -1,7 +1,7 @@
 """Shared test fixtures for town-builder tests."""
 
 import os
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import jwt as pyjwt
@@ -27,8 +27,8 @@ KIBIGIA_JWT_PAYLOAD = {
     "user_id": 1,
     "username": "testuser",
     "email": "test@example.com",
-    "exp": datetime.utcnow() + timedelta(hours=8),
-    "iat": datetime.utcnow(),
+    "exp": datetime.now(UTC) + timedelta(hours=8),
+    "iat": datetime.now(UTC),
     "sub": "1",
     "town_id": 42,
 }
@@ -119,8 +119,8 @@ def valid_token(jwt_secret):
         "user_id": 1,
         "username": "testuser",
         "email": "test@example.com",
-        "exp": datetime.utcnow() + timedelta(hours=8),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(UTC) + timedelta(hours=8),
+        "iat": datetime.now(UTC),
         "sub": "1",
         "town_id": 42,
     }
@@ -133,8 +133,8 @@ def expired_token(jwt_secret):
     payload = {
         "username": "testuser",
         "sub": "1",
-        "exp": datetime.utcnow() - timedelta(hours=1),
-        "iat": datetime.utcnow() - timedelta(hours=9),
+        "exp": datetime.now(UTC) - timedelta(hours=1),
+        "iat": datetime.now(UTC) - timedelta(hours=9),
     }
     return pyjwt.encode(payload, jwt_secret, algorithm="HS256")
 

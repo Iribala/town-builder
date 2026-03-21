@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 
 import aiofiles
 import httpx
@@ -16,7 +15,7 @@ from app.models.schemas import (
     EditModelRequest,
 )
 from app.services.auth import get_current_user
-from app.services.storage import get_town_data
+from app.services.storage import get_town_data, town_data_lock
 from app.services.town_helpers import save_and_broadcast
 from app.services.django_client import search_town_by_name, create_town, update_town
 from app.utils.security import get_safe_filepath
@@ -59,41 +58,43 @@ async def update_town_endpoint(
         Success status
     """
     data = request_data.model_dump(exclude_unset=True)
-    town_data = await get_town_data()
 
-    # Update town name only
-    if "townName" in data and len(data) == 1:
-        town_data["townName"] = data["townName"]
-        await save_and_broadcast(town_data, {"type": "name", "townName": data["townName"]})
-        logger.info(f"Updated town name to: {data['townName']}")
+    async with town_data_lock:
+        town_data = await get_town_data()
 
-    # Update driver for a vehicle/model
-    elif "driver" in data and "id" in data and "category" in data:
-        category = data["category"]
-        model_id = data["id"]
-        driver = data["driver"]
-        updated = False
+        # Update town name only
+        if "townName" in data and len(data) == 1:
+            town_data["townName"] = data["townName"]
+            await save_and_broadcast(town_data, {"type": "name", "townName": data["townName"]})
+            logger.info("Updated town name to: %s", data['townName'])
 
-        for i, model in enumerate(town_data.get(category, [])):
-            if model.get("id") == model_id:
-                town_data[category][i]["driver"] = driver
-                updated = True
-                await save_and_broadcast(town_data, {
-                    "type": "driver",
-                    "category": category,
-                    "id": model_id,
-                    "driver": driver,
-                })
-                logger.info(f"Updated driver for {category} id={model_id} to {driver}")
-                break
+        # Update driver for a vehicle/model
+        elif "driver" in data and "id" in data and "category" in data:
+            category = data["category"]
+            model_id = data["id"]
+            driver = data["driver"]
+            updated = False
 
-        if not updated:
-            raise HTTPException(status_code=404, detail="Model not found")
+            for i, model in enumerate(town_data.get(category, [])):
+                if model.get("id") == model_id:
+                    town_data[category][i]["driver"] = driver
+                    updated = True
+                    await save_and_broadcast(town_data, {
+                        "type": "driver",
+                        "category": category,
+                        "id": model_id,
+                        "driver": driver,
+                    })
+                    logger.info("Updated driver for %s id=%s to %s", category, model_id, driver)
+                    break
 
-    # Full town data update
-    else:
-        canonical_town_data = normalize_layout_data(data)
-        await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
+            if not updated:
+                raise HTTPException(status_code=404, detail="Model not found")
+
+        # Full town data update
+        else:
+            canonical_town_data = normalize_layout_data(data)
+            await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
 
     return {"status": "success"}
 
@@ -140,7 +141,7 @@ async def save_town(
             )
 
             async with aiofiles.open(safe_path, "w") as f:
-                await f.write(json.dumps(town_data_to_save, indent=2))
+                await f.write(json.dumps(canonical_town_data, indent=2))
             logger.info(f"Town saved locally to {safe_path}")
             local_save_message = f"Town saved locally to {safe_path.name}."
         else:
@@ -225,9 +226,9 @@ async def save_town(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error in save_town endpoint: {e}", exc_info=True)
+        logger.error("Error in save_town endpoint: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=500, detail={"status": "error", "message": str(e)}
+            status_code=500, detail={"status": "error", "message": "Internal server error"}
         )
 
 
@@ -281,9 +282,9 @@ async def load_town(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error loading town: {e}")
+        logger.error("Error loading town: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=500, detail={"status": "error", "message": str(e)}
+            status_code=500, detail={"status": "error", "message": "Internal server error"}
         )
 
 
@@ -367,9 +368,9 @@ async def load_town_from_django(
             },
         )
     except Exception as e:
-        logger.error(f"Unexpected error loading town: {e}", exc_info=True)
+        logger.error("Unexpected error loading town: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=500, detail={"status": "error", "message": str(e)}
+            status_code=500, detail={"status": "error", "message": "Internal server error"}
         )
 
 
@@ -397,51 +398,52 @@ async def delete_model(
             status_code=400, detail={"error": "Missing required parameters"}
         )
 
-    town_data = await get_town_data()
+    async with town_data_lock:
+        town_data = await get_town_data()
 
-    # Delete by ID
-    if model_id is not None:
-        if category in town_data and isinstance(town_data[category], list):
-            for i, model in enumerate(town_data[category]):
-                if isinstance(model, dict) and model.get("id") == model_id:
-                    town_data[category].pop(i)
-                    await save_and_broadcast(
-                        town_data, {"type": "delete", "category": category, "id": model_id}
-                    )
+        # Delete by ID
+        if model_id is not None:
+            if category in town_data and isinstance(town_data[category], list):
+                for i, model in enumerate(town_data[category]):
+                    if isinstance(model, dict) and model.get("id") == model_id:
+                        town_data[category].pop(i)
+                        await save_and_broadcast(
+                            town_data, {"type": "delete", "category": category, "id": model_id}
+                        )
+                        return {
+                            "status": "success",
+                            "message": f"Deleted model with ID {model_id}",
+                        }
+
+        # Delete by position (find closest model)
+        elif position:
+            closest_model_index = -1
+            closest_distance = float("inf")
+
+            if category in town_data and isinstance(town_data[category], list):
+                for i, model in enumerate(town_data[category]):
+                    if not isinstance(model, dict):
+                        continue
+                    model_pos = model.get("position", {})
+                    target_pos = {"x": position.x, "y": position.y, "z": position.z}
+                    distance = calculate_distance(target_pos, model_pos)
+
+                    if distance < closest_distance:
+                        closest_distance = distance
+                        closest_model_index = i
+
+                if closest_model_index >= 0 and closest_distance < DELETE_PROXIMITY_THRESHOLD:
+                    deleted_model = town_data[category].pop(closest_model_index)
+                    await save_and_broadcast(town_data, {
+                        "type": "delete",
+                        "category": category,
+                        "position": position.model_dump(),
+                        "deleted_id": deleted_model.get("id"),
+                    })
                     return {
                         "status": "success",
-                        "message": f"Deleted model with ID {model_id}",
+                        "message": f"Deleted model at position ({position.x}, {position.y}, {position.z})",
                     }
-
-    # Delete by position (find closest model)
-    elif position:
-        closest_model_index = -1
-        closest_distance = float("inf")
-
-        if category in town_data and isinstance(town_data[category], list):
-            for i, model in enumerate(town_data[category]):
-                if not isinstance(model, dict):
-                    continue
-                model_pos = model.get("position", {})
-                target_pos = {"x": position.x, "y": position.y, "z": position.z}
-                distance = calculate_distance(target_pos, model_pos)
-
-                if distance < closest_distance:
-                    closest_distance = distance
-                    closest_model_index = i
-
-            if closest_model_index >= 0 and closest_distance < DELETE_PROXIMITY_THRESHOLD:
-                deleted_model = town_data[category].pop(closest_model_index)
-                await save_and_broadcast(town_data, {
-                    "type": "delete",
-                    "category": category,
-                    "position": position.model_dump(),
-                    "deleted_id": deleted_model.get("id"),
-                })
-                return {
-                    "status": "success",
-                    "message": f"Deleted model at position ({position.x}, {position.y}, {position.z})",
-                }
 
     raise HTTPException(status_code=404, detail={"error": "Model not found"})
 
@@ -467,33 +469,34 @@ async def edit_model(
             status_code=400, detail={"error": "Missing required parameters"}
         )
 
-    town_data = await get_town_data()
+    async with town_data_lock:
+        town_data = await get_town_data()
 
-    if category in town_data and isinstance(town_data[category], list):
-        for i, model in enumerate(town_data[category]):
-            if isinstance(model, dict) and model.get("id") == model_id:
-                # Update model properties
-                if request_data.position is not None:
-                    town_data[category][i]["position"] = (
-                        request_data.position.model_dump()
-                    )
-                if request_data.rotation is not None:
-                    town_data[category][i]["rotation"] = (
-                        request_data.rotation.model_dump()
-                    )
-                if request_data.scale is not None:
-                    town_data[category][i]["scale"] = request_data.scale.model_dump()
+        if category in town_data and isinstance(town_data[category], list):
+            for i, model in enumerate(town_data[category]):
+                if isinstance(model, dict) and model.get("id") == model_id:
+                    # Update model properties
+                    if request_data.position is not None:
+                        town_data[category][i]["position"] = (
+                            request_data.position.model_dump()
+                        )
+                    if request_data.rotation is not None:
+                        town_data[category][i]["rotation"] = (
+                            request_data.rotation.model_dump()
+                        )
+                    if request_data.scale is not None:
+                        town_data[category][i]["scale"] = request_data.scale.model_dump()
 
-                await save_and_broadcast(town_data, {
-                    "type": "edit",
-                    "category": category,
-                    "id": model_id,
-                    "data": town_data[category][i],
-                })
-                return {
-                    "status": "success",
-                    "message": f"Updated model with ID {model_id}",
-                }
+                    await save_and_broadcast(town_data, {
+                        "type": "edit",
+                        "category": category,
+                        "id": model_id,
+                        "data": town_data[category][i],
+                    })
+                    return {
+                        "status": "success",
+                        "message": f"Updated model with ID {model_id}",
+                    }
 
     raise HTTPException(status_code=404, detail={"error": "Model not found"})
 

@@ -190,7 +190,7 @@ class SnapshotManager:
         try:
             # Delete snapshot data
             data_key = f"{self.snapshot_data_prefix}{snapshot_id}"
-            await redis_client.delete(data_key)
+            deleted_count = await redis_client.delete(data_key)
 
             # Remove from metadata list
             entries = await redis_client.lrange(self.snapshots_key, 0, -1)
@@ -201,13 +201,19 @@ class SnapshotManager:
                 if metadata["id"] != snapshot_id:
                     new_entries.append(entry)
 
+            found_in_list = len(new_entries) < len(entries)
+
             # Replace the list
             await redis_client.delete(self.snapshots_key)
             if new_entries:
                 await redis_client.rpush(self.snapshots_key, *new_entries)
 
-            logger.info(f"Deleted snapshot: {snapshot_id}")
-            return True
+            if deleted_count > 0 or found_in_list:
+                logger.info("Deleted snapshot: %s", snapshot_id)
+                return True
+
+            logger.warning("Snapshot not found: %s", snapshot_id)
+            return False
 
         except Exception as e:
             logger.error(f"Failed to delete snapshot {snapshot_id}: {e}")

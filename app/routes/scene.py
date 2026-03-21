@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from app.services.auth import get_current_user
 from app.services.storage import get_town_data
 from app.services.scene_description import generate_scene_description
+from app.utils.normalization import CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -52,30 +53,11 @@ async def get_scene_stats(
     """
     town_data = await get_town_data()
 
-    # Count objects in each category
-    stats = {
-        "town_name": town_data.get('townName', 'Unnamed Town'),
-        "buildings": len(town_data.get('buildings', [])),
-        "vehicles": len(town_data.get('vehicles', [])),
-        "trees": len(town_data.get('trees', [])),
-        "props": len(town_data.get('props', [])),
-        "street": len(town_data.get('street', [])),
-        "park": len(town_data.get('park', [])),
-        "terrain": len(town_data.get('terrain', [])),
-        "roads": len(town_data.get('roads', []))
-    }
-
-    # Calculate total
-    stats['total'] = sum([
-        stats['buildings'],
-        stats['vehicles'],
-        stats['trees'],
-        stats['props'],
-        stats['street'],
-        stats['park'],
-        stats['terrain'],
-        stats['roads']
-    ])
+    # Count objects in each category (driven by CATEGORIES constant)
+    stats = {"town_name": town_data.get('townName', 'Unnamed Town')}
+    for category in CATEGORIES:
+        stats[category] = len(town_data.get(category, []))
+    stats['total'] = sum(stats[cat] for cat in CATEGORIES)
 
     logger.info(f"Scene stats requested: {stats['total']} total objects")
 

@@ -43,6 +43,11 @@ redis_client: Redis | None = None
 _town_data_storage = _create_default_town_data()
 _storage_lock = asyncio.Lock()
 
+# Lock for route-level read-modify-write cycles on town data.
+# All route handlers that read town data, mutate it, then save it back
+# MUST hold this lock to prevent lost updates from concurrent requests.
+town_data_lock = asyncio.Lock()
+
 
 async def initialize_redis() -> None:
     """Initialize the async Redis client."""

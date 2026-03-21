@@ -1,6 +1,6 @@
 """Authentication service for JWT token verification."""
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from typing import Any
 
 import jwt
@@ -56,6 +56,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
     Raises:
         HTTPException: If token is invalid or missing required fields
     """
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     return verify_token_string(credentials.credentials)
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict[str, Any]:
@@ -97,7 +99,7 @@ def create_access_token(username: str, expires_hours: int = 24) -> dict[str, Any
     if settings.environment.lower() == 'production':
         raise HTTPException(status_code=404, detail="Not found")
 
-    expire = datetime.utcnow() + timedelta(hours=expires_hours)
+    expire = datetime.now(UTC) + timedelta(hours=expires_hours)
     payload = {"sub": username, "exp": expire}
 
     encoded_jwt = jwt.encode(

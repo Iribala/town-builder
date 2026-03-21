@@ -73,8 +73,9 @@ class BatchOperationsManager:
             # If all operations succeeded, save the changes
             if failed == 0:
                 _data_version += 1
-                town_data["_version"] = _data_version
-                await save_and_broadcast(town_data, {"type": "full", "town": town_data})
+                # Store version internally but strip from persisted/broadcast data
+                broadcast_data = {k: v for k, v in town_data.items() if not k.startswith("_")}
+                await save_and_broadcast(broadcast_data, {"type": "full", "town": broadcast_data})
 
                 # Add to history
                 await history_manager.add_entry(

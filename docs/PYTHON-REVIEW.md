@@ -277,18 +277,20 @@ This prevents HTTP connection reuse.
 
 ## Summary of Recommended Fixes (Priority Order)
 
-| Priority | Issue | Fix |
-|----------|-------|-----|
-| **P0** | Race conditions in CRUD routes | Add locking (or use Redis transactions) around read-modify-write cycles |
-| **P0** | Settings bypass `pydantic_settings` | Remove `os.getenv()` wrappers; let BaseSettings handle env vars |
-| **P1** | Query param injection in `search_town_by_name` | Use `params=` kwarg instead of f-string |
-| **P1** | Error messages leak internals | Return generic messages in production |
-| **P1** | Deprecated `datetime.utcnow()` | Use `datetime.now(datetime.UTC)` |
-| **P2** | `.d.ts` MIME matching broken | Check `.suffixes` or stem |
-| **P2** | `_version` pollutes town data | Store version separately or strip before broadcast |
-| **P2** | File saves raw vs. Redis saves normalized | Normalize before file write |
-| **P2** | Snapshot delete always returns True | Check Redis delete return value |
-| **P2** | `verify_token` missing None check | Add guard or change `auto_error` |
-| **P3** | f-string logging, type hints, style | Incremental cleanup |
-| **P3** | Per-request httpx client | Use shared client with connection pooling |
-| **P3** | Inconsistent ID generation | Standardize on one UUID strategy |
+| Priority | Issue | Fix | Status |
+|----------|-------|-----|--------|
+| **P0** | Race conditions in CRUD routes | Add locking around read-modify-write cycles | **FIXED** — `town_data_lock` in storage.py, used by town.py + buildings.py |
+| **P0** | Settings bypass `pydantic_settings` | Remove `os.getenv()` wrappers; let BaseSettings handle env vars | **FIXED** — config.py rewritten, `extra="ignore"` |
+| **P1** | Query param injection in `search_town_by_name` | Use `params=` kwarg instead of f-string | **FIXED** |
+| **P1** | Error messages leak internals | Return generic messages in production | **FIXED** — town.py returns "Internal server error" |
+| **P1** | Deprecated `datetime.utcnow()` | Use `datetime.now(UTC)` | **FIXED** — auth.py + all test files |
+| **P2** | `.d.ts` MIME matching broken | Check `.suffixes` or stem | **FIXED** — checks `.suffixes[-2:]` |
+| **P2** | `_version` pollutes town data | Store version separately or strip before broadcast | **FIXED** — stripped before save/broadcast |
+| **P2** | File saves raw vs. Redis saves normalized | Normalize before file write | **FIXED** — writes `canonical_town_data` |
+| **P2** | Snapshot delete always returns True | Check Redis delete return value | **FIXED** — checks `deleted_count` |
+| **P2** | `verify_token` missing None check | Add guard or change `auto_error` | **FIXED** — None check added |
+| **P2** | Unused `import os` in town.py | Remove unused import | **FIXED** |
+| **P2** | Hardcoded categories in scene stats | Use `CATEGORIES` constant | **FIXED** |
+| **P3** | f-string logging, type hints, style | Incremental cleanup | **PARTIAL** — fixed in modified routes |
+| **P3** | Per-request httpx client | Use shared client with connection pooling | Deferred |
+| **P3** | Inconsistent ID generation | Standardize on one UUID strategy | Deferred |
