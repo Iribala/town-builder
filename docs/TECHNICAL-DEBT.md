@@ -94,33 +94,19 @@ use `extra="allow"` to preserve unknown keys during round-trip.
 
 ---
 
-### TD-009: Duplicated Code Across Python Backend
+### ~~TD-009: Duplicated Code Across Python Backend~~ ✅ RESOLVED
 
-**Pattern: broadcast + save** — `await set_town_data()` followed by
-`await broadcast_sse()` appears 15+ times across `buildings.py` and `town.py`.
+**Resolved**: 2026-03-20 — Extracted four shared helpers to eliminate duplication:
 
-**Distance calculation** — Euclidean distance duplicated in:
-- `app/routes/town.py:434-438`
-- `app/services/batch_operations.py:258-260`
-- `app/services/query.py:225-237`
-
-**Category list** — `['buildings', 'vehicles', 'trees', ...]` hardcoded in
-`buildings.py:101,142,180,252` and `scene_description.py:201`, while
-`normalization.py:4` defines a `_CATEGORIES` constant that isn't reused.
-
-**Magic number `2.0`** — Delete proximity threshold hardcoded in `town.py:445` and
-`batch_operations.py:270`.
-
-**Fix**: Extract shared helpers:
-- `save_and_broadcast(town_data, event)` utility
-- `calculate_distance(pos_a, pos_b)` in a shared math utility
-- Single `CATEGORIES` constant imported everywhere
-- `DELETE_PROXIMITY_THRESHOLD` constant
-
-> **Kibigia Interop — LOW RISK**: The `save_town` refactor touches the code path
-> that calls `django_client.create_town()` and `django_client.update_town()`.
-> Extracted helpers must preserve the same call signatures and ensure
-> `_prepare_django_payload()` receives identical arguments.
+- `app/services/town_helpers.py` — `save_and_broadcast(town_data, event)` replaces
+  15+ `set_town_data()` + `broadcast_sse()` pairs in `buildings.py` and `town.py`
+- `app/utils/geometry.py` — `calculate_distance(point1, point2)` replaces inline
+  Euclidean distance in `town.py`, `batch_operations.py`, and `query.py`
+- `app/utils/normalization.py` — Renamed `_CATEGORIES` → `CATEGORIES` (public);
+  now imported by `buildings.py`, `scene_description.py`, `storage.py`, and test
+  `conftest.py` instead of hardcoding the list
+- `app/utils/geometry.py` — `DELETE_PROXIMITY_THRESHOLD = 2.0` replaces magic
+  number in `town.py` and `batch_operations.py`
 
 ---
 
@@ -358,7 +344,7 @@ arbitrary strings.
 | ~~P1~~ | ~~TD-008~~ | ~~Replace `Any` types with concrete schemas~~ | ~~2-3 hr~~ | ~~**HIGH** — audit layout_data first~~ | ✅ Done |
 | ~~P1~~ | ~~TD-010~~ | ~~Centralize JS state management~~ | ~~3-4 hr~~ | None | ✅ Done |
 | ~~P2~~ | ~~TD-005~~ | ~~Add pytest test suite for critical paths~~ | ~~4-8 hr~~ | None | ✅ Done |
-| P2 | TD-009 | Extract shared Python helpers | 2-3 hr | **Low** — preserve django_client calls | |
+| ~~P2~~ | ~~TD-009~~ | ~~Extract shared Python helpers~~ | ~~2-3 hr~~ | ~~**Low** — preserve django_client calls~~ | ✅ Done |
 | ~~P2~~ | ~~TD-011~~ | ~~Consolidate collision detection~~ | ~~2-3 hr~~ | None | ✅ Done |
 | P2 | TD-012 | Split god objects into focused modules | 4-6 hr | None | |
 | P2 | TD-013 | Standardize API error responses | 1-2 hr | **Medium** — audit error parsing | |

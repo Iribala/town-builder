@@ -3,13 +3,13 @@
 import asyncio
 import copy
 import logging
-import time
 import uuid
 from typing import Any
 
-from app.services.storage import get_town_data, set_town_data, get_redis_client
-from app.services.events import broadcast_sse
+from app.services.storage import get_town_data
+from app.services.town_helpers import save_and_broadcast
 from app.services.history import history_manager
+from app.utils.geometry import calculate_distance, DELETE_PROXIMITY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class BatchOperationsManager:
             if failed == 0:
                 _data_version += 1
                 town_data["_version"] = _data_version
-                await set_town_data(town_data)
+                await save_and_broadcast(town_data, {"type": "full", "town": town_data})
 
                 # Add to history
                 await history_manager.add_entry(
@@ -82,9 +82,6 @@ class BatchOperationsManager:
                     before_state=original_town_data,
                     after_state=town_data,
                 )
-
-                # Broadcast full update
-                await broadcast_sse({"type": "full", "town": town_data})
                 logger.info(
                     f"Batch operations completed: {successful} successful, {failed} failed"
                 )
@@ -276,20 +273,14 @@ class BatchOperationsManager:
                 if not isinstance(obj, dict):
                     continue
                 model_pos = obj.get("position", {})
-                dx = model_pos.get("x", 0) - position.get("x", 0)
-                dy = model_pos.get("y", 0) - position.get("y", 0)
-                dz = model_pos.get("z", 0) - position.get("z", 0)
-
-                distance = (dx * dx + dy * dy + dz * dz) ** 0.5
+                distance = calculate_distance(position, model_pos)
 
                 if distance < closest_distance:
                     closest_distance = distance
                     closest_model_index = i
                     closest_id = obj.get("id")
 
-            if (
-                closest_model_index >= 0 and closest_distance < 2.0
-            ):  # Threshold for deletion
+            if closest_model_index >= 0 and closest_distance < DELETE_PROXIMITY_THRESHOLD:
                 deleted_model = town_data[category].pop(closest_model_index)
                 return {
                     "success": True,

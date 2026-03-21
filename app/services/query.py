@@ -1,10 +1,10 @@
 """Query and spatial search service for town data."""
 
 import logging
-import math
-from typing import Any, Callable
+from typing import Any
 
 from app.services.storage import get_town_data
+from app.utils.geometry import calculate_distance
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class QueryManager:
                     continue
 
                 pos = obj.get("position", {})
-                distance = self._calculate_distance(center, pos)
+                distance = calculate_distance(center, pos)
 
                 if distance <= radius:
                     results.append({**obj, "category": cat, "distance": distance})
@@ -136,7 +136,7 @@ class QueryManager:
                     continue
 
                 pos = obj.get("position", {})
-                distance = self._calculate_distance(point, pos)
+                distance = calculate_distance(point, pos)
 
                 if max_distance is None or distance <= max_distance:
                     results.append({**obj, "category": cat, "distance": distance})
@@ -209,32 +209,6 @@ class QueryManager:
 
         logger.info(f"Advanced query: found {total} objects, returning {len(results)}")
         return results
-
-    def _calculate_distance(
-        self, point1: dict[str, float], point2: dict[str, float]
-    ) -> float:
-        """Calculate Euclidean distance between two points.
-
-        Args:
-            point1: First point
-            point2: Second point
-
-        Returns:
-            Distance between points
-        """
-        x1 = point1.get("x", 0)
-        y1 = point1.get("y", 0)
-        z1 = point1.get("z", 0)
-
-        x2 = point2.get("x", 0)
-        y2 = point2.get("y", 0)
-        z2 = point2.get("z", 0)
-
-        dx = x2 - x1
-        dy = y2 - y1
-        dz = z2 - z1
-
-        return math.sqrt(dx * dx + dy * dy + dz * dz)
 
     def _is_within_bounds(
         self,

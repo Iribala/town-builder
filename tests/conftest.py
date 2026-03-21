@@ -97,10 +97,7 @@ KIBIGIA_TOWN_API_RESPONSE = {
     ],
 }
 
-ALL_CATEGORIES = [
-    "buildings", "vehicles", "trees", "props",
-    "street", "park", "terrain", "roads",
-]
+from app.utils.normalization import CATEGORIES as ALL_CATEGORIES
 
 
 # ── Fixtures ────────────────────────────────────────────────────────

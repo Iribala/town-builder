@@ -37,7 +37,7 @@ def manager():
 
 class TestBatchCreate:
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_create_adds_object(self, mock_sse, manager):
         ops = [{"op": "create", "category": "vehicles", "data": {"model": "car.glb"}}]
         results, ok, failed = await manager.execute_operations(ops)
@@ -51,7 +51,7 @@ class TestBatchCreate:
         assert data["vehicles"][0]["model"] == "car.glb"
         assert "id" in data["vehicles"][0]  # auto-generated
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_create_missing_category_fails(self, mock_sse, manager):
         ops = [{"op": "create", "data": {"model": "car.glb"}}]
         results, ok, failed = await manager.execute_operations(ops)
@@ -61,7 +61,7 @@ class TestBatchCreate:
 
 class TestBatchDelete:
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_delete_by_id(self, mock_sse, manager):
         ops = [{"op": "delete", "category": "buildings", "id": "bld-1"}]
         results, ok, failed = await manager.execute_operations(ops)
@@ -71,7 +71,7 @@ class TestBatchDelete:
         assert len(data["buildings"]) == 1
         assert data["buildings"][0]["id"] == "bld-2"
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_delete_by_position(self, mock_sse, manager):
         ops = [{
             "op": "delete",
@@ -84,7 +84,7 @@ class TestBatchDelete:
         data = await storage.get_town_data()
         assert len(data["buildings"]) == 1
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_delete_nonexistent_fails(self, mock_sse, manager):
         ops = [{"op": "delete", "category": "buildings", "id": "nonexistent"}]
         results, ok, failed = await manager.execute_operations(ops)
@@ -93,7 +93,7 @@ class TestBatchDelete:
 
 class TestBatchEdit:
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_edit_position(self, mock_sse, manager):
         ops = [{
             "op": "edit",
@@ -110,7 +110,7 @@ class TestBatchEdit:
 
 class TestBatchAtomicity:
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_failure_rolls_back_all(self, mock_sse, manager):
         """One failing op → changes from successful ops are NOT saved."""
         ops = [
@@ -124,7 +124,7 @@ class TestBatchAtomicity:
         data = await storage.get_town_data()
         assert len(data["vehicles"]) == 0
 
-    @patch("app.services.batch_operations.broadcast_sse", new_callable=AsyncMock)
+    @patch("app.services.town_helpers.broadcast_sse", new_callable=AsyncMock)
     async def test_unknown_op_type_fails(self, mock_sse, manager):
         ops = [{"op": "teleport", "category": "buildings", "id": "bld-1"}]
         results, ok, failed = await manager.execute_operations(ops)

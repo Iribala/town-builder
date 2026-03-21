@@ -16,12 +16,13 @@ from app.models.schemas import (
     EditModelRequest,
 )
 from app.services.auth import get_current_user
-from app.services.storage import get_town_data, set_town_data
-from app.services.events import broadcast_sse
+from app.services.storage import get_town_data
+from app.services.town_helpers import save_and_broadcast
 from app.services.django_client import search_town_by_name, create_town, update_town
 from app.utils.security import get_safe_filepath
 from app.utils.security import validate_api_url
 from app.utils.normalization import normalize_layout_data
+from app.utils.geometry import calculate_distance, DELETE_PROXIMITY_THRESHOLD
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -63,9 +64,8 @@ async def update_town_endpoint(
     # Update town name only
     if "townName" in data and len(data) == 1:
         town_data["townName"] = data["townName"]
-        await set_town_data(town_data)
+        await save_and_broadcast(town_data, {"type": "name", "townName": data["townName"]})
         logger.info(f"Updated town name to: {data['townName']}")
-        await broadcast_sse({"type": "name", "townName": data["townName"]})
 
     # Update driver for a vehicle/model
     elif "driver" in data and "id" in data and "category" in data:
@@ -78,16 +78,13 @@ async def update_town_endpoint(
             if model.get("id") == model_id:
                 town_data[category][i]["driver"] = driver
                 updated = True
-                await set_town_data(town_data)
+                await save_and_broadcast(town_data, {
+                    "type": "driver",
+                    "category": category,
+                    "id": model_id,
+                    "driver": driver,
+                })
                 logger.info(f"Updated driver for {category} id={model_id} to {driver}")
-                await broadcast_sse(
-                    {
-                        "type": "driver",
-                        "category": category,
-                        "id": model_id,
-                        "driver": driver,
-                    }
-                )
                 break
 
         if not updated:
@@ -96,8 +93,7 @@ async def update_town_endpoint(
     # Full town data update
     else:
         canonical_town_data = normalize_layout_data(data)
-        await set_town_data(canonical_town_data)
-        await broadcast_sse({"type": "full", "town": canonical_town_data})
+        await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
 
     return {"status": "success"}
 
@@ -151,8 +147,7 @@ async def save_town(
             local_save_message = "Local save skipped (no filename)."
 
         # Always save to Redis/memory and broadcast, regardless of Django sync
-        await set_town_data(canonical_town_data)
-        await broadcast_sse({"type": "full", "town": canonical_town_data})
+        await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
 
         # Sync to Django backend (best-effort, does not block save success)
         django_message = ""
@@ -275,10 +270,9 @@ async def load_town(
             content = await f.read()
             town_data = json.loads(content)
             canonical_town_data = normalize_layout_data(town_data)
-            await set_town_data(canonical_town_data)
+            await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
 
         logger.info(f"Town loaded from {safe_path}")
-        await broadcast_sse({"type": "full", "town": canonical_town_data})
         return {
             "status": "success",
             "message": f"Town loaded from {safe_path.name}",
@@ -341,8 +335,7 @@ async def load_town_from_django(
         canonical_layout = normalize_layout_data(layout_data)
 
         # Store in Redis/memory for multiplayer sync
-        await set_town_data(canonical_layout)
-        await broadcast_sse({"type": "full", "town": canonical_layout})
+        await save_and_broadcast(canonical_layout, {"type": "full", "town": canonical_layout})
 
         return {
             "status": "success",
@@ -412,9 +405,8 @@ async def delete_model(
             for i, model in enumerate(town_data[category]):
                 if isinstance(model, dict) and model.get("id") == model_id:
                     town_data[category].pop(i)
-                    await set_town_data(town_data)
-                    await broadcast_sse(
-                        {"type": "delete", "category": category, "id": model_id}
+                    await save_and_broadcast(
+                        town_data, {"type": "delete", "category": category, "id": model_id}
                     )
                     return {
                         "status": "success",
@@ -431,29 +423,21 @@ async def delete_model(
                 if not isinstance(model, dict):
                     continue
                 model_pos = model.get("position", {})
-                dx = model_pos.get("x", 0) - position.x
-                dy = model_pos.get("y", 0) - position.y
-                dz = model_pos.get("z", 0) - position.z
-
-                distance = (dx * dx + dy * dy + dz * dz) ** 0.5
+                target_pos = {"x": position.x, "y": position.y, "z": position.z}
+                distance = calculate_distance(target_pos, model_pos)
 
                 if distance < closest_distance:
                     closest_distance = distance
                     closest_model_index = i
 
-            if (
-                closest_model_index >= 0 and closest_distance < 2.0
-            ):  # Threshold for deletion
+            if closest_model_index >= 0 and closest_distance < DELETE_PROXIMITY_THRESHOLD:
                 deleted_model = town_data[category].pop(closest_model_index)
-                await set_town_data(town_data)
-                await broadcast_sse(
-                    {
-                        "type": "delete",
-                        "category": category,
-                        "position": position.model_dump(),
-                        "deleted_id": deleted_model.get("id"),
-                    }
-                )
+                await save_and_broadcast(town_data, {
+                    "type": "delete",
+                    "category": category,
+                    "position": position.model_dump(),
+                    "deleted_id": deleted_model.get("id"),
+                })
                 return {
                     "status": "success",
                     "message": f"Deleted model at position ({position.x}, {position.y}, {position.z})",
@@ -500,15 +484,12 @@ async def edit_model(
                 if request_data.scale is not None:
                     town_data[category][i]["scale"] = request_data.scale.model_dump()
 
-                await set_town_data(town_data)
-                await broadcast_sse(
-                    {
-                        "type": "edit",
-                        "category": category,
-                        "id": model_id,
-                        "data": town_data[category][i],
-                    }
-                )
+                await save_and_broadcast(town_data, {
+                    "type": "edit",
+                    "category": category,
+                    "id": model_id,
+                    "data": town_data[category][i],
+                })
                 return {
                     "status": "success",
                     "message": f"Updated model with ID {model_id}",

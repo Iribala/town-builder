@@ -2,7 +2,7 @@
 
 from typing import Any
 
-_CATEGORIES = [
+CATEGORIES = [
     "buildings",
     "vehicles",
     "trees",
@@ -30,7 +30,7 @@ def normalize_layout_data(layout_data: Any) -> dict[str, list[dict[str, Any]]]:
     """Normalize layout data into canonical dict-of-categories shape."""
     if isinstance(layout_data, dict):
         normalized: dict[str, list[dict[str, Any]]] = {}
-        for category in _CATEGORIES:
+        for category in CATEGORIES:
             items = layout_data.get(category, [])
             normalized[category] = _normalize_objects_list(items, category)
         # Preserve extra top-level keys (e.g., townName)
@@ -40,7 +40,7 @@ def normalize_layout_data(layout_data: Any) -> dict[str, list[dict[str, Any]]]:
         return normalized
 
     if isinstance(layout_data, list):
-        normalized = {category: [] for category in _CATEGORIES}
+        normalized = {category: [] for category in CATEGORIES}
         for item in layout_data:
             if not isinstance(item, dict):
                 continue
@@ -50,7 +50,7 @@ def normalize_layout_data(layout_data: Any) -> dict[str, list[dict[str, Any]]]:
             normalized[category].append(_normalize_object(item, category))
         return normalized
 
-    return {category: [] for category in _CATEGORIES}
+    return {category: [] for category in CATEGORIES}
 
 
 def _normalize_objects_list(items: Any, category: str) -> list[dict[str, Any]]:

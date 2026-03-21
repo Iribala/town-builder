@@ -13,8 +13,9 @@ from app.models.schemas import (
     Scale
 )
 from app.services.auth import get_current_user
-from app.services.storage import get_town_data, set_town_data
-from app.services.events import broadcast_sse
+from app.services.storage import get_town_data
+from app.services.town_helpers import save_and_broadcast
+from app.utils.normalization import CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +60,7 @@ async def create_building(
 
     town_data[category].append(building)
 
-    # Save to storage
-    await set_town_data(town_data)
-
-    # Broadcast to all connected clients
-    await broadcast_sse({'type': 'full', 'town': town_data})
+    await save_and_broadcast(town_data, {'type': 'full', 'town': town_data})
 
     logger.info(f"Created building: {building_id} ({request_data.model}) in category {category}")
 
@@ -98,7 +95,7 @@ async def list_buildings(
         categories = [category] if category in town_data else []
     else:
         # All possible categories
-        categories = ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']
+        categories = CATEGORIES
 
     # Collect all buildings from selected categories
     for cat in categories:
@@ -139,7 +136,7 @@ async def get_building(
     town_data = await get_town_data()
 
     # Search all categories for the building
-    for category in ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']:
+    for category in CATEGORIES:
         if category in town_data and isinstance(town_data[category], list):
             for building in town_data[category]:
                 if isinstance(building, dict) and building.get('id') == building_id:
@@ -177,7 +174,7 @@ async def update_building(
     town_data = await get_town_data()
 
     # Search all categories for the building
-    for category in ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']:
+    for category in CATEGORIES:
         if category in town_data and isinstance(town_data[category], list):
             for i, building in enumerate(town_data[category]):
                 if isinstance(building, dict) and building.get('id') == building_id:
@@ -204,11 +201,7 @@ async def update_building(
                     else:
                         building = town_data[category][i]
 
-                    # Save to storage
-                    await set_town_data(town_data)
-
-                    # Broadcast to all connected clients
-                    await broadcast_sse({
+                    await save_and_broadcast(town_data, {
                         'type': 'edit',
                         'category': category,
                         'id': building_id,
@@ -249,18 +242,14 @@ async def delete_building(
     town_data = await get_town_data()
 
     # Search all categories for the building
-    for category in ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']:
+    for category in CATEGORIES:
         if category in town_data and isinstance(town_data[category], list):
             for i, building in enumerate(town_data[category]):
                 if isinstance(building, dict) and building.get('id') == building_id:
                     # Remove the building
                     town_data[category].pop(i)
 
-                    # Save to storage
-                    await set_town_data(town_data)
-
-                    # Broadcast to all connected clients
-                    await broadcast_sse({
+                    await save_and_broadcast(town_data, {
                         'type': 'delete',
                         'category': category,
                         'id': building_id

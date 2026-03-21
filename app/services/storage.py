@@ -10,6 +10,7 @@ import compression.zstd as zstd
 from redis.asyncio import Redis
 
 from app.config import settings
+from app.utils.normalization import CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -31,20 +32,8 @@ class TownData(TypedDict, total=False):
 
 
 def _create_default_town_data() -> TownData:
-    """Create a fresh default town data structure.
-
-    Must match _CATEGORIES in app/utils/normalization.py.
-    """
-    return TownData(
-        buildings=[],
-        vehicles=[],
-        trees=[],
-        props=[],
-        street=[],
-        park=[],
-        terrain=[],
-        roads=[],
-    )
+    """Create a fresh default town data structure."""
+    return TownData(**{category: [] for category in CATEGORIES})
 
 
 # Async Redis client

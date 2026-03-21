@@ -3,6 +3,7 @@ import logging
 from typing import Any
 from collections import Counter
 from app.services.model_display_names import get_model_display_name
+from app.utils.normalization import CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -197,8 +198,7 @@ def generate_scene_description(town_data: dict[str, Any]) -> dict[str, Any]:
     """
     logger.info("Generating scene description")
 
-    # Categories to analyze
-    categories = ['buildings', 'vehicles', 'trees', 'props', 'street', 'park', 'terrain', 'roads']
+    categories = CATEGORIES
 
     # Analyze each category
     category_analysis = {}
