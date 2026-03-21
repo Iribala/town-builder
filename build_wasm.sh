@@ -70,7 +70,6 @@ echo "Copying Go WASM runtime..."
 WASM_EXEC_LOCATIONS=(
     "$(go env GOROOT)/misc/wasm/wasm_exec.js"
     "$(go env GOROOT)/lib/wasm/wasm_exec.js"
-    "/usr/local/go1.24.7/lib/wasm/wasm_exec.js"
 )
 
 COPIED=false

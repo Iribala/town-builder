@@ -114,51 +114,48 @@ async def search_town_by_name(town_name: str) -> int | None:
         town_name: Name of the town to search for
 
     Returns:
-        Town ID if found, None otherwise
+        Town ID if found, None if not found (404 or empty results)
+
+    Raises:
+        httpx.HTTPStatusError: On 4xx/5xx responses (excluding 404)
+        httpx.RequestError: On network failures (timeout, DNS, connection)
     """
     base_url = _get_base_url()
     search_url = f"{base_url}?name={town_name}"
     headers = _get_headers()
 
-    try:
-        logger.debug(f"Searching for town by name: {search_url}")
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(search_url, headers=headers, timeout=5.0)
+    logger.debug(f"Searching for town by name: {search_url}")
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(search_url, headers=headers, timeout=5.0)
 
-        if resp.status_code == 200:
-            search_data = resp.json()
-            results = []
-            if isinstance(search_data, list):
-                results = search_data
-            elif isinstance(search_data, dict) and "results" in search_data:
-                results = search_data["results"]
+    if resp.status_code == 404:
+        logger.info(f"No town found with name '{town_name}' (404)")
+        return None
 
-            if len(results) > 0 and "id" in results[0]:
-                town_id = results[0]["id"]
-                if len(results) > 1:
-                    logger.warning(
-                        f"Found {len(results)} towns named '{town_name}'. "
-                        f"Returning the first one (ID: {town_id})."
-                    )
-                else:
-                    logger.info(
-                        f"Found existing town by name '{town_name}' with ID: {town_id}"
-                    )
-                return town_id
-            else:
-                logger.info(f"No town found with name '{town_name}'")
-                return None
-        else:
+    resp.raise_for_status()
+
+    search_data = resp.json()
+    results = []
+    if isinstance(search_data, list):
+        results = search_data
+    elif isinstance(search_data, dict) and "results" in search_data:
+        results = search_data["results"]
+
+    if len(results) > 0 and "id" in results[0]:
+        town_id = results[0]["id"]
+        if len(results) > 1:
             logger.warning(
-                f"Failed to search for town by name (status {resp.status_code})"
+                f"Found {len(results)} towns named '{town_name}'. "
+                f"Returning the first one (ID: {town_id})."
             )
-            return None
-    except (httpx.HTTPError, httpx.RequestError) as e:
-        logger.error(f"Error searching for town by name: {e}")
-        return None
-    except ValueError:
-        logger.error("Error decoding JSON response when searching for town by name")
-        return None
+        else:
+            logger.info(
+                f"Found existing town by name '{town_name}' with ID: {town_id}"
+            )
+        return town_id
+
+    logger.info(f"No town found with name '{town_name}'")
+    return None
 
 
 async def create_town(
