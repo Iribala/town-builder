@@ -4,18 +4,13 @@ package main
 
 import (
 	"math"
-	"sync"
+	"slices"
 	"syscall/js"
 )
 
 // ============================================================================
 // Data Structures
 // ============================================================================
-
-// Vec2 represents a 2D vector with float64 precision
-type Vec2 struct {
-	X, Y float64
-}
 
 // BoundingBox represents an axis-aligned bounding box
 type BoundingBox struct {
@@ -26,14 +21,14 @@ type BoundingBox struct {
 type CategoryMask uint32
 
 const (
-	CategoryUnknown   CategoryMask = 1 << iota // 0b00001
-	CategoryVehicle                             // 0b00010
-	CategoryBuilding                            // 0b00100
-	CategoryTerrain                             // 0b01000
-	CategoryProp                                // 0b10000
-	CategoryRoad                                // 0b100000
-	CategoryTree                                // 0b1000000
-	CategoryPark                                // 0b10000000
+	CategoryUnknown  CategoryMask = 1 << iota
+	CategoryVehicle
+	CategoryBuilding
+	CategoryTerrain
+	CategoryProp
+	CategoryRoad
+	CategoryTree
+	CategoryPark
 )
 
 // categoryFromString converts string category to bitmask
@@ -63,8 +58,7 @@ type GameObject struct {
 	ID           int
 	X, Y         float64
 	BBox         BoundingBox
-	Category     string       // Original string category
-	CategoryMask CategoryMask // Bitmask for fast filtering
+	CategoryMask CategoryMask
 }
 
 // GridKey represents a cell in the spatial grid
@@ -73,100 +67,21 @@ type GridKey struct {
 }
 
 // ============================================================================
-// Bit Vector for Grid Occupancy
+// Spatial Grid
 // ============================================================================
 
-// BitVector efficiently tracks grid cell occupancy
-// Uses larger bit array to minimize hash collisions
-type BitVector struct {
-	bits []uint64
-	mu   sync.Mutex
-}
-
-const (
-	bitVectorInitialSize = 8192 // 524288 bits initially (8x larger)
-)
-
-// NewBitVector creates a new bit vector
-func NewBitVector() *BitVector {
-	return &BitVector{
-		bits: make([]uint64, bitVectorInitialSize),
-	}
-}
-
-// gridKeyToIndex converts GridKey to a unique index
-// Uses improved spatial hash to minimize collisions
-func (bv *BitVector) gridKeyToIndex(key GridKey) uint {
-	// Improved spatial hash with better distribution
-	// Offset coordinates to handle negatives
-	const offset = 16384 // Larger offset for better range
-	x := uint(key.X + offset)
-	y := uint(key.Y + offset)
-
-	// Use prime numbers and bit rotation for better distribution
-	hash := x*73856093 ^ y*19349669 ^ (x<<13 | x>>19) ^ (y<<7 | y>>25)
-	return hash
-}
-
-// Set marks a grid cell as occupied
-func (bv *BitVector) Set(key GridKey) {
-	bv.mu.Lock()
-	defer bv.mu.Unlock()
-
-	hash := bv.gridKeyToIndex(key)
-	idx := hash % uint(len(bv.bits)*64)
-	wordIdx := idx / 64
-	bitIdx := idx % 64
-	bv.bits[wordIdx] |= (1 << bitIdx)
-}
-
-// IsSet checks if a grid cell is occupied
-func (bv *BitVector) IsSet(key GridKey) bool {
-	bv.mu.Lock()
-	defer bv.mu.Unlock()
-
-	hash := bv.gridKeyToIndex(key)
-	idx := hash % uint(len(bv.bits)*64)
-	wordIdx := idx / 64
-	bitIdx := idx % 64
-	return (bv.bits[wordIdx] & (1 << bitIdx)) != 0
-}
-
-// Clear resets all bits
-func (bv *BitVector) Clear() {
-	bv.mu.Lock()
-	defer bv.mu.Unlock()
-
-	for i := range bv.bits {
-		bv.bits[i] = 0
-	}
-}
-
-// ============================================================================
-// Spatial Grid (Leveraging Go 1.24 Swiss Tables)
-// ============================================================================
-
-// SpatialGrid implements spatial partitioning for efficient collision detection
-//
-// Go 1.24 Performance Optimizations (enabled by default):
-// - Swiss Tables: 30% faster map access, 35% faster assignment, 10-60% faster iteration
-// - Better stack allocation: Small slices allocated on stack vs heap
-// - Improved mutex performance: SpinbitMutex for faster RWMutex operations
-// - Enhanced small object allocation
-// - Bit vector for O(1) occupancy checks (saves memory and CPU)
+// SpatialGrid implements spatial partitioning for efficient collision detection.
+// No mutexes are needed: Go WASM runs single-threaded (GOMAXPROCS=1).
 type SpatialGrid struct {
-	cellSize   float64
-	cells      map[GridKey][]int // Swiss Tables for object storage
-	occupancy  *BitVector        // Bit vector for fast occupancy checks
-	mu         sync.RWMutex      // SpinbitMutex optimization
+	cellSize float64
+	cells    map[GridKey][]int
 }
 
 // NewSpatialGrid creates a new spatial grid with the given cell size
 func NewSpatialGrid(cellSize float64) *SpatialGrid {
 	return &SpatialGrid{
-		cellSize:  cellSize,
-		cells:     make(map[GridKey][]int, 256), // Swiss Tables optimization
-		occupancy: NewBitVector(),               // Bit vector for fast occupancy checks
+		cellSize: cellSize,
+		cells:    make(map[GridKey][]int, 256),
 	}
 }
 
@@ -183,7 +98,6 @@ func (g *SpatialGrid) getCellsForBBox(bbox BoundingBox) []GridKey {
 	minKey := g.getCellKey(bbox.MinX, bbox.MinY)
 	maxKey := g.getCellKey(bbox.MaxX, bbox.MaxY)
 
-	// Go 1.26: This slice will likely be stack-allocated due to improved compiler
 	cells := make([]GridKey, 0, (maxKey.X-minKey.X+1)*(maxKey.Y-minKey.Y+1))
 
 	for x := minKey.X; x <= maxKey.X; x++ {
@@ -197,63 +111,35 @@ func (g *SpatialGrid) getCellsForBBox(bbox BoundingBox) []GridKey {
 
 // Insert adds an object to the spatial grid
 func (g *SpatialGrid) Insert(id int, bbox BoundingBox) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	cells := g.getCellsForBBox(bbox)
 	for _, cell := range cells {
 		g.cells[cell] = append(g.cells[cell], id)
-		g.occupancy.Set(cell) // Mark cell as occupied in bit vector
 	}
 }
 
 // Remove removes an object from the spatial grid
 func (g *SpatialGrid) Remove(id int, bbox BoundingBox) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
 	cells := g.getCellsForBBox(bbox)
 	for _, cell := range cells {
 		objects := g.cells[cell]
-		for i, objID := range objects {
-			if objID == id {
-				// Remove object from slice
-				updated := append(objects[:i], objects[i+1:]...)
-				if len(updated) == 0 {
-					delete(g.cells, cell)
-					// Do not clear the occupancy bit: the BitVector uses modulo
-					// hashing so one bit can represent multiple distinct keys.
-					// Clearing it here would produce false negatives for any other
-					// key that hashes to the same bit, causing Query() to skip
-					// occupied cells. The stale set bit only causes a harmless
-					// extra map lookup, which the map existence check handles.
-					// The bit resets on the next full Clear() call.
-				} else {
-					g.cells[cell] = updated
-				}
-				break
+		if i := slices.Index(objects, id); i >= 0 {
+			updated := slices.Delete(objects, i, i+1)
+			if len(updated) == 0 {
+				delete(g.cells, cell)
+			} else {
+				g.cells[cell] = updated
 			}
 		}
 	}
 }
 
 // Query returns all object IDs in cells that intersect with the given bounding box
-// Uses bit vector for O(1) occupancy check before map lookup
 func (g *SpatialGrid) Query(bbox BoundingBox) []int {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-
 	cells := g.getCellsForBBox(bbox)
-	seen := make(map[int]bool, 16) // Track unique objects
+	seen := make(map[int]bool, 16)
 	results := make([]int, 0, 16)
 
-	// Go 1.24: Map iteration is 10-60% faster with Swiss Tables
 	for _, cell := range cells {
-		// Bit vector pre-check: O(1) operation to skip empty cells
-		if !g.occupancy.IsSet(cell) {
-			continue // Cell definitely empty, skip expensive map lookup
-		}
-
 		if objects, exists := g.cells[cell]; exists {
 			for _, id := range objects {
 				if !seen[id] {
@@ -269,12 +155,7 @@ func (g *SpatialGrid) Query(bbox BoundingBox) []int {
 
 // Clear removes all objects from the grid
 func (g *SpatialGrid) Clear() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-
-	// Go 1.24: Pre-sizing map for 35% faster subsequent assignments
 	g.cells = make(map[GridKey][]int, 256)
-	g.occupancy.Clear() // Clear bit vector
 }
 
 // ============================================================================
@@ -288,23 +169,17 @@ func checkAABBCollision(a, b BoundingBox) bool {
 }
 
 // Global spatial grid instance
-var spatialGrid = NewSpatialGrid(10.0) // 10 unit cells
+var spatialGrid = NewSpatialGrid(10.0)
 
-// Global object cache (Go 1.24: Better small object allocation)
-var (
-	objectCache   = make(map[int]GameObject, 256)
-	objectCacheMu sync.RWMutex
-)
-
-// Note: Collision bloom filter removed as spatial grid already provides O(k) optimization
-// Adding bloom filter on top would add memory/CPU overhead with minimal benefit
+// Global object cache
+var objectCache = make(map[int]GameObject, 256)
 
 // ============================================================================
 // WASM Exported Functions
 // ============================================================================
 
 // distance calculates Euclidean distance between two points
-func distance(this js.Value, args []js.Value) interface{} {
+func distance(this js.Value, args []js.Value) any {
 	if len(args) < 4 {
 		return js.ValueOf(0)
 	}
@@ -320,10 +195,9 @@ func distance(this js.Value, args []js.Value) interface{} {
 	return js.ValueOf(math.Sqrt(dx*dx + dy*dy))
 }
 
-// updateSpatialGrid updates the spatial grid with current objects
+// updateSpatialGrid rebuilds the spatial grid with current objects.
 // JavaScript signature: updateSpatialGrid(objects: Array<{id, x, y, bbox, category}>)
-// Uses category bitmask optimization.
-func updateSpatialGrid(this js.Value, args []js.Value) interface{} {
+func updateSpatialGrid(this js.Value, args []js.Value) any {
 	if len(args) < 1 {
 		return js.ValueOf(false)
 	}
@@ -331,15 +205,11 @@ func updateSpatialGrid(this js.Value, args []js.Value) interface{} {
 	objectsArray := args[0]
 	length := objectsArray.Length()
 
-	// Clear grid and rebuild
-	spatialGrid.Clear()
+	// Build new cache and grid, then swap — avoids exposing partial state
+	newGrid := NewSpatialGrid(spatialGrid.cellSize)
+	newCache := make(map[int]GameObject, length)
 
-	objectCacheMu.Lock()
-	objectCache = make(map[int]GameObject, length)
-	objectCacheMu.Unlock()
-
-	// Build object cache with category bitmasks
-	for i := 0; i < length; i++ {
+	for i := range length {
 		obj := objectsArray.Index(i)
 
 		id := obj.Get("id").Int()
@@ -360,26 +230,25 @@ func updateSpatialGrid(this js.Value, args []js.Value) interface{} {
 			X:            x,
 			Y:            y,
 			BBox:         bbox,
-			Category:     category,
-			CategoryMask: categoryFromString(category), // Bitmask for fast filtering
+			CategoryMask: categoryFromString(category),
 		}
 
-		objectCacheMu.Lock()
-		objectCache[id] = gameObj
-		objectCacheMu.Unlock()
-
-		spatialGrid.Insert(id, bbox)
+		newCache[id] = gameObj
+		newGrid.Insert(id, bbox)
 	}
+
+	// Atomic swap
+	objectCache = newCache
+	spatialGrid = newGrid
 
 	return js.ValueOf(true)
 }
 
-// checkCollision checks if a single object collides with any objects in the grid
+// checkCollision checks if a single object collides with any objects in the grid.
 // JavaScript signature: checkCollision(objId: number, bbox: {minX, minY, maxX, maxY}) -> number[]
-// Uses spatial grid for O(k) complexity where k = nearby objects
-func checkCollision(this js.Value, args []js.Value) interface{} {
+func checkCollision(this js.Value, args []js.Value) any {
 	if len(args) < 2 {
-		return js.ValueOf([]interface{}{})
+		return js.ValueOf([]any{})
 	}
 
 	objID := args[0].Int()
@@ -392,19 +261,12 @@ func checkCollision(this js.Value, args []js.Value) interface{} {
 		MaxY: bboxJS.Get("maxY").Float(),
 	}
 
-	// Query spatial grid (O(k) where k = nearby objects)
 	candidateIDs := spatialGrid.Query(bbox)
+	collisions := make([]any, 0, 8)
 
-	collisions := make([]interface{}, 0, 8)
-
-	objectCacheMu.RLock()
-	defer objectCacheMu.RUnlock()
-
-	// Check each candidate with AABB collision test
-	// Spatial grid already reduced candidates from O(n) to O(k)
 	for _, candidateID := range candidateIDs {
 		if candidateID == objID {
-			continue // Skip self
+			continue
 		}
 
 		if candidate, exists := objectCache[candidateID]; exists {
@@ -417,21 +279,19 @@ func checkCollision(this js.Value, args []js.Value) interface{} {
 	return js.ValueOf(collisions)
 }
 
-// batchCheckCollisions checks multiple objects for collisions in a single call
+// batchCheckCollisions checks multiple objects for collisions in a single call.
 // JavaScript signature: batchCheckCollisions(checks: Array<{id, bbox}>) -> Array<{id, collisions}>
-// Uses spatial grid for efficient O(k) per-object complexity
-func batchCheckCollisions(this js.Value, args []js.Value) interface{} {
+func batchCheckCollisions(this js.Value, args []js.Value) any {
 	if len(args) < 1 {
-		return js.ValueOf([]interface{}{})
+		return js.ValueOf([]any{})
 	}
 
 	checksArray := args[0]
 	length := checksArray.Length()
 
-	results := make([]interface{}, length)
+	results := make([]any, length)
 
-	// Process all collision checks
-	for i := 0; i < length; i++ {
+	for i := range length {
 		check := checksArray.Index(i)
 		objID := check.Get("id").Int()
 		bboxJS := check.Get("bbox")
@@ -444,9 +304,8 @@ func batchCheckCollisions(this js.Value, args []js.Value) interface{} {
 		}
 
 		candidateIDs := spatialGrid.Query(bbox)
-		collisions := make([]interface{}, 0, 8)
+		collisions := make([]any, 0, 8)
 
-		objectCacheMu.RLock()
 		for _, candidateID := range candidateIDs {
 			if candidateID == objID {
 				continue
@@ -458,21 +317,21 @@ func batchCheckCollisions(this js.Value, args []js.Value) interface{} {
 				}
 			}
 		}
-		objectCacheMu.RUnlock()
 
-		result := make(map[string]interface{})
-		result["id"] = objID
-		result["collisions"] = collisions
+		result := map[string]any{
+			"id":         objID,
+			"collisions": collisions,
+		}
 		results[i] = result
 	}
 
 	return js.ValueOf(results)
 }
 
-// findNearestObject finds the nearest object of a given category to a position
-// JavaScript signature: findNearestObject(x: number, y: number, category: string, maxDistance: number) -> {id, distance} | null
-// Now uses category bitmask for faster filtering (bit comparison vs string comparison)
-func findNearestObject(this js.Value, args []js.Value) interface{} {
+// findNearestObject finds the nearest object of a given category to a position.
+// Uses the spatial grid with expanding search radius to avoid full linear scan.
+// JavaScript signature: findNearestObject(x, y, category, maxDistance) -> {id, distance} | null
+func findNearestObject(this js.Value, args []js.Value) any {
 	if len(args) < 4 {
 		return js.ValueOf(nil)
 	}
@@ -482,31 +341,80 @@ func findNearestObject(this js.Value, args []js.Value) interface{} {
 	targetCategory := args[2].String()
 	maxDistance := args[3].Float()
 
-	// Convert category string to bitmask once (faster than repeated string comparisons)
 	targetMask := categoryFromString(targetCategory)
 
+	// Start with a small search radius and expand if needed
+	searchRadius := spatialGrid.cellSize
+	if searchRadius > maxDistance {
+		searchRadius = maxDistance
+	}
+
 	var nearestID int
-	nearestDist := maxDistance
+	nearestDistSq := maxDistance * maxDistance
 	found := false
 
-	objectCacheMu.RLock()
-	defer objectCacheMu.RUnlock()
-
-	// Go 1.24: 10-60% faster map iteration with Swiss Tables
-	for id, obj := range objectCache {
-		// Category bitmask comparison (1 CPU cycle vs ~10+ for string comparison)
-		if obj.CategoryMask != targetMask {
-			continue
+	for searchRadius <= maxDistance {
+		bbox := BoundingBox{
+			MinX: x - searchRadius,
+			MinY: y - searchRadius,
+			MaxX: x + searchRadius,
+			MaxY: y + searchRadius,
 		}
 
-		dx := obj.X - x
-		dy := obj.Y - y
-		dist := math.Sqrt(dx*dx + dy*dy)
+		candidateIDs := spatialGrid.Query(bbox)
 
-		if dist < nearestDist {
-			nearestDist = dist
-			nearestID = id
-			found = true
+		for _, id := range candidateIDs {
+			obj, exists := objectCache[id]
+			if !exists || obj.CategoryMask != targetMask {
+				continue
+			}
+
+			dx := obj.X - x
+			dy := obj.Y - y
+			distSq := dx*dx + dy*dy
+
+			if distSq < nearestDistSq {
+				nearestDistSq = distSq
+				nearestID = id
+				found = true
+			}
+		}
+
+		// If we found something within this radius, no need to expand
+		if found {
+			break
+		}
+
+		// Double the search radius
+		searchRadius *= 2
+		if searchRadius > maxDistance {
+			searchRadius = maxDistance
+		}
+		// If we already searched at maxDistance, stop
+		if searchRadius == maxDistance && !found {
+			// Do one final search at maxDistance
+			bbox := BoundingBox{
+				MinX: x - maxDistance,
+				MinY: y - maxDistance,
+				MaxX: x + maxDistance,
+				MaxY: y + maxDistance,
+			}
+			candidateIDs := spatialGrid.Query(bbox)
+			for _, id := range candidateIDs {
+				obj, exists := objectCache[id]
+				if !exists || obj.CategoryMask != targetMask {
+					continue
+				}
+				dx := obj.X - x
+				dy := obj.Y - y
+				distSq := dx*dx + dy*dy
+				if distSq < nearestDistSq {
+					nearestDistSq = distSq
+					nearestID = id
+					found = true
+				}
+			}
+			break
 		}
 	}
 
@@ -514,19 +422,18 @@ func findNearestObject(this js.Value, args []js.Value) interface{} {
 		return js.ValueOf(nil)
 	}
 
-	result := make(map[string]interface{})
-	result["id"] = nearestID
-	result["distance"] = nearestDist
-
+	result := map[string]any{
+		"id":       nearestID,
+		"distance": math.Sqrt(nearestDistSq),
+	}
 	return js.ValueOf(result)
 }
 
-// findObjectsInRadius finds all objects within a given radius
-// JavaScript signature: findObjectsInRadius(x: number, y: number, radius: number, category?: string) -> Array<{id, distance}>
-// Now uses category bitmask for faster filtering
-func findObjectsInRadius(this js.Value, args []js.Value) interface{} {
+// findObjectsInRadius finds all objects within a given radius.
+// JavaScript signature: findObjectsInRadius(x, y, radius, category?) -> Array<{id, distance}>
+func findObjectsInRadius(this js.Value, args []js.Value) any {
 	if len(args) < 3 {
-		return js.ValueOf([]interface{}{})
+		return js.ValueOf([]any{})
 	}
 
 	x := args[0].Float()
@@ -536,12 +443,10 @@ func findObjectsInRadius(this js.Value, args []js.Value) interface{} {
 	var filterMask CategoryMask
 	useFilter := false
 	if len(args) >= 4 && !args[3].IsNull() && !args[3].IsUndefined() {
-		filterCategory := args[3].String()
-		filterMask = categoryFromString(filterCategory)
+		filterMask = categoryFromString(args[3].String())
 		useFilter = true
 	}
 
-	// Create bounding box for spatial query
 	bbox := BoundingBox{
 		MinX: x - radius,
 		MinY: y - radius,
@@ -550,11 +455,7 @@ func findObjectsInRadius(this js.Value, args []js.Value) interface{} {
 	}
 
 	candidateIDs := spatialGrid.Query(bbox)
-	results := make([]interface{}, 0, len(candidateIDs))
-
-	objectCacheMu.RLock()
-	defer objectCacheMu.RUnlock()
-
+	results := make([]any, 0, len(candidateIDs))
 	radiusSq := radius * radius
 
 	for _, id := range candidateIDs {
@@ -563,7 +464,6 @@ func findObjectsInRadius(this js.Value, args []js.Value) interface{} {
 			continue
 		}
 
-		// Category bitmask filtering (faster than string comparison)
 		if useFilter && obj.CategoryMask != filterMask {
 			continue
 		}
@@ -573,9 +473,10 @@ func findObjectsInRadius(this js.Value, args []js.Value) interface{} {
 		distSq := dx*dx + dy*dy
 
 		if distSq <= radiusSq {
-			result := make(map[string]interface{})
-			result["id"] = id
-			result["distance"] = math.Sqrt(distSq)
+			result := map[string]any{
+				"id":       id,
+				"distance": math.Sqrt(distSq),
+			}
 			results = append(results, result)
 		}
 	}
@@ -583,12 +484,9 @@ func findObjectsInRadius(this js.Value, args []js.Value) interface{} {
 	return js.ValueOf(results)
 }
 
-// getGridStats returns statistics about the spatial grid for debugging
+// getGridStats returns statistics about the spatial grid for debugging.
 // JavaScript signature: getGridStats() -> {cellCount, objectCount, avgObjectsPerCell}
-func getGridStats(this js.Value, args []js.Value) interface{} {
-	spatialGrid.mu.RLock()
-	defer spatialGrid.mu.RUnlock()
-
+func getGridStats(this js.Value, args []js.Value) any {
 	cellCount := len(spatialGrid.cells)
 	totalObjects := 0
 
@@ -601,11 +499,11 @@ func getGridStats(this js.Value, args []js.Value) interface{} {
 		avgObjectsPerCell = float64(totalObjects) / float64(cellCount)
 	}
 
-	result := make(map[string]interface{})
-	result["cellCount"] = cellCount
-	result["objectCount"] = totalObjects
-	result["avgObjectsPerCell"] = avgObjectsPerCell
-
+	result := map[string]any{
+		"cellCount":         cellCount,
+		"objectCount":       totalObjects,
+		"avgObjectsPerCell": avgObjectsPerCell,
+	}
 	return js.ValueOf(result)
 }
 
@@ -613,39 +511,31 @@ func getGridStats(this js.Value, args []js.Value) interface{} {
 // Car Physics
 // ============================================================================
 
-// CarState represents the state of a car for physics simulation
+// CarState represents the state of a car for physics simulation.
+// Uses X/Z coordinates matching the Three.js 3D coordinate system (Y is up).
 type CarState struct {
-	X, Z         float64
-	RotationY    float64
-	VelocityX    float64
-	VelocityZ    float64
+	X, Z      float64
+	RotationY float64
+	VelocityX float64
+	VelocityZ float64
 }
 
-// InputState represents player input for car control
-type InputState struct {
-	Forward  bool
-	Backward bool
-	Left     bool
-	Right    bool
-}
-
-// updateCarPhysics updates car physics based on input
-// JavaScript signature: updateCarPhysics(carState, inputState) -> carState
-func updateCarPhysics(this js.Value, args []js.Value) interface{} {
-	if len(args) < 2 {
+// updateCarPhysics updates car physics based on input and delta time.
+// JavaScript signature: updateCarPhysics(carState, inputState, deltaTime) -> carState
+func updateCarPhysics(this js.Value, args []js.Value) any {
+	if len(args) < 3 {
 		return js.ValueOf(nil)
 	}
 
-	// Physics constants
+	// Physics constants (per-second rates, scaled by deltaTime)
 	const (
-		ACCELERATION  = 0.005
-		MAX_SPEED     = 0.2
-		FRICTION      = 0.98
-		BRAKE_POWER   = 0.01
-		ROTATE_SPEED  = 0.04
+		ACCELERATION = 5.0
+		MAX_SPEED    = 20.0
+		FRICTION     = 0.02 // fraction of velocity lost per second
+		BRAKE_POWER  = 10.0
+		ROTATE_SPEED = 4.0
 	)
 
-	// Parse car state
 	carJS := args[0]
 	car := CarState{
 		X:         carJS.Get("x").Float(),
@@ -655,55 +545,57 @@ func updateCarPhysics(this js.Value, args []js.Value) interface{} {
 		VelocityZ: carJS.Get("velocity_z").Float(),
 	}
 
-	// Parse input state
 	inputJS := args[1]
-	input := InputState{
-		Forward:  inputJS.Get("forward").Bool(),
-		Backward: inputJS.Get("backward").Bool(),
-		Left:     inputJS.Get("left").Bool(),
-		Right:    inputJS.Get("right").Bool(),
+	forward := inputJS.Get("forward").Bool()
+	backward := inputJS.Get("backward").Bool()
+	left := inputJS.Get("left").Bool()
+	right := inputJS.Get("right").Bool()
+
+	dt := args[2].Float()
+
+	// Clamp deltaTime to prevent physics explosion after tab-away
+	if dt > 0.1 {
+		dt = 0.1
 	}
 
-	// Handle steering
-	if input.Left {
-		car.RotationY += ROTATE_SPEED
+	// Steering
+	if left {
+		car.RotationY += ROTATE_SPEED * dt
 	}
-	if input.Right {
-		car.RotationY -= ROTATE_SPEED
+	if right {
+		car.RotationY -= ROTATE_SPEED * dt
 	}
 
-	// Calculate forward vector based on rotation
+	// Forward direction based on rotation
 	forwardX := math.Sin(car.RotationY)
 	forwardZ := math.Cos(car.RotationY)
 
-	// Handle acceleration
-	if input.Forward {
-		car.VelocityX += forwardX * ACCELERATION
-		car.VelocityZ += forwardZ * ACCELERATION
+	// Acceleration
+	if forward {
+		car.VelocityX += forwardX * ACCELERATION * dt
+		car.VelocityZ += forwardZ * ACCELERATION * dt
 	}
 
-	// Handle braking/reverse
-	if input.Backward {
-		// Calculate current speed and dot product
+	// Braking / reverse
+	if backward {
 		speed := math.Sqrt(car.VelocityX*car.VelocityX + car.VelocityZ*car.VelocityZ)
 		dot := car.VelocityX*forwardX + car.VelocityZ*forwardZ
 
 		if dot > 0.0 && speed > 0.0 {
-			// Brake when moving forward
-			car.VelocityX -= (car.VelocityX / speed) * BRAKE_POWER
-			car.VelocityZ -= (car.VelocityZ / speed) * BRAKE_POWER
+			car.VelocityX -= (car.VelocityX / speed) * BRAKE_POWER * dt
+			car.VelocityZ -= (car.VelocityZ / speed) * BRAKE_POWER * dt
 		} else {
-			// Accelerate backward
-			car.VelocityX -= forwardX * ACCELERATION
-			car.VelocityZ -= forwardZ * ACCELERATION
+			car.VelocityX -= forwardX * ACCELERATION * dt
+			car.VelocityZ -= forwardZ * ACCELERATION * dt
 		}
 	}
 
-	// Apply friction
-	car.VelocityX *= FRICTION
-	car.VelocityZ *= FRICTION
+	// Friction: exponential decay based on dt
+	frictionFactor := math.Pow(1.0-FRICTION, dt*60.0)
+	car.VelocityX *= frictionFactor
+	car.VelocityZ *= frictionFactor
 
-	// Clamp speed to max
+	// Clamp speed
 	speed := math.Sqrt(car.VelocityX*car.VelocityX + car.VelocityZ*car.VelocityZ)
 	if speed > MAX_SPEED {
 		car.VelocityX = (car.VelocityX / speed) * MAX_SPEED
@@ -711,23 +603,22 @@ func updateCarPhysics(this js.Value, args []js.Value) interface{} {
 	}
 
 	// Stop tiny movements
-	if speed < 0.001 {
+	if speed < 0.01 {
 		car.VelocityX = 0.0
 		car.VelocityZ = 0.0
 	}
 
 	// Update position
-	car.X += car.VelocityX
-	car.Z += car.VelocityZ
+	car.X += car.VelocityX * dt
+	car.Z += car.VelocityZ * dt
 
-	// Return updated state
-	result := make(map[string]interface{})
-	result["x"] = car.X
-	result["z"] = car.Z
-	result["rotation_y"] = car.RotationY
-	result["velocity_x"] = car.VelocityX
-	result["velocity_z"] = car.VelocityZ
-
+	result := map[string]any{
+		"x":          car.X,
+		"z":          car.Z,
+		"rotation_y": car.RotationY,
+		"velocity_x": car.VelocityX,
+		"velocity_z": car.VelocityZ,
+	}
 	return js.ValueOf(result)
 }
 
@@ -736,31 +627,18 @@ func updateCarPhysics(this js.Value, args []js.Value) interface{} {
 // ============================================================================
 
 func registerCallbacks() {
-	// Original function
 	js.Global().Set("calcDistance", js.FuncOf(distance))
-
-	// Spatial grid functions (Go 1.24 optimized)
 	js.Global().Set("wasmUpdateSpatialGrid", js.FuncOf(updateSpatialGrid))
 	js.Global().Set("wasmCheckCollision", js.FuncOf(checkCollision))
 	js.Global().Set("wasmBatchCheckCollisions", js.FuncOf(batchCheckCollisions))
-
-	// Search functions (Go 1.24 fast map iteration)
 	js.Global().Set("wasmFindNearestObject", js.FuncOf(findNearestObject))
 	js.Global().Set("wasmFindObjectsInRadius", js.FuncOf(findObjectsInRadius))
-
-	// Car physics
 	js.Global().Set("wasmUpdateCarPhysics", js.FuncOf(updateCarPhysics))
-
-	// Debugging
 	js.Global().Set("wasmGetGridStats", js.FuncOf(getGridStats))
 }
 
 func main() {
-	c := make(chan struct{}, 0)
 	registerCallbacks()
-	println("Physics WASM module loaded (Go 1.26+ with GreenTea GC)")
-	println("Optimizations: Swiss Tables, SpinbitMutex, GreenTea GC")
-	println("Performance: 30-60% faster map operations, reduced GC pauses")
-	println("Car physics: Acceleration, steering, friction (WASM-powered)")
-	<-c // Keep Go running
+	println("Physics WASM module loaded")
+	select {} // Keep Go running
 }

@@ -2,7 +2,7 @@ import { camera, renderer, placedObjects } from './state/scene-state.js';
 import * as THREE from './three.module.js';
 import { showNotification, getCurrentMode } from './ui.js';
 import { getJoystickInput } from './joystick.js';
-import { getDrivingCar, getSelectedObject } from './state/app-state.js';
+import { getDrivingCar, getSelectedObject, getDeltaTime } from './state/app-state.js';
 import { checkCollision, updateBoundingBox } from './models/collision.js';
 
 let keysPressed = {};
@@ -220,8 +220,9 @@ export function updateControls() {
             const oldX = carState.x;
             const oldZ = carState.z;
 
-            // Call Go WASM function
-            const newState = window.wasmUpdateCarPhysics(carState, inputState);
+            // Call Go WASM function with delta time for frame-independent physics
+            const dt = getDeltaTime() || 1 / 60;
+            const newState = window.wasmUpdateCarPhysics(carState, inputState, dt);
 
             // Update the velocity on the JS object for the next frame
             car.userData.velocity_x = newState.velocity_x;
