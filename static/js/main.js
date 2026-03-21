@@ -17,11 +17,24 @@ import mobileSettings from './mobile/settings.js';
 import tutorial from './mobile/tutorial.js';
 import mobileIntegration from './mobile/integration.js';
 
-// Wait for Go WASM module to be ready
+// Wait for Go WASM module to be ready (resolved by index.html loading script)
 async function waitForWasm() {
-    await wasmReady;
+    // wasmReady is resolved when window.__markWasmReady() is called from the
+    // WASM loading script in index.html after go.run() completes.
+    // Add a timeout so the app can start even if WASM fails.
+    const WASM_TIMEOUT_MS = 10000;
+    try {
+        await Promise.race([
+            wasmReady,
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('WASM load timed out')), WASM_TIMEOUT_MS)
+            )
+        ]);
+        console.log('Go WASM runtime started, initializing physics...');
+    } catch (err) {
+        console.warn('WASM not available, continuing without physics:', err.message);
+    }
     await initPhysicsWasm();
-    markWasmReady();
     return true;
 }
 

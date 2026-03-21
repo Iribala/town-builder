@@ -385,13 +385,24 @@
     <script>
       // Load physics WASM module (Go 1.25+ with GreenTea GC experimental and car physics)
       const go = new Go();
+      // wasmReady promise in wasm.js is resolved by window.__markWasmReady() or window.__markWasmFailed()
       WebAssembly.instantiateStreaming(fetch(window.__BASE_PATH + "/static/wasm/physics_greentea.wasm"), go.importObject).then(result => {
         go.run(result.instance);
         console.log("✓ Physics WASM loaded (Go 1.25+ with GreenTea GC experimental)");
-        console.log("  Features: Spatial grid, collision detection, car physics");
-        console.log("  Performance: 30-60% faster map operations, reduced GC pauses");
+        
+        // Signal readiness to main.js (breaks deadlock)
+        if (typeof window.__markWasmReady === 'function') {
+          window.__markWasmReady();
+        } else {
+          // Fallback in case main application loads slower - functions will be checked again in main.js init loop
+          console.warn("WASM signal function not yet on window - will retry in 100ms");
+          setTimeout(() => {
+            if (typeof window.__markWasmReady === 'function') window.__markWasmReady();
+          }, 100);
+        }
       }).catch(err => {
         console.error("Failed to load physics WASM:", err);
+        if (typeof window.__markWasmFailed === 'function') window.__markWasmFailed(err);
       });
     </script>
 
