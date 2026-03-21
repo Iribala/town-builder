@@ -3,14 +3,14 @@ import { initializeScene, animate, loadModelToScene, placedObjects } from './sce
 import { setupSSE, loadTownFromDjango } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
-import { initPhysicsWasm, markWasmReady } from './utils/physics_wasm.js';
+import { initPhysicsWasm } from './utils/physics_wasm.js';
+import { markWasmReady, wasmReady } from './utils/wasm.js';
 import { applyCategoryStatuses, createStatusLegend } from './category_status.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
 import {
     setMyName,
     getCurrentTownId
 } from './state/app-state.js';
-import { wasmReady } from './utils/wasm.js';
 import { isMobile } from './utils/device-detect.js';
 import mobileUI from './mobile/mobile-ui.js';
 import mobileSettings from './mobile/settings.js';
