@@ -254,7 +254,7 @@ export function updateControls() {
             }
 
             if (!collisionDetected) {
-                car.position.copy(potentialPosition);
+                car.position.copy(TEMP_VECTOR);
                 car.rotation.y = newState.rotation_y;
             }
 

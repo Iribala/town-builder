@@ -49,10 +49,12 @@ function getCookie(name) {
 
 let userName = getCookie("userName");
 if (!userName) {
-    userName = prompt("Enter your name:");
+    // Generate a random guest name rather than blocking page load with prompt().
+    // Users can change their display name via the settings panel.
+    userName = `Player${Math.floor(Math.random() * 9000) + 1000}`;
+    setCookie("userName", userName, 30); // Remember for 30 days
 }
 setMyName(userName);
-setCookie("userName", userName, 30); // Remember for 30 days
 
 
 async function init() {

@@ -1,10 +1,12 @@
 """Snapshot service for town versioning and save points."""
 
+import asyncio
 import json
 import logging
 import time
 import uuid
 import compression.zstd as zstd
+from collections import deque
 from typing import Any
 
 from app.config import settings
@@ -14,6 +16,11 @@ logger = logging.getLogger(__name__)
 
 # Max snapshots to keep per town (from settings)
 MAX_SNAPSHOTS = settings.max_snapshots
+
+# In-memory fallback storage (used when Redis is unavailable)
+_mem_snapshots: deque[dict[str, Any]] = deque(maxlen=MAX_SNAPSHOTS)
+_mem_snapshot_data: dict[str, dict[str, Any]] = {}
+_mem_lock = asyncio.Lock()
 
 
 class SnapshotManager:
@@ -67,8 +74,16 @@ class SnapshotManager:
 
         redis_client = get_redis_client()
         if not redis_client:
-            logger.error("Redis client not available for snapshots")
-            raise Exception("Redis client not available")
+            logger.warning("Redis unavailable; storing snapshot in memory (not persistent)")
+            async with _mem_lock:
+                # Evict oldest if at capacity
+                if len(_mem_snapshots) == MAX_SNAPSHOTS:
+                    oldest = _mem_snapshots[0]
+                    _mem_snapshot_data.pop(oldest["id"], None)
+                _mem_snapshots.append(metadata)
+                _mem_snapshot_data[snapshot_id] = town_data
+            logger.info(f"Created in-memory snapshot: {snapshot_id} ({name})")
+            return snapshot_id
 
         try:
             # Store snapshot data with compression
@@ -107,8 +122,8 @@ class SnapshotManager:
         """
         redis_client = get_redis_client()
         if not redis_client:
-            logger.warning("Redis client not available for listing snapshots")
-            return []
+            async with _mem_lock:
+                return list(reversed(list(_mem_snapshots)))
 
         try:
             entries = await redis_client.lrange(self.snapshots_key, 0, -1)
@@ -131,8 +146,8 @@ class SnapshotManager:
         """
         redis_client = get_redis_client()
         if not redis_client:
-            logger.warning("Redis client not available for getting snapshot")
-            return None
+            async with _mem_lock:
+                return _mem_snapshot_data.get(snapshot_id)
 
         try:
             data_key = f"{self.snapshot_data_prefix}{snapshot_id}"
@@ -161,8 +176,16 @@ class SnapshotManager:
         """
         redis_client = get_redis_client()
         if not redis_client:
-            logger.warning("Redis client not available for deleting snapshot")
-            return False
+            async with _mem_lock:
+                before = len(_mem_snapshots)
+                new_list = deque(
+                    (s for s in _mem_snapshots if s["id"] != snapshot_id),
+                    maxlen=MAX_SNAPSHOTS,
+                )
+                _mem_snapshots.clear()
+                _mem_snapshots.extend(new_list)
+                _mem_snapshot_data.pop(snapshot_id, None)
+            return len(_mem_snapshots) < before
 
         try:
             # Delete snapshot data
@@ -201,7 +224,10 @@ class SnapshotManager:
         """
         redis_client = get_redis_client()
         if not redis_client:
-            logger.warning("Redis client not available for getting snapshot metadata")
+            async with _mem_lock:
+                for s in _mem_snapshots:
+                    if s["id"] == snapshot_id:
+                        return s
             return None
 
         try:

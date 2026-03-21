@@ -59,13 +59,14 @@ class TestSearchTownByName:
         assert result is None
 
     @respx.mock
-    async def test_http_error_returns_none(self):
-        """500 from kibigia → returns None (doesn't crash)."""
+    async def test_http_error_raises(self):
+        """500 from kibigia → raises HTTPStatusError (caller decides how to handle)."""
+        import httpx
         respx.get("http://localhost:8000/api/towns/").mock(
             return_value=Response(500, json={"error": "Internal server error"})
         )
-        result = await search_town_by_name("Springfield")
-        assert result is None
+        with pytest.raises(httpx.HTTPStatusError):
+            await search_town_by_name("Springfield")
 
     @respx.mock
     async def test_multiple_results_returns_first(self):

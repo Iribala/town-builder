@@ -4,10 +4,10 @@ from app.models.schemas import CursorUpdate
 from app.services.auth import get_current_user
 from app.services.events import broadcast_sse
 
-router = APIRouter(tags=["Cursor"])
+router = APIRouter(prefix='/api/cursor', tags=["Cursor"])
 
 
-@router.post('/api/cursor/update')
+@router.post('/update')
 async def update_cursor_position(
     cursor_data: CursorUpdate,
     current_user: dict = Depends(get_current_user),

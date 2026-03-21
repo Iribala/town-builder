@@ -48,10 +48,12 @@ export function setupSSE() {
             
             isConnecting = true;
             
-            let sseUrl = (getBasePath() || '') + '/events?name=' + encodeURIComponent(getMyName());
+            const sseUrl = (getBasePath() || '') + '/events?name=' + encodeURIComponent(getMyName());
+            // Set token as a cookie so EventSource sends it automatically.
+            // Native EventSource does not support custom request headers.
             const token = getToken();
             if (token) {
-                sseUrl += '&token=' + encodeURIComponent(token);
+                document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; SameSite=Strict`;
             }
             
             const evtSource = new EventSource(sseUrl);

@@ -57,11 +57,10 @@ class Settings(BaseSettings):
     max_history_size: int = 100
     max_snapshots: int = 50
 
-    # Allowed origins for CORS (comma-separated)
-    allowed_origins: str = os.getenv(
-        "ALLOWED_ORIGINS",
-        "http://localhost:3000,http://localhost:5001,http://127.0.0.1:5001",
-    )
+    # Allowed origins for CORS (comma-separated).
+    # Defaults to empty; main.py adds localhost origins automatically in development.
+    # Always set ALLOWED_ORIGINS explicitly in production.
+    allowed_origins: str = os.getenv("ALLOWED_ORIGINS", "")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
