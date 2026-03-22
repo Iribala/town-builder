@@ -234,12 +234,21 @@ export function showNotification(message, type = 'info') {
         toast.classList.add('text-bg-primary');
     }
 
-    toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    `;
+    const toastInner = document.createElement('div');
+    toastInner.className = 'd-flex';
+
+    const toastBody = document.createElement('div');
+    toastBody.className = 'toast-body';
+    toastBody.textContent = message;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close btn-close-white me-2 m-auto';
+    closeBtn.setAttribute('data-bs-dismiss', 'toast');
+
+    toastInner.appendChild(toastBody);
+    toastInner.appendChild(closeBtn);
+    toast.appendChild(toastInner);
 
     toastContainer.appendChild(toast);
 
@@ -542,7 +551,10 @@ export function updateOnlineUsersList(users) {
     users.forEach(u => {
         const li = document.createElement('li');
         li.className = 'py-1';
-        li.innerHTML = `<i class="bi bi-person-circle me-2 text-primary"></i>${u}`;
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-person-circle me-2 text-primary';
+        li.appendChild(icon);
+        li.appendChild(document.createTextNode(u));
         ul.appendChild(li);
     });
 }

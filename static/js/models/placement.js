@@ -5,6 +5,9 @@ import * as THREE from '../three.module.js';
 import { checkCollision } from './collision.js';
 import { getMouseCoordinates } from '../utils/raycaster.js';
 
+// Reusable raycaster to avoid allocation on every mousemove
+const _raycaster = new THREE.Raycaster();
+
 /**
  * Create a placement indicator
  * @param {THREE.Scene} scene - Three.js scene
@@ -40,9 +43,8 @@ export function updatePlacementIndicator(event, placementIndicator, groundPlane,
     }
 
     const mouse = getMouseCoordinates(event, canvasElement);
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(groundPlane);
+    _raycaster.setFromCamera(mouse, camera);
+    const intersects = _raycaster.intersectObject(groundPlane);
 
     if (intersects.length > 0) {
         placementIndicator.position.copy(intersects[0].point);

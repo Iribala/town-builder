@@ -103,15 +103,17 @@ function serializeObject(object, index) {
     const box = object.userData.boundingBox;
     const position = object.position;
 
+    // Box3.setFromObject() returns world-space coordinates, so we use
+    // the box min/max directly without adding position again.
     return {
         id: object.id || index,
         x: position.x,
         y: position.z, // Use Z for 2D spatial grid
         bbox: {
-            minX: position.x + box.min.x,
-            minY: position.z + box.min.z,
-            maxX: position.x + box.max.x,
-            maxY: position.z + box.max.z,
+            minX: box.min.x,
+            minY: box.min.z,
+            maxX: box.max.x,
+            maxY: box.max.z,
         },
         category: object.userData.category || 'unknown'
     };

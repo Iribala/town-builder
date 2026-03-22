@@ -24,7 +24,7 @@ export function getMouseCoordinates(event, element) {
  * @returns {THREE.Object3D} Root object
  */
 export function findRootObject(obj, placedObjects) {
-    while (obj.parent && !placedObjects.includes(obj)) {
+    while (obj.parent && !obj.userData._isPlacedRoot) {
         obj = obj.parent;
     }
     return obj;

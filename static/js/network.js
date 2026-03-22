@@ -53,7 +53,8 @@ export function setupSSE() {
             // Native EventSource does not support custom request headers.
             const token = getToken();
             if (token) {
-                document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; SameSite=Strict`;
+                const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+                document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; SameSite=Strict${secure}`;
             }
             
             const evtSource = new EventSource(sseUrl);
@@ -96,14 +97,14 @@ export function setupSSE() {
                     currentEvtSource = null;
                 }
                 if (isInitial) {
-                    reject(err);
-                } else {
-                    showNotification(`Connection lost, retrying in ${retryDelay / 1000}s`, 'error');
-                    setTimeout(() => {
-                        retryDelay = Math.min(maxDelay, retryDelay * 2);
-                        connect(false);
-                    }, retryDelay);
+                    // Resolve (not reject) so the app continues, then retry
+                    resolve(null);
                 }
+                showNotification(`Connection lost, retrying in ${retryDelay / 1000}s`, 'error');
+                setTimeout(() => {
+                    retryDelay = Math.min(maxDelay, retryDelay * 2);
+                    connect(false);
+                }, retryDelay);
             };
         }
         
@@ -202,6 +203,35 @@ export async function loadTownFromDjango(townId) {
         setCurrentTownLongitude(result.town_info.longitude);
     }
     return result;
+}
+
+/**
+ * Broadcast a scene update event (object move/rotate/delete) to other clients
+ * via the buildings API. No-op if the object has no server-assigned ID.
+ * @param {Object} eventData - {type, category, id, position, rotation}
+ */
+export async function broadcastSceneUpdate(eventData) {
+    if (!eventData || !eventData.id) return;
+
+    try {
+        if (eventData.type === 'edit') {
+            await apiFetch(`${getBasePath() || ''}/api/buildings/${eventData.id}`, {
+                method: 'PUT',
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify({
+                    position: eventData.position ? { x: eventData.position[0], y: eventData.position[1], z: eventData.position[2] } : undefined,
+                    rotation: eventData.rotation ? { x: eventData.rotation[0], y: eventData.rotation[1], z: eventData.rotation[2] } : undefined,
+                })
+            });
+        } else if (eventData.type === 'delete') {
+            await apiFetch(`${getBasePath() || ''}/api/buildings/${eventData.id}`, {
+                method: 'DELETE',
+                headers: authHeaders()
+            });
+        }
+    } catch (err) {
+        console.debug('Failed to broadcast scene update:', err);
+    }
 }
 
 /**

@@ -6,6 +6,15 @@ import * as THREE from '../three.module.js';
 import { checkCollision, updateBoundingBox } from '../models/collision.js';
 import { findNearestObject, isPhysicsWasmReady } from '../utils/physics_wasm.js';
 
+// Reusable objects to avoid per-frame allocations
+const _tempRotationObject = new THREE.Object3D();
+const _moveDirection = new THREE.Vector3();
+const _chaseDirection = new THREE.Vector3();
+const _cameraOffset = new THREE.Vector3();
+const _cameraTargetPosition = new THREE.Vector3();
+const _lookAtTarget = new THREE.Vector3();
+const _centerOfMap = new THREE.Vector3();
+
 /**
  * Update all moving cars' positions and handle physics
  * @param {Array<THREE.Object3D>} movingCars - Array of moving car objects
@@ -15,7 +24,6 @@ import { findNearestObject, isPhysicsWasmReady } from '../utils/physics_wasm.js'
  */
 export function updateMovingCars(movingCars, placedObjects, groundPlane, drivingCar = null) {
     const groundBoundary = groundPlane.geometry.parameters.width / 2;
-    const tempRotationObject = new THREE.Object3D();
 
     for (let i = 0; i < movingCars.length; i++) {
         const car = movingCars[i];
@@ -36,25 +44,25 @@ export function updateMovingCars(movingCars, placedObjects, groundPlane, driving
         // Initialize properties if not set
         initializeCarProperties(car);
 
-        let moveDirection = new THREE.Vector3(0, 0, 1);
+        _moveDirection.set(0, 0, 1);
         let actualSpeedThisFrame = car.userData.currentSpeed;
 
         // Chase behavior logic
         if (car.userData.behavior === 'chase' && car.userData.targetType) {
-            const result = handleChaseBehavior(car, placedObjects, tempRotationObject);
+            const result = handleChaseBehavior(car, placedObjects);
             actualSpeedThisFrame = result.speed;
-            moveDirection = result.direction;
+            _moveDirection.copy(result.direction);
         } else {
             // Default straight movement
             actualSpeedThisFrame = car.userData.currentSpeed;
-            moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
+            _moveDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
         }
 
-        const potentialPosition = car.position.clone().add(moveDirection.clone().multiplyScalar(actualSpeedThisFrame));
+        const potentialPosition = car.position.clone().add(_moveDirection.clone().multiplyScalar(actualSpeedThisFrame));
 
         // Boundary check for chasing cars
         if (car.userData.behavior === 'chase' && !(car.userData.isTeleportedRecently && car.userData.teleportCooldownFrames > 0)) {
-            handleBoundaryCheck(car, potentialPosition, groundBoundary, tempRotationObject);
+            handleBoundaryCheck(car, potentialPosition, groundBoundary);
         }
 
         // Collision detection
@@ -85,22 +93,20 @@ export function updateDrivingCamera(camera, drivingCar) {
     if (!drivingCar) return;
 
     // Third-person camera: position behind and slightly above the car
-    const offset = new THREE.Vector3(0, 2.5, -6);
-    const cameraTargetPosition = new THREE.Vector3();
+    _cameraOffset.set(0, 2.5, -6);
 
     // Apply car's world rotation and position to the offset
-    cameraTargetPosition.copy(offset);
-    cameraTargetPosition.applyMatrix4(drivingCar.matrixWorld);
+    _cameraTargetPosition.copy(_cameraOffset);
+    _cameraTargetPosition.applyMatrix4(drivingCar.matrixWorld);
 
     // Smoothly interpolate camera position
-    camera.position.lerp(cameraTargetPosition, 0.1);
+    camera.position.lerp(_cameraTargetPosition, 0.1);
 
     // Camera looks at a point slightly in front of the car's center
-    const lookAtTarget = new THREE.Vector3();
-    drivingCar.getWorldPosition(lookAtTarget);
-    lookAtTarget.y += 1.0;
+    drivingCar.getWorldPosition(_lookAtTarget);
+    _lookAtTarget.y += 1.0;
 
-    camera.lookAt(lookAtTarget);
+    camera.lookAt(_lookAtTarget);
 }
 
 /**
@@ -121,10 +127,9 @@ function initializeCarProperties(car) {
  * Uses WASM-optimized spatial search for 90%+ faster target finding
  * @param {THREE.Object3D} car - Chasing car
  * @param {Array<THREE.Object3D>} placedObjects - All placed objects
- * @param {THREE.Object3D} tempRotationObject - Helper object for rotation
  * @returns {{speed: number, direction: THREE.Vector3}} Speed and direction
  */
-function handleChaseBehavior(car, placedObjects, tempRotationObject) {
+function handleChaseBehavior(car, placedObjects) {
     let nearestTarget = null;
 
     // Try WASM-optimized nearest object search
@@ -164,18 +169,17 @@ function handleChaseBehavior(car, placedObjects, tempRotationObject) {
     }
 
     let speed = car.userData.currentSpeed;
-    const direction = new THREE.Vector3(0, 0, 1);
+    _chaseDirection.set(0, 0, 1);
 
     if (nearestTarget) {
-        const distanceToTarget = calcDistance(
-            car.position.x, car.position.z,
-            nearestTarget.position.x, nearestTarget.position.z
-        );
+        const dx = car.position.x - nearestTarget.position.x;
+        const dz = car.position.z - nearestTarget.position.z;
+        const distanceToTarget = Math.sqrt(dx * dx + dz * dz);
 
         // Smooth turning
-        tempRotationObject.position.copy(car.position);
-        tempRotationObject.lookAt(nearestTarget.position);
-        const targetQuaternion = tempRotationObject.quaternion;
+        _tempRotationObject.position.copy(car.position);
+        _tempRotationObject.lookAt(nearestTarget.position);
+        const targetQuaternion = _tempRotationObject.quaternion;
         car.quaternion.slerp(targetQuaternion, car.userData.turnSpeedFactor);
 
         // Speed control & acceleration
@@ -198,7 +202,7 @@ function handleChaseBehavior(car, placedObjects, tempRotationObject) {
         }
 
         car.userData.currentSpeed = speed;
-        direction.set(0, 0, 1).applyQuaternion(car.quaternion);
+        _chaseDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
     } else {
         // No target found, gradually slow down
         if (car.userData.currentSpeed > car.userData.defaultSpeed) {
@@ -207,10 +211,10 @@ function handleChaseBehavior(car, placedObjects, tempRotationObject) {
             speed = Math.min(car.userData.defaultSpeed, car.userData.currentSpeed + car.userData.acceleration);
         }
         car.userData.currentSpeed = speed;
-        direction.set(0, 0, 1).applyQuaternion(car.quaternion);
+        _chaseDirection.set(0, 0, 1).applyQuaternion(car.quaternion);
     }
 
-    return { speed, direction };
+    return { speed, direction: _chaseDirection };
 }
 
 /**
@@ -218,9 +222,8 @@ function handleChaseBehavior(car, placedObjects, tempRotationObject) {
  * @param {THREE.Object3D} car - Car object
  * @param {THREE.Vector3} potentialPosition - Potential next position
  * @param {number} groundBoundary - Ground boundary limit
- * @param {THREE.Object3D} tempRotationObject - Helper object for rotation
  */
-function handleBoundaryCheck(car, potentialPosition, groundBoundary, tempRotationObject) {
+function handleBoundaryCheck(car, potentialPosition, groundBoundary) {
     let isClamped = false;
 
     if (potentialPosition.x > groundBoundary) {
@@ -241,10 +244,10 @@ function handleBoundaryCheck(car, potentialPosition, groundBoundary, tempRotatio
 
     if (isClamped) {
         // Re-orient towards the center of the map
-        const centerOfMap = new THREE.Vector3(0, car.position.y, 0);
-        tempRotationObject.position.copy(car.position);
-        tempRotationObject.lookAt(centerOfMap);
-        car.quaternion.slerp(tempRotationObject.quaternion, car.userData.turnSpeedFactor * 2);
+        _centerOfMap.set(0, car.position.y, 0);
+        _tempRotationObject.position.copy(car.position);
+        _tempRotationObject.lookAt(_centerOfMap);
+        car.quaternion.slerp(_tempRotationObject.quaternion, car.userData.turnSpeedFactor * 2);
         car.userData.currentSpeed = Math.max(0, car.userData.currentSpeed - car.userData.acceleration * 5);
     }
 }

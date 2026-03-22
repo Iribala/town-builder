@@ -13,6 +13,8 @@ const ORBIT_TARGET = new THREE.Vector3(0, 0, 0);
 const TEMP_BOX = new THREE.Box3();
 const TEMP_VECTOR = new THREE.Vector3();
 const FORWARD_DIR = new THREE.Vector3();
+const _orbitOffset = new THREE.Vector3();
+const _orbitSpherical = new THREE.Spherical();
 
 export function setupKeyboardControls() {
     // Keyboard listeners
@@ -54,17 +56,17 @@ export function setupKeyboardControls() {
             const orbitSpeed = 0.005; // Adjust for sensitivity
 
             // Orbiting logic using Spherical Coordinates
-            const offset = new THREE.Vector3().subVectors(camera.position, ORBIT_TARGET);
-            const spherical = new THREE.Spherical().setFromVector3(offset);
+            _orbitOffset.subVectors(camera.position, ORBIT_TARGET);
+            _orbitSpherical.setFromVector3(_orbitOffset);
 
-            spherical.theta -= deltaX * orbitSpeed; // Azimuthal angle (horizontal)
-            spherical.phi -= deltaY * orbitSpeed;   // Polar angle (vertical)
+            _orbitSpherical.theta -= deltaX * orbitSpeed; // Azimuthal angle (horizontal)
+            _orbitSpherical.phi -= deltaY * orbitSpeed;   // Polar angle (vertical)
 
             // Clamp polar angle to prevent flipping over
-            spherical.phi = Math.max(0.01, Math.min(Math.PI - 0.01, spherical.phi));
+            _orbitSpherical.phi = Math.max(0.01, Math.min(Math.PI - 0.01, _orbitSpherical.phi));
 
-            offset.setFromSpherical(spherical);
-            camera.position.copy(ORBIT_TARGET).add(offset);
+            _orbitOffset.setFromSpherical(_orbitSpherical);
+            camera.position.copy(ORBIT_TARGET).add(_orbitOffset);
             camera.lookAt(ORBIT_TARGET);
         });
 
@@ -108,7 +110,8 @@ function handleMouseWheel(event) {
 export function updateControls() {
     const cameraRotateSpeed = 0.02;
     const moveSpeed = 0.15;
-    const objectMoveSpeed = 0.1; // Speed for moving objects in edit mode
+    const dt = getDeltaTime() || 1 / 60;
+    const objectMoveSpeed = 6.0 * dt; // ~0.1 at 60fps, frame-rate independent
 
     // Handle Z key zoom
     if (keysPressed['z']) {
@@ -281,7 +284,8 @@ export function updateControls() {
                 car.rotation.y -= carRotateSpeed;
             }
             
-            const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(car.quaternion);
+            FORWARD_DIR.set(0, 0, 1).applyQuaternion(car.quaternion);
+            const forward = FORWARD_DIR;
             if (keysPressed['w'] || keysPressed['arrowup'] || joystickInput.forward > 0.1) {
                 car.userData.velocity.add(forward.clone().multiplyScalar(acceleration));
             }

@@ -15,7 +15,7 @@ import { disposeObject } from './utils/disposal.js';
 import { getMouseCoordinates, findRootObject } from './utils/raycaster.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from './utils/physics_wasm.js';
 import { animateCursors, cleanupInactiveCursors } from './collaborative-cursors.js';
-import { sendCursorUpdate } from './network.js';
+import { sendCursorUpdate, broadcastSceneUpdate } from './network.js';
 import {
     scene,
     camera,
@@ -79,10 +79,12 @@ let lastCameraRotation = new THREE.Euler();
 const CAMERA_MOVE_THRESHOLD = 0.01; // Minimum movement to recalculate frustum
 let frustumNeedsUpdate = true;
 
-// Reusable objects for frustum culling to avoid allocations every frame
+// Reusable objects to avoid allocations in hot paths
 const _reusableBox = new THREE.Box3();
 const _reusableMinVector = new THREE.Vector3();
 const _reusableMaxVector = new THREE.Vector3();
+const _reusableRaycaster = new THREE.Raycaster();
+const _reusableMouse = new THREE.Vector2();
 
 // Initialize scene on module load
 export function initializeScene() {
@@ -154,39 +156,23 @@ async function initializeTouchControlsWhenReady(camera, renderer, scene) {
     });
 
     touchInteractions.onMoveObjectCallback((object, position) => {
-        // Broadcast position update to other clients
-        const eventData = {
+        broadcastSceneUpdate({
             type: 'edit',
             category: object.userData.category,
             id: object.userData.id,
             position: [object.position.x, object.position.y, object.position.z],
             rotation: [object.rotation.x, object.rotation.y, object.rotation.z]
-        };
-
-        // Import and call broadcast if available
-        import('./network.js').then(({ broadcastSceneUpdate }) => {
-            if (broadcastSceneUpdate) {
-                broadcastSceneUpdate(eventData);
-            }
-        }).catch(err => console.warn('Could not broadcast move update:', err));
+        });
     });
 
     touchInteractions.onRotateObjectCallback((object, rotation) => {
-        // Broadcast rotation update to other clients
-        const eventData = {
+        broadcastSceneUpdate({
             type: 'edit',
             category: object.userData.category,
             id: object.userData.id,
             position: [object.position.x, object.position.y, object.position.z],
             rotation: [object.rotation.x, object.rotation.y, object.rotation.z]
-        };
-
-        // Import and call broadcast if available
-        import('./network.js').then(({ broadcastSceneUpdate }) => {
-            if (broadcastSceneUpdate) {
-                broadcastSceneUpdate(eventData);
-            }
-        }).catch(err => console.warn('Could not broadcast rotate update:', err));
+        });
     });
 
     console.log('Touch controls initialized successfully');
@@ -232,14 +218,13 @@ function sendCursorPositionUpdate(event) {
     
     // Raycast to find cursor position in 3D world
     const mouse = getMouseCoordinates(event, renderer.domElement);
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, camera);
+    _reusableRaycaster.setFromCamera(mouse, camera);
     
-    const intersects = raycaster.intersectObject(groundPlane, false);
+    const intersects = _reusableRaycaster.intersectObject(groundPlane, false);
     if (intersects.length > 0) {
         const point = intersects[0].point;
         cursorWorldPosition.copy(point);
-        
+
         // Send update to server
         sendCursorUpdate(
             getMyName(),
@@ -265,7 +250,6 @@ function applyFrustumCulling() {
     if (placedObjects.length < FRUSTUM_CULLING_THRESHOLD) {
         placedObjects.forEach(obj => obj.visible = true);
         culledObjectCount = 0;
-        visibleObjects = placedObjects.slice(); // Copy array
         return 0;
     }
 
@@ -343,7 +327,6 @@ function applyFrustumCulling() {
  * Includes frustum culling for rendering optimization (sliding window)
  */
 export async function animate() {
-    await wasmReady;
     requestAnimationFrame(animate);
 
     // Update timer - provides delta time for frame-independent physics
@@ -398,15 +381,14 @@ export async function animate() {
 function onCanvasClick(event) {
     const mode = getCurrentMode();
     const mouse = getMouseCoordinates(event, renderer.domElement);
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, camera);
+    _reusableRaycaster.setFromCamera(mouse, camera);
 
     if (mode === 'drive' && !getDrivingCar()) {
-        handleDriveModeClick(raycaster);
+        handleDriveModeClick(_reusableRaycaster);
     } else if (mode === 'place') {
         handlePlaceClick();
     } else if (mode === 'delete' || mode === 'edit') {
-        handleDeleteOrEditClick(raycaster, mode);
+        handleDeleteOrEditClick(_reusableRaycaster, mode);
     }
 }
 

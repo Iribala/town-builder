@@ -133,6 +133,7 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             // Initialize bounding box for the object
             updateBoundingBox(modelInstance);
 
+            modelInstance.userData._isPlacedRoot = true;
             scene.add(modelInstance);
             placedObjects.push(modelInstance);
 
@@ -179,6 +180,7 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             // Initialize bounding box for the object
             updateBoundingBox(modelInstance);
 
+            modelInstance.userData._isPlacedRoot = true;
             scene.add(modelInstance);
             placedObjects.push(modelInstance);
 
