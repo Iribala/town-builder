@@ -1,4 +1,5 @@
 """Routes for batch operations on town data."""
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.schemas import (
     BatchOperationRequest,
     BatchOperationResponse,
-    BatchOperationResult
+    BatchOperationResult,
 )
 from app.services.auth import get_current_user
 from app.services.batch_operations import batch_operations_manager
@@ -18,8 +19,7 @@ router = APIRouter(prefix="/api/batch", tags=["Batch Operations"])
 
 @router.post("/operations", response_model=BatchOperationResponse)
 async def execute_batch_operations(
-    request_data: BatchOperationRequest,
-    current_user: dict = Depends(get_current_user)
+    request_data: BatchOperationRequest, current_user: dict = Depends(get_current_user)
 ):
     """Execute multiple operations in a single request.
 
@@ -57,21 +57,20 @@ async def execute_batch_operations(
                     "position": {"x": 5, "y": 0, "z": 3}
                 }
             ],
-            "validate_operations": true
+            "check_required_fields": true
         }
     """
     try:
         operations = [op.model_dump() for op in request_data.operations]
         results, successful, failed = await batch_operations_manager.execute_operations(
-            operations,
-            request_data.validate_operations
+            operations, request_data.check_required_fields
         )
 
         return BatchOperationResponse(
             status="success" if failed == 0 else "partial",
             results=[BatchOperationResult(**r) for r in results],
             successful=successful,
-            failed=failed
+            failed=failed,
         )
 
     except Exception as e:

@@ -110,9 +110,9 @@ async def event_stream(player_name: str | None = None):
                 )
 
                 if message and message["type"] == "message":
-                    if isinstance(data := message["data"], bytes):
-                        data = data.decode("utf-8")
-                    yield f"data: {data}\n\n"
+                    if isinstance(payload := message["data"], bytes):
+                        payload = payload.decode("utf-8")
+                    yield f"data: {payload}\n\n"
 
                 if (
                     player_name

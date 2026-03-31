@@ -8,9 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class Position(BaseModel):
     """3D position coordinates."""
 
-    x: float = 0.0
-    y: float = 0.0
-    z: float = 0.0
+    x: float = Field(default=0.0, ge=-100000, le=100000)
+    y: float = Field(default=0.0, ge=-100000, le=100000)
+    z: float = Field(default=0.0, ge=-100000, le=100000)
 
 
 class Rotation(BaseModel):
@@ -75,8 +75,8 @@ class TownUpdateRequest(BaseModel):
 class SaveTownRequest(BaseModel):
     """Request to save town data."""
 
+    data: dict[str, Any] | list[dict[str, Any]]
     filename: str | None = "town_data.json"
-    data: dict[str, Any] | list[dict[str, Any]] | None = None
     town_id: int | None = None
     townName: str | None = None
     latitude: float | None = None
@@ -131,8 +131,12 @@ class EditModelRequest(BaseModel):
 class CursorUpdate(BaseModel):
     """Cursor position update for collaborative cursors."""
 
-    position: Position  # 3D world position where cursor is pointing
-    camera_position: Position  # Camera position for better context
+    position: Position = Field(
+        ..., description="3D world position where cursor is pointing"
+    )
+    camera_position: Position = Field(
+        ..., description="Camera position for better context"
+    )
 
 
 class ApiResponse(BaseModel):
@@ -175,7 +179,7 @@ class BatchOperationRequest(BaseModel):
     """Request to execute multiple operations in a single transaction."""
 
     operations: list[BatchOperation] = Field(max_length=100)
-    validate_operations: bool = True
+    check_required_fields: bool = True
 
 
 class BatchOperationResult(BaseModel):

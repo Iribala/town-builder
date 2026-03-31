@@ -145,12 +145,9 @@ async def save_town(
             raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
         filename = request_payload.get("filename", "town_data.json")
-        town_data_to_save = request_payload.get("data")
+        town_data_to_save = request_data.data
         town_id = request_payload.get("town_id")
         town_name_from_payload = request_payload.get("townName")
-
-        if town_data_to_save is None:
-            raise HTTPException(status_code=400, detail="No data provided to save")
 
         canonical_town_data = normalize_layout_data(town_data_to_save)
 
@@ -394,9 +391,7 @@ async def delete_model(
     position = request_data.position
 
     if not category or (not model_id and not position):
-        raise HTTPException(
-            status_code=400, detail={"error": "Missing required parameters"}
-        )
+        raise HTTPException(status_code=400, detail="Missing required parameters")
 
     async with town_data_lock:
         town_data = await get_town_data()
@@ -452,7 +447,7 @@ async def delete_model(
                         "message": f"Deleted model at position ({position.x}, {position.y}, {position.z})",
                     }
 
-    raise HTTPException(status_code=404, detail={"error": "Model not found"})
+    raise HTTPException(status_code=404, detail="Model not found")
 
 
 @router.put("/town/model")
@@ -472,9 +467,7 @@ async def edit_model(
     category = request_data.category
 
     if not category or not model_id:
-        raise HTTPException(
-            status_code=400, detail={"error": "Missing required parameters"}
-        )
+        raise HTTPException(status_code=400, detail="Missing required parameters")
 
     async with town_data_lock:
         town_data = await get_town_data()
@@ -510,7 +503,7 @@ async def edit_model(
                         "message": f"Updated model with ID {model_id}",
                     }
 
-    raise HTTPException(status_code=404, detail={"error": "Model not found"})
+    raise HTTPException(status_code=404, detail="Model not found")
 
 
 @router.get("/config")
