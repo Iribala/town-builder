@@ -67,7 +67,7 @@
     <div id="summary"></div>
 
     <script type="module">
-        import { LRUCache, BloomFilter, CircularBuffer, BitVector } from './data_structures.js';
+        import { LRUCache, BloomFilter, CircularBuffer } from './data_structures.js';
 
         const results = [];
         let totalTests = 0;
@@ -276,72 +276,6 @@
             assertThrows(() => new CircularBuffer(10001));
         });
 
-        // BitVector Tests
-        console.log('Running BitVector tests...');
-
-        test('BitVector: Set and check bits', () => {
-            const bv = new BitVector(64);
-            bv.set(0);
-            bv.set(10);
-            bv.set(63);
-            assertTrue(bv.isSet(0));
-            assertTrue(bv.isSet(10));
-            assertTrue(bv.isSet(63));
-            assertFalse(bv.isSet(5));
-        });
-
-        test('BitVector: Clear bits', () => {
-            const bv = new BitVector(64);
-            bv.set(10);
-            assertTrue(bv.isSet(10));
-            bv.clear(10);
-            assertFalse(bv.isSet(10));
-        });
-
-        test('BitVector: ClearAll resets all bits', () => {
-            const bv = new BitVector(128);
-            bv.set(0);
-            bv.set(50);
-            bv.set(100);
-            bv.clearAll();
-            assertFalse(bv.isSet(0));
-            assertFalse(bv.isSet(50));
-            assertFalse(bv.isSet(100));
-        });
-
-        test('BitVector: Handles large indices', () => {
-            const bv = new BitVector(1000);
-            bv.set(999);
-            assertTrue(bv.isSet(999));
-            assertFalse(bv.isSet(998));
-        });
-
-        test('BitVector: Multiple words', () => {
-            const bv = new BitVector(256);
-            // Set bits across multiple 64-bit words
-            bv.set(0);    // First word
-            bv.set(64);   // Second word
-            bv.set(128);  // Third word
-            bv.set(192);  // Fourth word
-            assertTrue(bv.isSet(0));
-            assertTrue(bv.isSet(64));
-            assertTrue(bv.isSet(128));
-            assertTrue(bv.isSet(192));
-        });
-
-        test('BitVector: Validates size', () => {
-            assertThrows(() => new BitVector(0));
-            assertThrows(() => new BitVector(-1));
-            assertThrows(() => new BitVector(1000001));
-        });
-
-        test('BitVector: Validates index bounds', () => {
-            const bv = new BitVector(64);
-            assertThrows(() => bv.set(-1));
-            assertThrows(() => bv.isSet(-1));
-            assertThrows(() => bv.clear(-1));
-        });
-
         // Render results
         function renderResults() {
             const resultsDiv = document.getElementById('results');
@@ -351,8 +285,7 @@
             const groups = {
                 'LRUCache': [],
                 'BloomFilter': [],
-                'CircularBuffer': [],
-                'BitVector': []
+                'CircularBuffer': []
             };
 
             results.forEach(result => {

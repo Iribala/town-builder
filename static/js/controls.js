@@ -50,8 +50,7 @@ export function setupKeyboardControls() {
                 lastMouseY = event.clientY;
                 // Compute orbit target along camera's look direction
                 camera.getWorldDirection(_lookDir);
-                const distToTarget = Math.max(ORBIT_DISTANCE, 5);
-                ORBIT_TARGET.copy(camera.position).addScaledVector(_lookDir, distToTarget);
+                ORBIT_TARGET.copy(camera.position).addScaledVector(_lookDir, ORBIT_DISTANCE);
                 event.preventDefault();
             }
         });

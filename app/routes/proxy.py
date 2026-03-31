@@ -91,7 +91,7 @@ async def proxy_towns_get(
 @router.post("/{path:path}")
 async def proxy_towns_post(
     request: Request,
-    data: dict = Body(default=None),
+    data: dict | None = Body(default=None),
     path: str = "",
     current_user: dict = Depends(get_current_user),
 ):
@@ -102,7 +102,7 @@ async def proxy_towns_post(
 @router.put("/{path:path}")
 async def proxy_towns_put(
     request: Request,
-    data: dict = Body(default=None),
+    data: dict | None = Body(default=None),
     path: str = "",
     current_user: dict = Depends(get_current_user),
 ):
@@ -113,7 +113,7 @@ async def proxy_towns_put(
 @router.patch("/{path:path}")
 async def proxy_towns_patch(
     request: Request,
-    data: dict = Body(default=None),
+    data: dict | None = Body(default=None),
     path: str = "",
     current_user: dict = Depends(get_current_user),
 ):
@@ -140,7 +140,7 @@ async def proxy_towns_get_root(
 @router.post("")
 async def proxy_towns_post_root(
     request: Request,
-    data: dict = Body(default=None),
+    data: dict | None = Body(default=None),
     current_user: dict = Depends(get_current_user),
 ):
     """Proxy POST requests to the external towns API root."""
