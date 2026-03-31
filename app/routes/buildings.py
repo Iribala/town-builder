@@ -1,4 +1,5 @@
 """Routes for programmatic building management."""
+
 import logging
 import uuid
 
@@ -10,7 +11,7 @@ from app.models.schemas import (
     BuildingResponse,
     Position,
     Rotation,
-    Scale
+    Scale,
 )
 from app.services.auth import get_current_user
 from app.services.storage import get_town_data, town_data_lock
@@ -21,10 +22,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/buildings", tags=["Buildings"])
 
+
+def _building_to_response(building: dict, category: str) -> BuildingResponse:
+    """Convert a raw building dict to a BuildingResponse."""
+    return BuildingResponse(
+        id=building.get("id", ""),
+        model=building.get("model", ""),
+        category=category,
+        position=Position(**building.get("position", {})),
+        rotation=Rotation(**building.get("rotation", {})),
+        scale=Scale(**building.get("scale", {})),
+        driver=building.get("driver"),
+    )
+
+
+def _find_building_in_town(town_data: dict, building_id: str):
+    """Find a building by ID across all categories.
+
+    Returns (category, building_dict, index) or (None, None, None) if not found.
+    """
+    for category in CATEGORIES:
+        if category in town_data and isinstance(town_data[category], list):
+            for i, building in enumerate(town_data[category]):
+                if isinstance(building, dict) and building.get("id") == building_id:
+                    return category, building, i
+    return None, None, None
+
+
 @router.post("", response_model=BuildingResponse, status_code=201)
 async def create_building(
-    request_data: BuildingCreateRequest,
-    current_user: dict = Depends(get_current_user)
+    request_data: BuildingCreateRequest, current_user: dict = Depends(get_current_user)
 ):
     """Create a new building programmatically.
 
@@ -48,7 +75,7 @@ async def create_building(
         "model": request_data.model,
         "position": request_data.position.model_dump(),
         "rotation": rotation.model_dump(),
-        "scale": scale.model_dump()
+        "scale": scale.model_dump(),
     }
 
     category = request_data.category
@@ -62,9 +89,14 @@ async def create_building(
 
         town_data[category].append(building)
 
-        await save_and_broadcast(town_data, {'type': 'full', 'town': town_data})
+        await save_and_broadcast(town_data, {"type": "full", "town": town_data})
 
-    logger.info("Created building: %s (%s) in category %s", building_id, request_data.model, category)
+    logger.info(
+        "Created building: %s (%s) in category %s",
+        building_id,
+        request_data.model,
+        category,
+    )
 
     return BuildingResponse(
         id=building_id,
@@ -72,13 +104,13 @@ async def create_building(
         category=category,
         position=request_data.position,
         rotation=rotation,
-        scale=scale
+        scale=scale,
     )
+
 
 @router.get("", response_model=list[BuildingResponse])
 async def list_buildings(
-    category: str | None = None,
-    current_user: dict = Depends(get_current_user)
+    category: str | None = None, current_user: dict = Depends(get_current_user)
 ):
     """List all buildings or filter by category.
 
@@ -104,24 +136,19 @@ async def list_buildings(
         if cat in town_data and isinstance(town_data[cat], list):
             for building in town_data[cat]:
                 if isinstance(building, dict):
-                    buildings.append(BuildingResponse(
-                        id=building.get('id', ''),
-                        model=building.get('model', ''),
-                        category=cat,
-                        position=Position(**building.get('position', {})),
-                        rotation=Rotation(**building.get('rotation', {})),
-                        scale=Scale(**building.get('scale', {})),
-                        driver=building.get('driver')
-                    ))
+                    buildings.append(_building_to_response(building, cat))
 
-    logger.info(f"Listed {len(buildings)} buildings" + (f" in category {category}" if category else ""))
+    logger.info(
+        f"Listed {len(buildings)} buildings"
+        + (f" in category {category}" if category else "")
+    )
 
     return buildings
 
+
 @router.get("/{building_id}", response_model=BuildingResponse)
 async def get_building(
-    building_id: str,
-    current_user: dict = Depends(get_current_user)
+    building_id: str, current_user: dict = Depends(get_current_user)
 ):
     """Get a specific building by ID.
 
@@ -137,28 +164,20 @@ async def get_building(
     """
     town_data = await get_town_data()
 
-    # Search all categories for the building
-    for category in CATEGORIES:
-        if category in town_data and isinstance(town_data[category], list):
-            for building in town_data[category]:
-                if isinstance(building, dict) and building.get('id') == building_id:
-                    return BuildingResponse(
-                        id=building.get('id', ''),
-                        model=building.get('model', ''),
-                        category=category,
-                        position=Position(**building.get('position', {})),
-                        rotation=Rotation(**building.get('rotation', {})),
-                        scale=Scale(**building.get('scale', {})),
-                        driver=building.get('driver')
-                    )
+    category, building, _index = _find_building_in_town(town_data, building_id)
+    if building is not None:
+        return _building_to_response(building, category)
 
-    raise HTTPException(status_code=404, detail=f"Building with ID {building_id} not found")
+    raise HTTPException(
+        status_code=404, detail=f"Building with ID {building_id} not found"
+    )
+
 
 @router.put("/{building_id}", response_model=BuildingResponse)
 async def update_building(
     building_id: str,
     request_data: BuildingUpdateRequest,
-    current_user: dict = Depends(get_current_user)
+    current_user: dict = Depends(get_current_user),
 ):
     """Update a building's properties.
 
@@ -176,57 +195,51 @@ async def update_building(
     async with town_data_lock:
         town_data = await get_town_data()
 
-        # Search all categories for the building
-        for category in CATEGORIES:
-            if category in town_data and isinstance(town_data[category], list):
-                for i, building in enumerate(town_data[category]):
-                    if isinstance(building, dict) and building.get('id') == building_id:
-                        # Update fields if provided
-                        if request_data.position is not None:
-                            town_data[category][i]['position'] = request_data.position.model_dump()
-                        if request_data.rotation is not None:
-                            town_data[category][i]['rotation'] = request_data.rotation.model_dump()
-                        if request_data.scale is not None:
-                            town_data[category][i]['scale'] = request_data.scale.model_dump()
-                        if request_data.model is not None:
-                            town_data[category][i]['model'] = request_data.model
+        category, building, idx = _find_building_in_town(town_data, building_id)
+        if building is None:
+            raise HTTPException(
+                status_code=404, detail=f"Building with ID {building_id} not found"
+            )
 
-                        # Handle category change (move to different category)
-                        if request_data.category is not None and request_data.category != category:
-                            building_data = town_data[category].pop(i)
-                            if request_data.category not in town_data:
-                                town_data[request_data.category] = []
-                            town_data[request_data.category].append(building_data)
-                            category = request_data.category
-                            building = building_data
-                        else:
-                            building = town_data[category][i]
+        # Update fields if provided
+        if request_data.position is not None:
+            town_data[category][idx]["position"] = request_data.position.model_dump()
+        if request_data.rotation is not None:
+            town_data[category][idx]["rotation"] = request_data.rotation.model_dump()
+        if request_data.scale is not None:
+            town_data[category][idx]["scale"] = request_data.scale.model_dump()
+        if request_data.model is not None:
+            town_data[category][idx]["model"] = request_data.model
 
-                        await save_and_broadcast(town_data, {
-                            'type': 'edit',
-                            'category': category,
-                            'id': building_id,
-                            'data': building
-                        })
+        # Handle category change (move to different category)
+        if request_data.category is not None and request_data.category != category:
+            building_data = town_data[category].pop(idx)
+            if request_data.category not in town_data:
+                town_data[request_data.category] = []
+            town_data[request_data.category].append(building_data)
+            category = request_data.category
+            building = building_data
+        else:
+            building = town_data[category][idx]
 
-                        logger.info("Updated building: %s", building_id)
+        await save_and_broadcast(
+            town_data,
+            {
+                "type": "edit",
+                "category": category,
+                "id": building_id,
+                "data": building,
+            },
+        )
 
-                        return BuildingResponse(
-                            id=building.get('id', ''),
-                            model=building.get('model', ''),
-                            category=category,
-                            position=Position(**building.get('position', {})),
-                            rotation=Rotation(**building.get('rotation', {})),
-                            scale=Scale(**building.get('scale', {})),
-                            driver=building.get('driver')
-                        )
+        logger.info("Updated building: %s", building_id)
 
-    raise HTTPException(status_code=404, detail=f"Building with ID {building_id} not found")
+        return _building_to_response(building, category)
+
 
 @router.delete("/{building_id}")
 async def delete_building(
-    building_id: str,
-    current_user: dict = Depends(get_current_user)
+    building_id: str, current_user: dict = Depends(get_current_user)
 ):
     """Delete a building by ID.
 
@@ -243,24 +256,26 @@ async def delete_building(
     async with town_data_lock:
         town_data = await get_town_data()
 
-        # Search all categories for the building
-        for category in CATEGORIES:
-            if category in town_data and isinstance(town_data[category], list):
-                for i, building in enumerate(town_data[category]):
-                    if isinstance(building, dict) and building.get('id') == building_id:
-                        town_data[category].pop(i)
+        category, _building, idx = _find_building_in_town(town_data, building_id)
+        if idx is None:
+            raise HTTPException(
+                status_code=404, detail=f"Building with ID {building_id} not found"
+            )
 
-                        await save_and_broadcast(town_data, {
-                            'type': 'delete',
-                            'category': category,
-                            'id': building_id
-                        })
+        town_data[category].pop(idx)
 
-                        logger.info("Deleted building: %s from category %s", building_id, category)
+        await save_and_broadcast(
+            town_data,
+            {"type": "delete", "category": category, "id": building_id},
+        )
 
-                        return {
-                            "status": "success",
-                            "message": f"Building {building_id} deleted successfully"
-                        }
+        logger.info(
+            "Deleted building: %s from category %s",
+            building_id,
+            category,
+        )
 
-    raise HTTPException(status_code=404, detail=f"Building with ID {building_id} not found")
+        return {
+            "status": "success",
+            "message": f"Building {building_id} deleted successfully",
+        }

@@ -240,7 +240,7 @@ export async function broadcastSceneUpdate(eventData) {
  * @param {Object} position - {x, y, z} world position where cursor is pointing
  * @param {Object} cameraPosition - {x, y, z} camera position
  */
-export async function sendCursorUpdate(username, position, cameraPosition) {
+export async function sendCursorUpdate(position, cameraPosition) {
     try {
         // username is intentionally omitted: the server derives it from the
         // authenticated JWT token (see app/routes/cursor.py).

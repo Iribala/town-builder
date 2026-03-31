@@ -15,6 +15,18 @@ const TEMP_VECTOR = new THREE.Vector3();
 const FORWARD_DIR = new THREE.Vector3();
 const _orbitOffset = new THREE.Vector3();
 const _orbitSpherical = new THREE.Spherical();
+const _lookDir = new THREE.Vector3();
+const ORBIT_DISTANCE = 20; // Distance along look direction to place orbit target
+const MIN_FOV = 10;
+const MAX_FOV = 120;
+
+function setCameraFov(newFov) {
+    const clamped = Math.max(MIN_FOV, Math.min(MAX_FOV, newFov));
+    if (camera.fov !== clamped) {
+        camera.fov = clamped;
+        camera.updateProjectionMatrix();
+    }
+}
 
 export function setupKeyboardControls() {
     // Keyboard listeners
@@ -36,7 +48,11 @@ export function setupKeyboardControls() {
                 isRightMouseDown = true;
                 lastMouseX = event.clientX;
                 lastMouseY = event.clientY;
-                event.preventDefault(); // Prevent text selection/other default actions
+                // Compute orbit target along camera's look direction
+                camera.getWorldDirection(_lookDir);
+                const distToTarget = Math.max(ORBIT_DISTANCE, 5);
+                ORBIT_TARGET.copy(camera.position).addScaledVector(_lookDir, distToTarget);
+                event.preventDefault();
             }
         });
 
@@ -96,15 +112,7 @@ function handleMouseWheel(event) {
     event.preventDefault(); // Prevent default page scroll for camera zoom
 
     const zoomSpeed = 0.1; // Reduced for more gradual zoom
-    let newFov = camera.fov - event.deltaY * zoomSpeed;
-
-    // Clamp FOV to a reasonable range (e.g., 10 to 120 degrees)
-    newFov = Math.max(10, Math.min(120, newFov));
-
-    if (camera.fov !== newFov) {
-        camera.fov = newFov;
-        camera.updateProjectionMatrix();
-    }
+    setCameraFov(camera.fov - event.deltaY * zoomSpeed);
 }
 
 export function updateControls() {
@@ -115,22 +123,10 @@ export function updateControls() {
 
     // Handle Z key zoom
     if (keysPressed['z']) {
-        // Zoom in (decrease FOV)
-        let newFov = camera.fov - 2; // Zoom speed for keyboard
-        newFov = Math.max(10, Math.min(120, newFov));
-        if (camera.fov !== newFov) {
-            camera.fov = newFov;
-            camera.updateProjectionMatrix();
-        }
+        setCameraFov(camera.fov - 2);
     }
     if (keysPressed['x']) {
-        // Zoom out (increase FOV)
-        let newFov = camera.fov + 2; // Zoom speed for keyboard
-        newFov = Math.max(10, Math.min(120, newFov));
-        if (camera.fov !== newFov) {
-            camera.fov = newFov;
-            camera.updateProjectionMatrix();
-        }
+        setCameraFov(camera.fov + 2);
     }
 
     // Handle edit mode - move selected object with arrow keys

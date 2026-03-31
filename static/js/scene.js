@@ -156,26 +156,28 @@ async function initializeTouchControlsWhenReady(camera, renderer, scene) {
     });
 
     touchInteractions.onMoveObjectCallback((object, position) => {
-        broadcastSceneUpdate({
-            type: 'edit',
-            category: object.userData.category,
-            id: object.userData.id,
-            position: [object.position.x, object.position.y, object.position.z],
-            rotation: [object.rotation.x, object.rotation.y, object.rotation.z]
-        });
+        broadcastObjectTransform(object);
     });
 
     touchInteractions.onRotateObjectCallback((object, rotation) => {
-        broadcastSceneUpdate({
-            type: 'edit',
-            category: object.userData.category,
-            id: object.userData.id,
-            position: [object.position.x, object.position.y, object.position.z],
-            rotation: [object.rotation.x, object.rotation.y, object.rotation.z]
-        });
+        broadcastObjectTransform(object);
     });
 
     console.log('Touch controls initialized successfully');
+}
+
+/**
+ * Broadcast an object transform update to other clients
+ * @param {THREE.Object3D} object - The transformed object
+ */
+function broadcastObjectTransform(object) {
+    broadcastSceneUpdate({
+        type: 'edit',
+        category: object.userData.category,
+        id: object.userData.id,
+        position: [object.position.x, object.position.y, object.position.z],
+        rotation: [object.rotation.x, object.rotation.y, object.rotation.z]
+    });
 }
 
 /**
@@ -227,7 +229,6 @@ function sendCursorPositionUpdate(event) {
 
         // Send update to server
         sendCursorUpdate(
-            getMyName(),
             { x: point.x, y: point.y, z: point.z },
             { x: camera.position.x, y: camera.position.y, z: camera.position.z }
         );

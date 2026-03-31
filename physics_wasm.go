@@ -21,7 +21,7 @@ type BoundingBox struct {
 type CategoryMask uint32
 
 const (
-	CategoryUnknown  CategoryMask = 1 << iota
+	CategoryUnknown CategoryMask = 1 << iota
 	CategoryVehicle
 	CategoryBuilding
 	CategoryTerrain
@@ -177,23 +177,6 @@ var objectCache = make(map[int]GameObject, 256)
 // ============================================================================
 // WASM Exported Functions
 // ============================================================================
-
-// distance calculates Euclidean distance between two points
-func distance(this js.Value, args []js.Value) any {
-	if len(args) < 4 {
-		return js.ValueOf(0)
-	}
-
-	x1 := args[0].Float()
-	y1 := args[1].Float()
-	x2 := args[2].Float()
-	y2 := args[3].Float()
-
-	dx := x2 - x1
-	dy := y2 - y1
-
-	return js.ValueOf(math.Sqrt(dx*dx + dy*dy))
-}
 
 // updateSpatialGrid rebuilds the spatial grid with current objects.
 // JavaScript signature: updateSpatialGrid(objects: Array<{id, x, y, bbox, category}>)
@@ -627,7 +610,6 @@ func updateCarPhysics(this js.Value, args []js.Value) any {
 // ============================================================================
 
 func registerCallbacks() {
-	js.Global().Set("calcDistance", js.FuncOf(distance))
 	js.Global().Set("wasmUpdateSpatialGrid", js.FuncOf(updateSpatialGrid))
 	js.Global().Set("wasmCheckCollision", js.FuncOf(checkCollision))
 	js.Global().Set("wasmBatchCheckCollisions", js.FuncOf(batchCheckCollisions))

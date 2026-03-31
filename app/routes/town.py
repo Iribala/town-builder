@@ -17,9 +17,13 @@ from app.models.schemas import (
 from app.services.auth import get_current_user
 from app.services.storage import get_town_data, town_data_lock
 from app.services.town_helpers import save_and_broadcast
-from app.services.django_client import search_town_by_name, create_town, update_town
+from app.services.django_client import (
+    search_town_by_name,
+    create_town,
+    update_town,
+    get_town_by_id,
+)
 from app.utils.security import get_safe_filepath
-from app.utils.security import validate_api_url
 from app.utils.normalization import normalize_layout_data
 from app.utils.geometry import calculate_distance, DELETE_PROXIMITY_THRESHOLD
 from app.config import settings
@@ -27,6 +31,18 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["Town"])
+
+
+def _extract_http_error_detail(e: Exception) -> str:
+    """Extract error detail from an HTTP exception, falling back to response body."""
+    error_detail = str(e)
+    response = getattr(e, "response", None)
+    if response is not None:
+        try:
+            error_detail = response.json()
+        except ValueError:
+            error_detail = response.text
+    return error_detail
 
 
 @router.get("/town")
@@ -65,8 +81,10 @@ async def update_town_endpoint(
         # Update town name only
         if "townName" in data and len(data) == 1:
             town_data["townName"] = data["townName"]
-            await save_and_broadcast(town_data, {"type": "name", "townName": data["townName"]})
-            logger.info("Updated town name to: %s", data['townName'])
+            await save_and_broadcast(
+                town_data, {"type": "name", "townName": data["townName"]}
+            )
+            logger.info("Updated town name to: %s", data["townName"])
 
         # Update driver for a vehicle/model
         elif "driver" in data and "id" in data and "category" in data:
@@ -79,13 +97,18 @@ async def update_town_endpoint(
                 if model.get("id") == model_id:
                     town_data[category][i]["driver"] = driver
                     updated = True
-                    await save_and_broadcast(town_data, {
-                        "type": "driver",
-                        "category": category,
-                        "id": model_id,
-                        "driver": driver,
-                    })
-                    logger.info("Updated driver for %s id=%s to %s", category, model_id, driver)
+                    await save_and_broadcast(
+                        town_data,
+                        {
+                            "type": "driver",
+                            "category": category,
+                            "id": model_id,
+                            "driver": driver,
+                        },
+                    )
+                    logger.info(
+                        "Updated driver for %s id=%s to %s", category, model_id, driver
+                    )
                     break
 
             if not updated:
@@ -94,7 +117,9 @@ async def update_town_endpoint(
         # Full town data update
         else:
             canonical_town_data = normalize_layout_data(data)
-            await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
+            await save_and_broadcast(
+                canonical_town_data, {"type": "full", "town": canonical_town_data}
+            )
 
     return {"status": "success"}
 
@@ -148,7 +173,9 @@ async def save_town(
             local_save_message = "Local save skipped (no filename)."
 
         # Always save to Redis/memory and broadcast, regardless of Django sync
-        await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
+        await save_and_broadcast(
+            canonical_town_data, {"type": "full", "town": canonical_town_data}
+        )
 
         # Sync to Django backend (best-effort, does not block save success)
         django_message = ""
@@ -166,12 +193,7 @@ async def save_town(
                 logger.error(
                     f"Error updating town layout in Django backend for town_id {town_id}: {e}"
                 )
-                error_detail = str(e)
-                if getattr(e, "response", None) is not None:
-                    try:
-                        error_detail = e.response.json()
-                    except ValueError:
-                        error_detail = e.response.text
+                error_detail = _extract_http_error_detail(e)
                 django_message = (
                     f" Warning: failed to sync to Django backend: {error_detail}"
                 )
@@ -207,12 +229,7 @@ async def save_town(
                     django_message = f" Town created in Django backend (ID: {town_id})."
             except Exception as e:
                 logger.error(f"Error saving town layout in Django backend: {e}")
-                error_detail = str(e)
-                if getattr(e, "response", None) is not None:
-                    try:
-                        error_detail = e.response.json()
-                    except ValueError:
-                        error_detail = e.response.text
+                error_detail = _extract_http_error_detail(e)
                 django_message = (
                     f" Warning: failed to sync to Django backend: {error_detail}"
                 )
@@ -228,7 +245,8 @@ async def save_town(
     except Exception as e:
         logger.error("Error in save_town endpoint: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=500, detail={"status": "error", "message": "Internal server error"}
+            status_code=500,
+            detail={"status": "error", "message": "Internal server error"},
         )
 
 
@@ -271,7 +289,9 @@ async def load_town(
             content = await f.read()
             town_data = json.loads(content)
             canonical_town_data = normalize_layout_data(town_data)
-            await save_and_broadcast(canonical_town_data, {"type": "full", "town": canonical_town_data})
+            await save_and_broadcast(
+                canonical_town_data, {"type": "full", "town": canonical_town_data}
+            )
 
         logger.info(f"Town loaded from {safe_path}")
         return {
@@ -284,7 +304,8 @@ async def load_town(
     except Exception as e:
         logger.error("Error loading town: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=500, detail={"status": "error", "message": "Internal server error"}
+            status_code=500,
+            detail={"status": "error", "message": "Internal server error"},
         )
 
 
@@ -302,31 +323,7 @@ async def load_town_from_django(
         Status, message, and town data with layout_data
     """
     try:
-        base_url = (
-            settings.api_url
-            if settings.api_url.endswith("/")
-            else settings.api_url + "/"
-        )
-        if not validate_api_url(base_url):
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "status": "error",
-                    "message": "Configured TOWN_API_URL is not in allowed domains",
-                },
-            )
-        url = f"{base_url}{town_id}/"
-
-        headers = {"Content-Type": "application/json"}
-        if settings.api_token and settings.api_token.strip():
-            headers["Authorization"] = f"Token {settings.api_token}"
-
-        logger.info(f"Loading town from Django: {url}")
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-
-        town_data = response.json()
+        town_data = await get_town_by_id(town_id)
         logger.info(
             f"Successfully loaded town {town_id} from Django: {town_data.get('name')}"
         )
@@ -336,7 +333,9 @@ async def load_town_from_django(
         canonical_layout = normalize_layout_data(layout_data)
 
         # Store in Redis/memory for multiplayer sync
-        await save_and_broadcast(canonical_layout, {"type": "full", "town": canonical_layout})
+        await save_and_broadcast(
+            canonical_layout, {"type": "full", "town": canonical_layout}
+        )
 
         return {
             "status": "success",
@@ -370,7 +369,8 @@ async def load_town_from_django(
     except Exception as e:
         logger.error("Unexpected error loading town: %s", e, exc_info=True)
         raise HTTPException(
-            status_code=500, detail={"status": "error", "message": "Internal server error"}
+            status_code=500,
+            detail={"status": "error", "message": "Internal server error"},
         )
 
 
@@ -408,7 +408,8 @@ async def delete_model(
                     if isinstance(model, dict) and model.get("id") == model_id:
                         town_data[category].pop(i)
                         await save_and_broadcast(
-                            town_data, {"type": "delete", "category": category, "id": model_id}
+                            town_data,
+                            {"type": "delete", "category": category, "id": model_id},
                         )
                         return {
                             "status": "success",
@@ -432,14 +433,20 @@ async def delete_model(
                         closest_distance = distance
                         closest_model_index = i
 
-                if closest_model_index >= 0 and closest_distance < DELETE_PROXIMITY_THRESHOLD:
+                if (
+                    closest_model_index >= 0
+                    and closest_distance < DELETE_PROXIMITY_THRESHOLD
+                ):
                     deleted_model = town_data[category].pop(closest_model_index)
-                    await save_and_broadcast(town_data, {
-                        "type": "delete",
-                        "category": category,
-                        "position": position.model_dump(),
-                        "deleted_id": deleted_model.get("id"),
-                    })
+                    await save_and_broadcast(
+                        town_data,
+                        {
+                            "type": "delete",
+                            "category": category,
+                            "position": position.model_dump(),
+                            "deleted_id": deleted_model.get("id"),
+                        },
+                    )
                     return {
                         "status": "success",
                         "message": f"Deleted model at position ({position.x}, {position.y}, {position.z})",
@@ -485,14 +492,19 @@ async def edit_model(
                             request_data.rotation.model_dump()
                         )
                     if request_data.scale is not None:
-                        town_data[category][i]["scale"] = request_data.scale.model_dump()
+                        town_data[category][i]["scale"] = (
+                            request_data.scale.model_dump()
+                        )
 
-                    await save_and_broadcast(town_data, {
-                        "type": "edit",
-                        "category": category,
-                        "id": model_id,
-                        "data": town_data[category][i],
-                    })
+                    await save_and_broadcast(
+                        town_data,
+                        {
+                            "type": "edit",
+                            "category": category,
+                            "id": model_id,
+                            "data": town_data[category][i],
+                        },
+                    )
                     return {
                         "status": "success",
                         "message": f"Updated model with ID {model_id}",

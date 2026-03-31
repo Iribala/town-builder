@@ -293,32 +293,3 @@ export function abortAllLoaders() {
 export function getActiveLoaderCount() {
     return activeLoaders.size;
 }
-
-/**
- * Get model cache statistics
- * Useful for monitoring cache performance
- *
- * @returns {Object} Cache statistics
- */
-export function getCacheStats() {
-    return {
-        lruCache: modelCache.getStats(),
-        existsBloomFilter: modelExistsFilter.getStats(),
-        notFoundBloomFilter: modelNotFoundFilter.getStats()
-    };
-}
-
-/**
- * Clear the model cache
- * Useful for freeing memory or forcing fresh loads
- *
- * @param {boolean} [clearBloomFilters=false] - Also clear bloom filters
- */
-export function clearModelCache(clearBloomFilters = false) {
-    modelCache.clear();
-
-    if (clearBloomFilters) {
-        modelExistsFilter.clear();
-        modelNotFoundFilter.clear();
-    }
-}

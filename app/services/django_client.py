@@ -107,6 +107,30 @@ def _get_base_url() -> str:
     return base_url
 
 
+async def get_town_by_id(town_id: int) -> dict[str, Any]:
+    """Fetch a town from Django API by ID.
+
+    Args:
+        town_id: ID of the town to fetch
+
+    Returns:
+        Town data dictionary from Django API
+
+    Raises:
+        httpx.HTTPError: If the request fails
+    """
+    base_url = _get_base_url()
+    url = f"{base_url}{town_id}/"
+    headers = _get_headers()
+
+    logger.info("Fetching town %d from Django: %s", town_id, url)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(url, headers=headers, timeout=10.0)
+        response.raise_for_status()
+
+    return response.json()
+
+
 async def search_town_by_name(town_name: str) -> int | None:
     """Search for a town by name in Django API.
 
@@ -125,7 +149,9 @@ async def search_town_by_name(town_name: str) -> int | None:
 
     logger.debug("Searching for town by name: %s", town_name)
     async with httpx.AsyncClient() as client:
-        resp = await client.get(base_url, headers=headers, params={"name": town_name}, timeout=5.0)
+        resp = await client.get(
+            base_url, headers=headers, params={"name": town_name}, timeout=5.0
+        )
 
     if resp.status_code == 404:
         logger.info(f"No town found with name '{town_name}' (404)")
@@ -148,9 +174,7 @@ async def search_town_by_name(town_name: str) -> int | None:
                 f"Returning the first one (ID: {town_id})."
             )
         else:
-            logger.info(
-                f"Found existing town by name '{town_name}' with ID: {town_id}"
-            )
+            logger.info(f"Found existing town by name '{town_name}' with ID: {town_id}")
         return town_id
 
     logger.info(f"No town found with name '{town_name}'")
@@ -277,27 +301,17 @@ async def proxy_request(
     logger.debug(f"Proxying {method} request to {url}")
 
     async with httpx.AsyncClient() as client:
-        match method:
-            case "GET":
-                return await client.get(
-                    url, headers=headers, params=params, timeout=10.0
-                )
-            case "POST":
-                logger.debug(
-                    f"POST request to {url} with payload keys: {list(data.keys()) if data else 'None'}"
-                )
-                return await client.post(url, headers=headers, json=data, timeout=10.0)
-            case "PUT":
-                logger.debug(
-                    f"PUT request to {url} with payload keys: {list(data.keys()) if data else 'None'}"
-                )
-                return await client.put(url, headers=headers, json=data, timeout=10.0)
-            case "PATCH":
-                logger.debug(
-                    f"PATCH request to {url} with payload keys: {list(data.keys()) if data else 'None'}"
-                )
-                return await client.patch(url, headers=headers, json=data, timeout=10.0)
-            case "DELETE":
-                return await client.delete(url, headers=headers, timeout=10.0)
-            case _:
-                raise ValueError(f"Unsupported HTTP method: {method}")
+        http_method = method.lower()
+        if http_method not in ("get", "post", "put", "patch", "delete"):
+            raise ValueError(f"Unsupported HTTP method: {method}")
+
+        if http_method == "get":
+            return await client.get(url, headers=headers, params=params, timeout=10.0)
+
+        if data:
+            logger.debug(
+                f"{method} request to {url} with payload keys: {list(data.keys())}"
+            )
+
+        request_func = getattr(client, http_method)
+        return await request_func(url, headers=headers, json=data, timeout=10.0)

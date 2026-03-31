@@ -8,7 +8,6 @@ const MAX_LRU_CACHE_SIZE = 1000; // Maximum cache size to prevent memory exhaust
 const MAX_BLOOM_FILTER_SIZE = 1000000; // Maximum bits for bloom filter
 const MAX_BLOOM_FILTER_HASHES = 10; // Maximum hash functions
 const MAX_CIRCULAR_BUFFER_CAPACITY = 10000; // Maximum buffer capacity
-const MAX_BIT_VECTOR_SIZE = 1000000; // Maximum bits for bit vector
 
 /**
  * LRU (Least Recently Used) Cache
@@ -469,105 +468,5 @@ export class CircularBuffer {
      */
     getCapacity() {
         return this.capacity;
-    }
-}
-
-/**
- * Bit Vector
- * Space-efficient bit manipulation for boolean flags
- */
-export class BitVector {
-    constructor(size) {
-        // Security: Validate size
-        if (size < 1 || size > MAX_BIT_VECTOR_SIZE) {
-            throw new Error(`Bit vector size ${size} out of valid range [1, ${MAX_BIT_VECTOR_SIZE}]`);
-        }
-
-        this.size = size;
-        this.words = new Uint32Array(Math.ceil(size / 32));
-    }
-
-    /**
-     * Set bit at index to 1
-     */
-    set(index) {
-        if (index < 0 || index >= this.size) return;
-        const wordIndex = Math.floor(index / 32);
-        const bitIndex = index % 32;
-        this.words[wordIndex] |= (1 << bitIndex);
-    }
-
-    /**
-     * Set bit at index to 0
-     */
-    clear(index) {
-        if (index < 0 || index >= this.size) return;
-        const wordIndex = Math.floor(index / 32);
-        const bitIndex = index % 32;
-        this.words[wordIndex] &= ~(1 << bitIndex);
-    }
-
-    /**
-     * Get bit at index
-     */
-    get(index) {
-        if (index < 0 || index >= this.size) return false;
-        const wordIndex = Math.floor(index / 32);
-        const bitIndex = index % 32;
-        return (this.words[wordIndex] & (1 << bitIndex)) !== 0;
-    }
-
-    /**
-     * Toggle bit at index
-     */
-    toggle(index) {
-        if (index < 0 || index >= this.size) return;
-        const wordIndex = Math.floor(index / 32);
-        const bitIndex = index % 32;
-        this.words[wordIndex] ^= (1 << bitIndex);
-    }
-
-    /**
-     * Set all bits to 0
-     */
-    clearAll() {
-        this.words.fill(0);
-    }
-
-    /**
-     * Set all bits to 1
-     */
-    setAll() {
-        this.words.fill(0xFFFFFFFF);
-    }
-
-    /**
-     * Count number of set bits (population count)
-     */
-    popCount() {
-        let count = 0;
-        for (let i = 0; i < this.words.length; i++) {
-            count += this._popCount32(this.words[i]);
-        }
-        return count;
-    }
-
-    /**
-     * Count set bits in 32-bit word (Brian Kernighan's algorithm)
-     */
-    _popCount32(n) {
-        let count = 0;
-        while (n) {
-            n &= (n - 1); // Clear lowest set bit
-            count++;
-        }
-        return count;
-    }
-
-    /**
-     * Get memory usage in bytes
-     */
-    getMemoryBytes() {
-        return this.words.length * 4;
     }
 }
