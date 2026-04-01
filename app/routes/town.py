@@ -15,7 +15,7 @@ from app.models.schemas import (
     EditModelRequest,
 )
 from app.services.auth import get_current_user
-from app.services.storage import get_town_data, town_data_lock
+from app.services.storage import get_town_data, get_town_data_lock
 from app.services.town_helpers import save_and_broadcast
 from app.services.django_client import (
     search_town_by_name,
@@ -75,7 +75,7 @@ async def update_town_endpoint(
     """
     data = request_data.model_dump(exclude_unset=True)
 
-    async with town_data_lock:
+    async with get_town_data_lock():
         town_data = await get_town_data()
 
         # Update town name only
@@ -393,7 +393,7 @@ async def delete_model(
     if not category or (not model_id and not position):
         raise HTTPException(status_code=400, detail="Missing required parameters")
 
-    async with town_data_lock:
+    async with get_town_data_lock():
         town_data = await get_town_data()
 
         # Delete by ID
@@ -469,7 +469,7 @@ async def edit_model(
     if not category or not model_id:
         raise HTTPException(status_code=400, detail="Missing required parameters")
 
-    async with town_data_lock:
+    async with get_town_data_lock():
         town_data = await get_town_data()
 
         if category in town_data and isinstance(town_data[category], list):

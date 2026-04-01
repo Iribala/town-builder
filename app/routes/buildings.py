@@ -14,7 +14,7 @@ from app.models.schemas import (
     Scale,
 )
 from app.services.auth import get_current_user
-from app.services.storage import get_town_data, town_data_lock
+from app.services.storage import get_town_data, get_town_data_lock
 from app.services.town_helpers import save_and_broadcast
 from app.utils.normalization import CATEGORIES
 
@@ -80,7 +80,7 @@ async def create_building(
 
     category = request_data.category
 
-    async with town_data_lock:
+    async with get_town_data_lock():
         town_data = await get_town_data()
 
         # Add to appropriate category
@@ -192,7 +192,7 @@ async def update_building(
     Raises:
         HTTPException: If building not found
     """
-    async with town_data_lock:
+    async with get_town_data_lock():
         town_data = await get_town_data()
 
         category, building, idx = _find_building_in_town(town_data, building_id)
@@ -253,7 +253,7 @@ async def delete_building(
     Raises:
         HTTPException: If building not found
     """
-    async with town_data_lock:
+    async with get_town_data_lock():
         town_data = await get_town_data()
 
         category, _building, idx = _find_building_in_town(town_data, building_id)
