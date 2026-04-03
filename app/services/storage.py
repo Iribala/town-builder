@@ -59,8 +59,10 @@ def get_town_data_lock() -> asyncio.Lock:
 async def initialize_redis() -> None:
     """Initialize the async Redis client and event loop locks."""
     global redis_client, _storage_lock, _town_data_lock
-    _storage_lock = asyncio.Lock()
-    _town_data_lock = asyncio.Lock()
+    if _storage_lock is None:
+        _storage_lock = asyncio.Lock()
+    if _town_data_lock is None:
+        _town_data_lock = asyncio.Lock()
     
     try:
         redis_client = Redis.from_url(settings.redis_url, decode_responses=False)
@@ -91,7 +93,8 @@ async def get_town_data() -> TownData:
             data = await redis_client.get("town_data")
             if data:
                 def _decode() -> TownData:
-                    decompressed = zstd.decompress(data)
+                    dctx = zstd.ZstdDecompressor()
+                    decompressed = dctx.decompress(data)
                     return json.loads(decompressed)
                 
                 return await asyncio.to_thread(_decode)
@@ -101,9 +104,7 @@ async def get_town_data() -> TownData:
     # Fallback to in-memory storage
     if _storage_lock:
         async with _storage_lock:
-            def _copy() -> TownData:
-                return copy.deepcopy(_town_data_storage)
-            return await asyncio.to_thread(_copy)
+            return copy.deepcopy(_town_data_storage)
     else:
         return _town_data_storage
 
@@ -117,16 +118,15 @@ async def set_town_data(data: dict[str, Any] | TownData) -> None:
     global _town_data_storage
     if _storage_lock:
         async with _storage_lock:
-            def _copy() -> TownData:
-                return copy.deepcopy(data) if isinstance(data, dict) else data
-            _town_data_storage = await asyncio.to_thread(_copy)
+            _town_data_storage = copy.deepcopy(data)
     else:
         _town_data_storage = data
 
     if redis_client:
         try:
             def _encode() -> bytes:
-                return zstd.compress(json.dumps(data).encode("utf-8"))
+                cctx = zstd.ZstdCompressor()
+                return cctx.compress(json.dumps(data).encode("utf-8"))
             
             compressed_data = await asyncio.to_thread(_encode)
             await redis_client.set("town_data", compressed_data)
