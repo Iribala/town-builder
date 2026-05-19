@@ -1,0 +1,34 @@
+petiole town_helpers
+
+import "stdlib/json"
+import "stdlib/log"
+import "stdlib/ctx" as ctxpkg
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/storage"
+
+const publishTimeoutNanos = 2_000_000_000
+
+func BroadcastSSE(event: map of string to any)
+    client := storage.Client()
+    if client equals empty
+        return
+    s := config.Current()
+    if s equals empty
+        return
+    msg, err := json.Bytes(event)
+    if err isnt empty
+        log.Warn("Failed to encode SSE event: {err}")
+        return
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), publishTimeoutNanos)
+    defer h.Cancel()
+    perr := client.Publish(h.Ctx, s.PubsubChannel, msg).Err()
+    if perr isnt empty
+        log.Warn("Failed to broadcast SSE event (Redis unavailable): {perr}")
+
+func SaveAndBroadcast(townData: map of string to any, event: map of string to any) error
+    err := storage.Set(townData)
+    if err isnt empty
+        return err
+    BroadcastSSE(event)
+    return empty

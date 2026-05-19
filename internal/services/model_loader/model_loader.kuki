@@ -1,0 +1,37 @@
+petiole model_loader
+
+import "stdlib/files"
+import "stdlib/log"
+import "stdlib/string" as strpkg
+import "path/filepath"
+
+import "github.com/duber000/town-builder/internal/config"
+
+func GetAvailableModels() map of string to list of string
+    out := make(map of string to list of string)
+    s := config.Current()
+    if s equals empty
+        return out
+    entries, err := files.List(s.ModelsPath)
+    if err isnt empty
+        log.Error("Error listing models dir: {err}")
+        return out
+    for entry in entries
+        category := filepath.Base(entry)
+        categoryPath := filepath.Join(s.ModelsPath, category)
+        if not files.IsDir(categoryPath)
+            continue
+        files_in_cat, ferr := files.List(categoryPath)
+        if ferr isnt empty
+            continue
+        models := list of string{}
+        for filePath in files_in_cat
+            name := filepath.Base(filePath)
+            ext := strpkg.ToLower(filepath.Ext(name))
+            if ext isnt ".glb" and ext isnt ".gltf"
+                continue
+            if category equals "buildings" and strpkg.Contains(name, "_withoutBase")
+                continue
+            models = append(models, name)
+        out[category] = models
+    return out

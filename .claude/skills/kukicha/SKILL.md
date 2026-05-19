@@ -959,22 +959,32 @@ func Execute() Result
 
 ---
 
-## Project-local gotchas (v0.19.0)
+## Project-local gotchas (v0.19.1)
 
 These are tripwires confirmed by hand in this codebase. See also https://github.com/kukichalang/kukicha/issues/115.
 
-1. **Reserved keywords can't be identifiers anywhere.** `default`, `fallback`, `in` (and likely others) are reserved across the language, not just in their statement context. The parser error is opaque (`expected identifier` / `unexpected token in expression: IN`). Don't name a parameter or local var `default`, `fallback`, `in`, `error`, `empty`.
+### Status of v0.19.0 reports (per maintainer reply on #115)
 
-2. **`for k, v in map` brews incorrectly.** Type-checks, but transpiles to `for k := range m` (k = int). Use `for i from 0 to len(maps.Keys(m))` and look up `m[k]` manually.
+- **Docs fixes landed in 2e43ce38:** multi-return signature requires `(T, error)`; map iteration semantics (`for k in m` = values, `for k, _ in m` = keys, `for k, v in m` = both); `# kuki:returns N` directive worked example.
+- **CLI fixes landed in ba52ad68:** `kukicha brew dir/` now also brews `*_test.kuki` → `*_test.go`; reserved-keyword identifier diagnostics now say `"<kw>" is a reserved keyword and cannot be used as an identifier` for `default`, `in`, `then`, `is`, `onerr`, `fallback`, `explain`, `petiole`, `import`, `defer`.
+- **The original "`for k, v in m` brews to `for k := range`" claim was wrong** — the actual behavior is that single-variable `for k in m` iterates *values* (Go-like, intentional, now warned about). My original repro confused "iterates values" with "wrong codegen".
 
-3. **Multi-return signatures need parens.** Docs sometimes show `func F() T, error` — the parser actually requires `func F() (T, error)`.
+### Still active in v0.19.1
 
-4. **`kukicha brew dir/` skips `_test.kuki`.** It produces `main.go` but no `_test.go`. Workaround: `kukicha brew --stdout foo_test.kuki > foo_test.go` per file. Test packages should use `petiole <name>_test` and call into the package via its public API.
+1. **`list of T(x)` type conversion brews to invalid Go.** Type-checks, but transpiles to `[]T{}(x)` (composite literal called as function — a Go syntax error). Always use `x as list of T`. Example: `s as list of byte`, never `list of byte(s)`. Other builtins like `float64(n)`, `int64(n)` aren't recognized as identifiers at all; `as float64` / `as int64` are required. Named types (`StringList(xs)` where `type StringList list of string`) work fine — the bug is specific to the `list of T` parser branch.
 
-5. **`onerr` on external (non-stdlib) calls.** Errors with: `cannot use onerr on call to X: return signature is unknown`. Either annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly (`err := X(); if err isnt empty ...`).
+2. **Lambda return-type inference fails for multi-statement bodies.** `sort.Slice(xs, (i: int, j: int) => ...)` works when the body is a single expression, but a body with intermediate `:=` bindings and a final `return a < b` errors with `expected 0 return values, got 1`. Workaround: hoist the body into a named helper and pass `(i, j) => helper(xs, i, j)`.
 
-6. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `import "github.com/redis/go-redis/v9" as redis`.
+3. **More reserved keywords with poor diagnostics.** v0.19.1 added friendlier messages for `default`, `in`, etc., but `as` and `list` still emit `unexpected token in expression: AS` / `unexpected token in expression: COMMA` when used as identifiers in tuple-assignment positions (`as, ok := v.(string)`, `if list, ok := v.(list of int); ok`). Both type-check fine if you happen to avoid the tuple/`if`-init form, so the failure mode is positional. Rename to `astr`, `arr`, `items`.
 
-7. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
+4. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
 
-8. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.
+5. **Type switch is `switch x as v ... when T`, not `switch v in x`.** The `in` form looks plausible but parses as a `for`-iteration expression and confuses the parser.
+
+6. **`onerr` on external (non-stdlib) calls** still errors with `cannot use onerr on call to X: return signature is unknown`. Annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly.
+
+7. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `... as redis`.
+
+8. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
+
+9. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.

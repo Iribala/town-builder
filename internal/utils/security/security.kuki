@@ -1,0 +1,98 @@
+petiole security
+
+import "stdlib/files"
+import "stdlib/regex"
+import "stdlib/string" as strpkg
+import "net/url"
+import "path/filepath"
+
+import "github.com/duber000/town-builder/internal/config"
+
+var safeNameRe = regex.MustCompile("^[a-zA-Z0-9._-]+$")
+var safePathRe = regex.MustCompile("^[a-zA-Z0-9_.~:/?#\\[\\]=&+,;%-]*$")
+
+func ValidateFilename(filename: string, allowedExtensions: list of string) (string, error)
+    if filename equals ""
+        return "", error "filename cannot be empty"
+    if strpkg.Contains(filename, "..") or strpkg.Contains(filename, "/") or strpkg.Contains(filename, "\\")
+        return "", error "invalid filename: path traversal attempts are not allowed"
+    if strpkg.Contains(filename, "\x00")
+        return "", error "invalid filename: null bytes not allowed"
+    clean := filepath.Base(filename)
+    if not regex.MatchCompiled(safeNameRe, clean)
+        return "", error "invalid filename: only alphanumeric characters, dots, dashes, and underscores allowed"
+    if len(allowedExtensions) > 0
+        matched := false
+        for ext in allowedExtensions
+            if strpkg.HasSuffix(clean, ext)
+                matched = true
+                break
+        if not matched
+            return "", error "invalid file extension"
+    return clean, empty
+
+func SafeFilepath(filename: string, baseDir: string, allowedExtensions: list of string) (string, error)
+    clean, err := ValidateFilename(filename, allowedExtensions)
+    if err isnt empty
+        return "", err
+    files.MkDirAll(baseDir) onerr return "", error "failed to create base directory: {error}"
+    base, berr := filepath.Abs(baseDir)
+    if berr isnt empty
+        return "", berr
+    full, ferr := filepath.Abs(filepath.Join(base, clean))
+    if ferr isnt empty
+        return "", ferr
+    rel, rerr := filepath.Rel(base, full)
+    if rerr isnt empty or strpkg.HasPrefix(rel, "..")
+        return "", error "invalid path: file must be within the designated directory"
+    return full, empty
+
+func ValidateModelPath(category: string, modelName: string) (string, string, error)
+    if category equals "" or strpkg.Contains(category, "..") or strpkg.Contains(category, "/") or strpkg.Contains(category, "\\")
+        return "", "", error "invalid category: path traversal attempts are not allowed"
+    if modelName equals "" or strpkg.Contains(modelName, "..") or strpkg.Contains(modelName, "/") or strpkg.Contains(modelName, "\\")
+        return "", "", error "invalid model name: path traversal attempts are not allowed"
+    if not regex.MatchCompiled(safeNameRe, category)
+        return "", "", error "invalid category: only alphanumeric characters, dots, dashes, and underscores allowed"
+    if not regex.MatchCompiled(safeNameRe, modelName)
+        return "", "", error "invalid model name: only alphanumeric characters, dots, dashes, and underscores allowed"
+    return category, modelName, empty
+
+func ValidateApiURL(rawURL: string) bool
+    parsed, err := url.Parse(rawURL)
+    if err isnt empty
+        return false
+    host := parsed.Hostname()
+    if host equals ""
+        return false
+    s := config.Current()
+    if s equals empty
+        return false
+    for allowed in s.AllowedApiDomains
+        if allowed equals ""
+            continue
+        if host equals allowed or strpkg.HasSuffix(host, "." + allowed)
+            return true
+    return false
+
+func ValidateProxyPath(path: string) (string, error)
+    if path equals ""
+        return "", empty
+    if strpkg.Contains(path, "://")
+        return "", error "proxy path must not contain a URL scheme"
+    if strpkg.Contains(path, "@")
+        return "", error "proxy path must not contain '@'"
+    if strpkg.Contains(path, "..")
+        return "", error "proxy path must not contain '..'"
+    if strpkg.Contains(path, "//")
+        return "", error "proxy path must not contain '//'"
+    lower := strpkg.ToLower(path)
+    if strpkg.Contains(lower, "%2e") or strpkg.Contains(lower, "%2f") or strpkg.Contains(lower, "%5c")
+        return "", error "proxy path must not contain encoded traversal characters"
+    if strpkg.Contains(path, "\\")
+        return "", error "proxy path must not contain backslashes"
+    if strpkg.Contains(path, "\x00")
+        return "", error "proxy path must not contain null bytes"
+    if not regex.MatchCompiled(safePathRe, path)
+        return "", error "proxy path contains disallowed characters"
+    return strpkg.TrimPrefix(path, "/"), empty

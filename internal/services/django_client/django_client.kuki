@@ -1,0 +1,261 @@
+petiole django_client
+
+import "stdlib/json"
+import "stdlib/log"
+import "bytes"
+import "fmt"
+import "io"
+import "net/http"
+import "net/url"
+import "strings"
+import "time"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/utils/security"
+
+type ProxyResponse
+    StatusCode int
+    Body       list of byte
+    Headers    map of string to list of string
+
+var fieldsToPropagate = list of string{
+    "latitude",
+    "longitude",
+    "description",
+    "population",
+    "area",
+    "established_date",
+    "place_type",
+    "full_address",
+    "town_image",
+}
+
+func httpClient() reference http.Client
+    return reference of http.Client{Timeout: 10 * time.Second}
+
+func getHeaders() map of string to string
+    h := make(map of string to string)
+    h["Content-Type"] = "application/json"
+    s := config.Current()
+    if s isnt empty and strings.TrimSpace(s.ApiToken) isnt ""
+        h["Authorization"] = "Token " + s.ApiToken
+    return h
+
+func GetBaseURL() (string, error)
+    s := config.Current()
+    if s equals empty
+        return "", error "config not loaded"
+    baseURL := s.ApiURL
+    if not strings.HasSuffix(baseURL, "/")
+        baseURL = baseURL + "/"
+    if not security.ValidateApiURL(baseURL)
+        log.Error("API URL '{baseURL}' is not in the allowed domains list")
+        return "", error "API URL is not allowed"
+    return baseURL, empty
+
+func applyHeaders(req: reference http.Request, headers: map of string to string)
+    for k, v in headers
+        req.Header.Set(k, v)
+
+func PrepareDjangoPayload(requestPayload: map of string to any, normalizedTownData: map of string to any, townName: string, isUpdate: bool) map of string to any
+    currentLayoutData := normalizedTownData
+    if currentLayoutData equals empty
+        currentLayoutData = make(map of string to any)
+    payload := make(map of string to any)
+    payload["layout_data"] = currentLayoutData
+
+    effectiveName := townName
+    if effectiveName equals ""
+        if v, ok := currentLayoutData["townName"].(string); ok and v isnt ""
+            effectiveName = v
+        else if v, ok := currentLayoutData["name"].(string); ok and v isnt ""
+            effectiveName = v
+
+    if not isUpdate
+        if effectiveName isnt ""
+            payload["name"] = effectiveName
+        else
+            log.Warn("Name is missing for a create operation. Django will likely reject this.")
+
+    for key in fieldsToPropagate
+        value, ok := requestPayload[key]
+        if not ok or value equals empty
+            value, ok = currentLayoutData[key]
+        if ok and value isnt empty
+            payload[key] = value
+    return payload
+
+func doJSON(method: string, fullURL: string, body: map of string to any) (reference http.Response, error)
+    var reader io.Reader
+    if body isnt empty
+        data, err := json.Bytes(body)
+        if err isnt empty
+            return empty, err
+        reader = bytes.NewReader(data)
+    req, err := http.NewRequest(method, fullURL, reader)
+    if err isnt empty
+        return empty, err
+    applyHeaders(req, getHeaders())
+    return httpClient().Do(req)
+
+func decodeJSON(resp: reference http.Response) (map of string to any, error)
+    defer resp.Body.Close()
+    raw, err := io.ReadAll(resp.Body)
+    if err isnt empty
+        return empty, err
+    out := make(map of string to any)
+    perr := json.ParseInto(raw, reference of out)
+    if perr isnt empty
+        return empty, perr
+    return out, empty
+
+func GetTownByID(townID: int) (map of string to any, error)
+    baseURL, err := GetBaseURL()
+    if err isnt empty
+        return empty, err
+    fullURL := fmt.Sprintf("%s%d/", baseURL, townID)
+    log.Info("Fetching town {townID} from Django: {fullURL}")
+    resp, herr := doJSON("GET", fullURL, empty)
+    if herr isnt empty
+        return empty, herr
+    if resp.StatusCode >= 400
+        resp.Body.Close()
+        return empty, error "django returned status {resp.StatusCode}"
+    return decodeJSON(resp)
+
+func SearchTownByName(townName: string) (int, bool, error)
+    baseURL, err := GetBaseURL()
+    if err isnt empty
+        return 0, false, err
+    params := url.Values{}
+    params.Set("name", townName)
+    fullURL := baseURL + "?" + params.Encode()
+    log.Debug("Searching for town by name: {townName}")
+    resp, herr := doJSON("GET", fullURL, empty)
+    if herr isnt empty
+        return 0, false, herr
+    if resp.StatusCode equals 404
+        resp.Body.Close()
+        log.Info("No town found with name '{townName}' (404)")
+        return 0, false, empty
+    if resp.StatusCode >= 400
+        resp.Body.Close()
+        return 0, false, error "django returned status {resp.StatusCode}"
+    data, derr := decodeJSON(resp)
+    if derr isnt empty
+        return 0, false, derr
+    var results list of any
+    if arr, ok := data["results"].(list of any); ok
+        results = arr
+    if results equals empty or len(results) equals 0
+        log.Info("No town found with name '{townName}'")
+        return 0, false, empty
+    first, fok := results[0].(map of string to any)
+    if not fok
+        return 0, false, empty
+    idVal, idOk := first["id"]
+    if not idOk
+        return 0, false, empty
+    townID := 0
+    switch idVal as v
+        when float64
+            townID = v as int
+        when int
+            townID = v
+        default
+            return 0, false, empty
+    if len(results) > 1
+        log.Warn("Found {len(results)} towns named '{townName}'. Returning the first one (ID: {townID}).")
+    else
+        log.Info("Found existing town by name '{townName}' with ID: {townID}")
+    return townID, true, empty
+
+func CreateTown(requestPayload: map of string to any, normalizedTownData: map of string to any, townName: string) (map of string to any, error)
+    baseURL, err := GetBaseURL()
+    if err isnt empty
+        return empty, err
+    payload := PrepareDjangoPayload(requestPayload, normalizedTownData, townName, false)
+    resp, herr := doJSON("POST", baseURL, payload)
+    if herr isnt empty
+        return empty, herr
+    if resp.StatusCode >= 400
+        resp.Body.Close()
+        return empty, error "django returned status {resp.StatusCode}"
+    data, derr := decodeJSON(resp)
+    if derr isnt empty
+        return empty, derr
+    out := make(map of string to any)
+    out["status"] = "success"
+    out["town_id"] = data["id"]
+    out["response"] = data
+    return out, empty
+
+func UpdateTown(townID: int, requestPayload: map of string to any, normalizedTownData: map of string to any, townName: string) (map of string to any, error)
+    baseURL, err := GetBaseURL()
+    if err isnt empty
+        return empty, err
+    fullURL := fmt.Sprintf("%s%d/", baseURL, townID)
+    payload := PrepareDjangoPayload(requestPayload, normalizedTownData, townName, true)
+    resp, herr := doJSON("PATCH", fullURL, payload)
+    if herr isnt empty
+        return empty, herr
+    if resp.StatusCode >= 400
+        resp.Body.Close()
+        return empty, error "django returned status {resp.StatusCode}"
+    resp.Body.Close()
+    log.Info("Town layout successfully updated via PATCH to Django backend for town_id: {townID}")
+    out := make(map of string to any)
+    out["status"] = "success"
+    out["town_id"] = townID
+    return out, empty
+
+func ProxyRequest(method: string, path: string, headers: map of string to string, params: map of string to string, body: list of byte) (reference ProxyResponse, error)
+    baseURL, err := GetBaseURL()
+    if err isnt empty
+        return empty, err
+    safePath, serr := security.ValidateProxyPath(path)
+    if serr isnt empty
+        return empty, serr
+    fullURL := baseURL + safePath
+    if not security.ValidateApiURL(fullURL)
+        return empty, error "Constructed proxy URL is not allowed: {fullURL}"
+
+    methodLower := strings.ToLower(method)
+    allowed := list of string{"get", "post", "put", "patch", "delete"}
+    valid := false
+    for m in allowed
+        if m equals methodLower
+            valid = true
+            break
+    if not valid
+        return empty, error "Unsupported HTTP method: {method}"
+
+    if len(params) > 0
+        qs := url.Values{}
+        for k, v in params
+            qs.Set(k, v)
+        sep := "?"
+        if strings.Contains(fullURL, "?")
+            sep = "&"
+        fullURL = fullURL + sep + qs.Encode()
+
+    var reader io.Reader
+    if body isnt empty and len(body) > 0
+        reader = bytes.NewReader(body)
+    req, rerr := http.NewRequest(strings.ToUpper(methodLower), fullURL, reader)
+    if rerr isnt empty
+        return empty, rerr
+    for k, v in headers
+        req.Header.Set(k, v)
+    s := config.Current()
+    if s isnt empty and s.ApiToken isnt ""
+        req.Header.Set("Authorization", "Token " + s.ApiToken)
+    log.Debug("Proxying {method} request to {fullURL}")
+    resp, derr := httpClient().Do(req)
+    if derr isnt empty
+        return empty, derr
+    defer resp.Body.Close()
+    raw, ierr := io.ReadAll(resp.Body)
+    if ierr isnt empty
+        return empty, ierr
+    return reference of ProxyResponse{StatusCode: resp.StatusCode, Body: raw, Headers: resp.Header}, empty

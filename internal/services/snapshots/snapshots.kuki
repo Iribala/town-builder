@@ -1,0 +1,231 @@
+petiole snapshots
+
+import "stdlib/json"
+import "stdlib/log"
+import "stdlib/ctx" as ctxpkg
+import "sync"
+import "time"
+import "github.com/google/uuid"
+import "github.com/klauspost/compress/zstd"
+import "github.com/redis/go-redis/v9" as redis
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/storage"
+
+const snapshotsKey = "town_snapshots"
+const snapshotDataPrefix = "town_snapshot:"
+const redisTimeoutNanos = 2_000_000_000
+
+var snapshotCategories = list of string{"buildings", "terrain", "roads", "props", "vehicles", "trees", "park"}
+
+var memLock sync.Mutex
+var memSnapshots list of map of string to any
+var memSnapshotData map of string to map of string to any
+var encoder reference zstd.Encoder
+var decoder reference zstd.Decoder
+
+func init()
+    memSnapshots = list of map of string to any{}
+    memSnapshotData = make(map of string to map of string to any)
+    enc, err := zstd.NewWriter(empty)
+    if err equals empty
+        encoder = enc
+    dec, err2 := zstd.NewReader(empty)
+    if err2 equals empty
+        decoder = dec
+
+func maxSnapshots() int
+    s := config.Current()
+    if s equals empty
+        return 50
+    return s.MaxSnapshots
+
+func countObjects(townData: map of string to any) int
+    total := 0
+    for cat in snapshotCategories
+        v, ok := townData[cat]
+        if not ok
+            continue
+        lst, lok := v.(list of any)
+        if lok
+            total = total + len(lst)
+    return total
+
+func CreateSnapshot(townData: map of string to any, name: string, description: string) (string, error)
+    snapshotID := uuid.NewString()
+    timestamp := (time.Now().UnixNano() as float64) / 1000000000.0
+
+    metadata := make(map of string to any)
+    metadata["id"] = snapshotID
+    if name equals ""
+        name = "Snapshot " + time.Now().Format("2006-01-02 15:04:05")
+    metadata["name"] = name
+    metadata["description"] = description
+    metadata["timestamp"] = timestamp
+    metadata["size"] = countObjects(townData)
+
+    client := storage.Client()
+    if client equals empty or encoder equals empty
+        log.Warn("Redis unavailable; storing snapshot in memory (not persistent)")
+        memLock.Lock()
+        defer memLock.Unlock()
+        if len(memSnapshots) equals maxSnapshots()
+            oldest := memSnapshots[0]
+            if oid, ok := oldest["id"].(string); ok
+                delete(memSnapshotData, oid)
+            memSnapshots = memSnapshots[1:]
+        memSnapshots = append(memSnapshots, metadata)
+        memSnapshotData[snapshotID] = townData
+        log.Info("Created in-memory snapshot: {snapshotID} ({name})")
+        return snapshotID, empty
+
+    raw, err := json.Bytes(townData)
+    if err isnt empty
+        return "", err
+    compressed := encoder.EncodeAll(raw, empty)
+
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+    defer h.Cancel()
+    dataKey := snapshotDataPrefix + snapshotID
+    serr := client.Set(h.Ctx, dataKey, compressed, 0).Err()
+    if serr isnt empty
+        return "", serr
+
+    metaBytes, merr := json.Bytes(metadata)
+    if merr isnt empty
+        return "", merr
+    rerr := client.RPush(h.Ctx, snapshotsKey, metaBytes).Err()
+    if rerr isnt empty
+        return "", rerr
+
+    length, lerr := client.LLen(h.Ctx, snapshotsKey).Result()
+    if lerr equals empty and length > maxSnapshots() as int64
+        oldestEntry, oerr := client.LIndex(h.Ctx, snapshotsKey, 0).Result()
+        if oerr equals empty and oldestEntry isnt ""
+            oldestMeta := make(map of string to any)
+            perr := json.ParseInto(oldestEntry as list of byte, reference of oldestMeta)
+            if perr equals empty
+                if oid, ok := oldestMeta["id"].(string); ok
+                    client.Del(h.Ctx, snapshotDataPrefix + oid)
+        client.LTrim(h.Ctx, snapshotsKey, -(maxSnapshots() as int64), -1)
+
+    log.Info("Created snapshot: {snapshotID} ({name})")
+    return snapshotID, empty
+
+func ListSnapshots() list of map of string to any
+    client := storage.Client()
+    if client equals empty
+        memLock.Lock()
+        defer memLock.Unlock()
+        out := list of map of string to any{}
+        for i from len(memSnapshots)-1 through 0
+            out = append(out, memSnapshots[i])
+        return out
+
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+    defer h.Cancel()
+    entries, err := client.LRange(h.Ctx, snapshotsKey, 0, -1).Result()
+    if err isnt empty
+        log.Error("Failed to list snapshots: {err}")
+        return list of map of string to any{}
+    out := list of map of string to any{}
+    for i from len(entries)-1 through 0
+        obj := make(map of string to any)
+        perr := json.ParseInto(entries[i] as list of byte, reference of obj)
+        if perr equals empty
+            out = append(out, obj)
+    return out
+
+func GetSnapshot(snapshotID: string) (map of string to any, bool)
+    client := storage.Client()
+    if client equals empty or decoder equals empty
+        memLock.Lock()
+        defer memLock.Unlock()
+        v, ok := memSnapshotData[snapshotID]
+        return v, ok
+
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+    defer h.Cancel()
+    dataKey := snapshotDataPrefix + snapshotID
+    data, err := client.Get(h.Ctx, dataKey).Bytes()
+    if err isnt empty
+        if err isnt redis.Nil
+            log.Error("Failed to get snapshot {snapshotID}: {err}")
+        return empty, false
+    decompressed, derr := decoder.DecodeAll(data, empty)
+    if derr isnt empty
+        log.Error("Failed to decompress snapshot {snapshotID}: {derr}")
+        return empty, false
+    obj := make(map of string to any)
+    perr := json.ParseInto(decompressed, reference of obj)
+    if perr isnt empty
+        return empty, false
+    return obj, true
+
+func DeleteSnapshot(snapshotID: string) bool
+    client := storage.Client()
+    if client equals empty
+        memLock.Lock()
+        defer memLock.Unlock()
+        before := len(memSnapshots)
+        kept := list of map of string to any{}
+        for s in memSnapshots
+            if id, ok := s["id"].(string); ok and id equals snapshotID
+                continue
+            kept = append(kept, s)
+        memSnapshots = kept
+        delete(memSnapshotData, snapshotID)
+        return len(memSnapshots) < before
+
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+    defer h.Cancel()
+    dataKey := snapshotDataPrefix + snapshotID
+    deletedCount, _ := client.Del(h.Ctx, dataKey).Result()
+    entries, err := client.LRange(h.Ctx, snapshotsKey, 0, -1).Result()
+    if err isnt empty
+        log.Error("Failed to delete snapshot {snapshotID}: {err}")
+        return false
+    newEntries := list of any{}
+    for entry in entries
+        meta := make(map of string to any)
+        perr := json.ParseInto(entry as list of byte, reference of meta)
+        if perr isnt empty
+            newEntries = append(newEntries, entry)
+            continue
+        if id, ok := meta["id"].(string); ok and id equals snapshotID
+            continue
+        newEntries = append(newEntries, entry)
+    foundInList := len(newEntries) < len(entries)
+    client.Del(h.Ctx, snapshotsKey)
+    if len(newEntries) > 0
+        client.RPush(h.Ctx, snapshotsKey, newEntries...)
+    if deletedCount > 0 or foundInList
+        log.Info("Deleted snapshot: {snapshotID}")
+        return true
+    log.Warn("Snapshot not found: {snapshotID}")
+    return false
+
+func GetSnapshotMetadata(snapshotID: string) (map of string to any, bool)
+    client := storage.Client()
+    if client equals empty
+        memLock.Lock()
+        defer memLock.Unlock()
+        for s in memSnapshots
+            if id, ok := s["id"].(string); ok and id equals snapshotID
+                return s, true
+        return empty, false
+
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+    defer h.Cancel()
+    entries, err := client.LRange(h.Ctx, snapshotsKey, 0, -1).Result()
+    if err isnt empty
+        log.Error("Failed to get snapshot metadata {snapshotID}: {err}")
+        return empty, false
+    for entry in entries
+        meta := make(map of string to any)
+        perr := json.ParseInto(entry as list of byte, reference of meta)
+        if perr isnt empty
+            continue
+        if id, ok := meta["id"].(string); ok and id equals snapshotID
+            return meta, true
+    return empty, false

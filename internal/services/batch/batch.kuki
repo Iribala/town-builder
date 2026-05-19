@@ -1,0 +1,258 @@
+petiole batch
+
+import "stdlib/json"
+import "stdlib/log"
+import "sync"
+import "math"
+import "github.com/google/uuid"
+import "strings"
+
+import "github.com/duber000/town-builder/internal/services/town_helpers"
+import "github.com/duber000/town-builder/internal/services/history"
+import "github.com/duber000/town-builder/internal/storage"
+import "github.com/duber000/town-builder/internal/utils/geometry"
+
+var batchLock sync.Mutex
+var dataVersion int
+
+func deepCopy(src: map of string to any) map of string to any
+    data, err := json.Bytes(src)
+    if err isnt empty
+        return make(map of string to any)
+    out := make(map of string to any)
+    perr := json.ParseInto(data, reference of out)
+    if perr isnt empty
+        return make(map of string to any)
+    return out
+
+func opResult(success: bool, op: string, message: string, data: map of string to any) map of string to any
+    out := make(map of string to any)
+    out["success"] = success
+    out["op"] = op
+    out["message"] = message
+    if data isnt empty
+        out["data"] = data
+    return out
+
+func toList(v: any) (list of any, bool)
+    lst, ok := v.(list of any)
+    return lst, ok
+
+func toMap(v: any) (map of string to any, bool)
+    m, ok := v.(map of string to any)
+    return m, ok
+
+func validateObject(obj: map of string to any) bool
+    pos, ok := obj["position"]
+    if not ok
+        return true
+    posMap, mok := toMap(pos)
+    if not mok
+        return false
+    _, xok := posMap["x"]
+    _, yok := posMap["y"]
+    return xok and yok
+
+func getString(m: map of string to any, key: string) string
+    v, ok := m[key]
+    if not ok
+        return ""
+    s, sok := v.(string)
+    if not sok
+        return ""
+    return s
+
+func createObject(townData: map of string to any, op: map of string to any, validate: bool) map of string to any
+    category := getString(op, "category")
+    data, _ := toMap(op["data"])
+    if data equals empty
+        data = make(map of string to any)
+    if category equals ""
+        return opResult(false, "create", "Missing category", empty)
+    _, ok := townData[category]
+    if not ok
+        townData[category] = list of any{}
+    if _, idOk := data["id"]; not idOk
+        data["id"] = uuid.NewString()
+    if validate and not validateObject(data)
+        return opResult(false, "create", "Object validation failed", empty)
+    items, _ := toList(townData[category])
+    items = append(items, data)
+    townData[category] = items
+    result := make(map of string to any)
+    result["id"] = data["id"]
+    result["category"] = category
+    return opResult(true, "create", "Created object in {category}", result)
+
+func updateObject(townData: map of string to any, op: map of string to any, validate: bool) map of string to any
+    category := getString(op, "category")
+    objectID := getString(op, "id")
+    data, _ := toMap(op["data"])
+    if data equals empty
+        data = make(map of string to any)
+    if category equals "" or objectID equals ""
+        return opResult(false, "update", "Missing category or id", empty)
+    catVal, ok := townData[category]
+    if not ok
+        return opResult(false, "update", "Category {category} not found", empty)
+    items, lok := toList(catVal)
+    if not lok
+        return opResult(false, "update", "Category {category} not found", empty)
+    for i from 0 to len(items)
+        obj, mok := toMap(items[i])
+        if not mok
+            continue
+        if getString(obj, "id") equals objectID
+            for k, v in data
+                obj[k] = v
+            items[i] = obj
+            townData[category] = items
+            result := make(map of string to any)
+            result["id"] = objectID
+            result["category"] = category
+            return opResult(true, "update", "Updated object {objectID} in {category}", result)
+    return opResult(false, "update", "Object {objectID} not found", empty)
+
+func deleteObject(townData: map of string to any, op: map of string to any, validate: bool) map of string to any
+    category := getString(op, "category")
+    objectID := getString(op, "id")
+    position, hasPos := toMap(op["position"])
+    if category equals ""
+        return opResult(false, "delete", "Missing category", empty)
+    if objectID equals "" and not hasPos
+        return opResult(false, "delete", "Missing both id and position", empty)
+    catVal, ok := townData[category]
+    if not ok
+        return opResult(false, "delete", "Category {category} not found", empty)
+    items, lok := toList(catVal)
+    if not lok
+        return opResult(false, "delete", "Category {category} not found", empty)
+
+    if objectID isnt ""
+        for i from 0 to len(items)
+            obj, mok := toMap(items[i])
+            if not mok
+                continue
+            if getString(obj, "id") equals objectID
+                items = append(items[:i], items[i+1:]...)
+                townData[category] = items
+                result := make(map of string to any)
+                result["id"] = objectID
+                result["category"] = category
+                return opResult(true, "delete", "Deleted object {objectID} from {category}", result)
+        return opResult(false, "delete", "Object {objectID} not found", empty)
+
+    closestIndex := -1
+    closestDistance := math.Inf(1)
+    closestID := ""
+    for i from 0 to len(items)
+        obj, mok := toMap(items[i])
+        if not mok
+            continue
+        modelPos, _ := toMap(obj["position"])
+        distance := geometry.CalculateDistance(position, modelPos)
+        if distance < closestDistance
+            closestDistance = distance
+            closestIndex = i
+            closestID = getString(obj, "id")
+    if closestIndex >= 0 and closestDistance < geometry.DeleteProximityThreshold
+        items = append(items[:closestIndex], items[closestIndex+1:]...)
+        townData[category] = items
+        result := make(map of string to any)
+        result["id"] = closestID
+        result["category"] = category
+        result["distance"] = closestDistance
+        return opResult(true, "delete", "Deleted model at position", result)
+    return opResult(false, "delete", "No model found within range at position", empty)
+
+func editObject(townData: map of string to any, op: map of string to any, validate: bool) map of string to any
+    category := getString(op, "category")
+    objectID := getString(op, "id")
+    position, hasPos := op["position"]
+    rotation, hasRot := op["rotation"]
+    scale, hasScale := op["scale"]
+    if category equals "" or objectID equals ""
+        return opResult(false, "edit", "Missing category or id", empty)
+    catVal, ok := townData[category]
+    if not ok
+        return opResult(false, "edit", "Category {category} not found", empty)
+    items, lok := toList(catVal)
+    if not lok
+        return opResult(false, "edit", "Category {category} not found", empty)
+    for i from 0 to len(items)
+        obj, mok := toMap(items[i])
+        if not mok
+            continue
+        if getString(obj, "id") equals objectID
+            changesMade := list of string{}
+            if hasPos and position isnt empty
+                obj["position"] = position
+                changesMade = append(changesMade, "position")
+            if hasRot and rotation isnt empty
+                obj["rotation"] = rotation
+                changesMade = append(changesMade, "rotation")
+            if hasScale and scale isnt empty
+                obj["scale"] = scale
+                changesMade = append(changesMade, "scale")
+            items[i] = obj
+            townData[category] = items
+            result := make(map of string to any)
+            result["id"] = objectID
+            result["category"] = category
+            result["changes"] = changesMade
+            joined := strings.Join(changesMade, ", ")
+            return opResult(true, "edit", "Edited object {objectID} in {category} ({joined} changed)", result)
+    return opResult(false, "edit", "Object {objectID} not found", empty)
+
+func executeSingle(townData: map of string to any, op: map of string to any, validate: bool) map of string to any
+    opType := getString(op, "op")
+    switch opType
+        when "create"
+            return createObject(townData, op, validate)
+        when "update"
+            return updateObject(townData, op, validate)
+        when "delete"
+            return deleteObject(townData, op, validate)
+        when "edit"
+            return editObject(townData, op, validate)
+        default
+            return opResult(false, opType, "Unknown operation type: {opType}", empty)
+
+func ExecuteOperations(operations: list of map of string to any, validate: bool) (list of map of string to any, int, int)
+    batchLock.Lock()
+    defer batchLock.Unlock()
+    results := list of map of string to any{}
+    successful := 0
+    failed := 0
+    townData, _ := storage.Get()
+    originalTownData := deepCopy(townData)
+
+    for op in operations
+        result := executeSingle(townData, op, validate)
+        success, _ := result["success"].(bool)
+        if success
+            successful = successful + 1
+        else
+            failed = failed + 1
+        results = append(results, result)
+
+    if failed equals 0
+        dataVersion = dataVersion + 1
+        broadcastData := make(map of string to any)
+        for k, v in townData
+            if not strings.HasPrefix(k, "_")
+                broadcastData[k] = v
+        event := make(map of string to any)
+        event["type"] = "full"
+        event["town"] = broadcastData
+        serr := town_helpers.SaveAndBroadcast(broadcastData, event)
+        if serr isnt empty
+            log.Warn("Batch save failed: {serr}")
+        _, herr := history.AddEntry("batch", "", "", originalTownData, townData)
+        if herr isnt empty
+            log.Warn("Batch history add failed: {herr}")
+        log.Info("Batch operations completed: {successful} successful, {failed} failed")
+    else
+        log.Warn("Batch operations had failures, rolling back. {successful} successful, {failed} failed")
+
+    return results, successful, failed

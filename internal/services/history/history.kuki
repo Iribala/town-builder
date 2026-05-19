@@ -1,0 +1,214 @@
+petiole history
+
+import "stdlib/json"
+import "stdlib/log"
+import "stdlib/ctx" as ctxpkg
+import "sync"
+import "time"
+import "github.com/google/uuid"
+import "github.com/redis/go-redis/v9" as redis
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/storage"
+
+const historyKey = "town_history"
+const redoKey = "town_redo"
+const redisTimeoutNanos = 2_000_000_000
+
+var lock sync.Mutex
+var historyStack list of map of string to any
+var redoStack list of map of string to any
+
+func init()
+    historyStack = list of map of string to any{}
+    redoStack = list of map of string to any{}
+
+func maxSize() int
+    s := config.Current()
+    if s equals empty
+        return 100
+    return s.MaxHistorySize
+
+func newCtx() ctxpkg.Handle
+    return ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+
+func appendCapped(stack: list of map of string to any, entry: map of string to any, cap: int) list of map of string to any
+    stack = append(stack, entry)
+    if len(stack) > cap
+        stack = stack[len(stack)-cap:]
+    return stack
+
+func AddEntry(operation: string, category: string, objectID: string, before: map of string to any, after: map of string to any) (string, error)
+    entryID := uuid.New().String()
+    entry := make(map of string to any)
+    entry["id"] = entryID
+    entry["timestamp"] = (time.Now().UnixNano() as float64) / 1000000000.0
+    entry["operation"] = operation
+    entry["category"] = category
+    entry["object_id"] = objectID
+    entry["before_state"] = before
+    entry["after_state"] = after
+
+    client := storage.Client()
+    if client isnt empty
+        data, err := json.Bytes(entry)
+        if err equals empty
+            h := newCtx()
+            defer h.Cancel()
+            rerr := client.RPush(h.Ctx, historyKey, data).Err()
+            if rerr equals empty
+                length, lerr := client.LLen(h.Ctx, historyKey).Result()
+                if lerr equals empty and length > maxSize() as int64
+                    client.LTrim(h.Ctx, historyKey, -maxSize() as int64, -1)
+                client.Del(h.Ctx, redoKey)
+                log.Info("Added history entry: {operation} on {category}/{objectID}")
+                return entryID, empty
+            log.Warn("Redis history add failed, using in-memory storage: {rerr}")
+    lock.Lock()
+    historyStack = appendCapped(historyStack, entry, maxSize())
+    redoStack = list of map of string to any{}
+    lock.Unlock()
+    log.Info("Added history entry: {operation} on {category}/{objectID}")
+    return entryID, empty
+
+func GetHistory(limit: int) list of map of string to any
+    client := storage.Client()
+    if client isnt empty
+        h := newCtx()
+        defer h.Cancel()
+        entries, err := client.LRange(h.Ctx, historyKey, -(limit as int64), -1).Result()
+        if err equals empty
+            out := list of map of string to any{}
+            for i from len(entries)-1 through 0
+                obj := make(map of string to any)
+                perr := json.ParseInto(entries[i] as list of byte, reference of obj)
+                if perr equals empty
+                    out = append(out, obj)
+            return out
+        log.Warn("Redis history get failed, using in-memory storage: {err}")
+    lock.Lock()
+    defer lock.Unlock()
+    start := len(historyStack) - limit
+    if start < 0
+        start = 0
+    src := historyStack[start:]
+    out := list of map of string to any{}
+    for i from len(src)-1 through 0
+        out = append(out, src[i])
+    return out
+
+func CanUndo() bool
+    client := storage.Client()
+    if client isnt empty
+        h := newCtx()
+        defer h.Cancel()
+        n, err := client.LLen(h.Ctx, historyKey).Result()
+        if err equals empty
+            return n > 0
+    lock.Lock()
+    defer lock.Unlock()
+    return len(historyStack) > 0
+
+func CanRedo() bool
+    client := storage.Client()
+    if client isnt empty
+        h := newCtx()
+        defer h.Cancel()
+        n, err := client.LLen(h.Ctx, redoKey).Result()
+        if err equals empty
+            return n > 0
+    lock.Lock()
+    defer lock.Unlock()
+    return len(redoStack) > 0
+
+func GetLastEntry() (map of string to any, bool)
+    client := storage.Client()
+    if client isnt empty
+        h := newCtx()
+        defer h.Cancel()
+        entry, err := client.LIndex(h.Ctx, historyKey, -1).Result()
+        if err equals empty and entry isnt ""
+            obj := make(map of string to any)
+            perr := json.ParseInto(entry as list of byte, reference of obj)
+            if perr equals empty
+                return obj, true
+        else if err isnt empty and err isnt redis.Nil
+            log.Warn("Redis get last entry failed: {err}")
+    lock.Lock()
+    defer lock.Unlock()
+    if len(historyStack) equals 0
+        return empty, false
+    return historyStack[len(historyStack)-1], true
+
+func PopLastEntry() (map of string to any, bool)
+    client := storage.Client()
+    if client isnt empty
+        h := newCtx()
+        defer h.Cancel()
+        entry, err := client.RPop(h.Ctx, historyKey).Result()
+        if err equals empty and entry isnt ""
+            obj := make(map of string to any)
+            perr := json.ParseInto(entry as list of byte, reference of obj)
+            if perr equals empty
+                return obj, true
+        else if err isnt empty and err isnt redis.Nil
+            log.Warn("Redis pop failed, using in-memory storage: {err}")
+    lock.Lock()
+    defer lock.Unlock()
+    if len(historyStack) equals 0
+        return empty, false
+    entry := historyStack[len(historyStack)-1]
+    historyStack = historyStack[:len(historyStack)-1]
+    return entry, true
+
+func PushRedoEntry(entry: map of string to any)
+    client := storage.Client()
+    if client isnt empty
+        data, err := json.Bytes(entry)
+        if err equals empty
+            h := newCtx()
+            defer h.Cancel()
+            rerr := client.RPush(h.Ctx, redoKey, data).Err()
+            if rerr equals empty
+                length, lerr := client.LLen(h.Ctx, redoKey).Result()
+                if lerr equals empty and length > maxSize() as int64
+                    client.LTrim(h.Ctx, redoKey, -maxSize() as int64, -1)
+                return
+            log.Warn("Redis redo push failed, using in-memory storage: {rerr}")
+    lock.Lock()
+    redoStack = appendCapped(redoStack, entry, maxSize())
+    lock.Unlock()
+
+func PopRedoEntry() (map of string to any, bool)
+    client := storage.Client()
+    if client isnt empty
+        h := newCtx()
+        defer h.Cancel()
+        entry, err := client.RPop(h.Ctx, redoKey).Result()
+        if err equals empty and entry isnt ""
+            obj := make(map of string to any)
+            perr := json.ParseInto(entry as list of byte, reference of obj)
+            if perr equals empty
+                return obj, true
+        else if err isnt empty and err isnt redis.Nil
+            log.Warn("Redis redo pop failed, using in-memory storage: {err}")
+    lock.Lock()
+    defer lock.Unlock()
+    if len(redoStack) equals 0
+        return empty, false
+    entry := redoStack[len(redoStack)-1]
+    redoStack = redoStack[:len(redoStack)-1]
+    return entry, true
+
+func ClearHistory()
+    client := storage.Client()
+    if client isnt empty
+        h := newCtx()
+        defer h.Cancel()
+        client.Del(h.Ctx, historyKey)
+        client.Del(h.Ctx, redoKey)
+    lock.Lock()
+    historyStack = list of map of string to any{}
+    redoStack = list of map of string to any{}
+    lock.Unlock()
+    log.Info("History cleared")

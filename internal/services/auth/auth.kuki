@@ -1,0 +1,86 @@
+petiole auth
+
+import "stdlib/log"
+import "time"
+import "github.com/golang-jwt/jwt/v5" as jwtpkg
+
+import "github.com/duber000/town-builder/internal/config"
+
+type UserInfo
+    Username string
+    Payload  map of string to any
+
+type TokenResponse
+    AccessToken string as "access_token"
+    TokenType   string as "token_type"
+    ExpiresIn   int    as "expires_in"
+    Username    string as "username"
+
+func keyFunc(token: reference jwtpkg.Token) (any, error)
+    s := config.Current()
+    if s equals empty
+        return empty, error "config not loaded"
+    return s.JwtSecretKey as list of byte, empty
+
+func VerifyTokenString(token: string) (reference UserInfo, error)
+    s := config.Current()
+    if s equals empty
+        return empty, error "config not loaded"
+    parsed, err := jwtpkg.Parse(token, keyFunc, jwtpkg.WithValidMethods(list of string{s.JwtAlgorithm}))
+    if err isnt empty
+        return empty, error "Invalid authentication credentials"
+    if not parsed.Valid
+        return empty, error "Invalid authentication credentials"
+    claims, ok := parsed.Claims.(jwtpkg.MapClaims)
+    if not ok
+        return empty, error "Invalid authentication credentials"
+    payload := claims as map of string to any
+    username := ""
+    if v, vok := payload["username"]; vok
+        if str, sok := v.(string); sok
+            username = str
+    if username equals ""
+        if v, vok := payload["sub"]; vok
+            if str, sok := v.(string); sok
+                username = str
+    if username equals ""
+        return empty, error "Invalid authentication credentials"
+    return reference of UserInfo{Username: username, Payload: payload}, empty
+
+func GetCurrentUser(token: string) (reference UserInfo, error)
+    s := config.Current()
+    if s equals empty
+        return empty, error "config not loaded"
+    if s.DisableJwtAuth
+        log.Warn("JWT authentication is DISABLED - development mode only!")
+        payload := make(map of string to any)
+        payload["sub"] = "dev-user"
+        return reference of UserInfo{Username: "dev-user", Payload: payload}, empty
+    if token equals ""
+        return empty, error "Not authenticated"
+    return VerifyTokenString(token)
+
+func CreateAccessToken(username: string, expiresHours: int) (reference TokenResponse, error)
+    s := config.Current()
+    if s equals empty
+        return empty, error "config not loaded"
+    if s.Environment equals "production"
+        return empty, error "Not found"
+    expire := time.Now().Add(time.Duration(expiresHours) * time.Hour)
+    claims := jwtpkg.MapClaims{
+        "sub": username,
+        "exp": expire.Unix(),
+    }
+    method := jwtpkg.GetSigningMethod(s.JwtAlgorithm)
+    if method equals empty
+        return empty, error "unsupported signing method"
+    tok := jwtpkg.NewWithClaims(method, claims)
+    signed, err := tok.SignedString(s.JwtSecretKey as list of byte)
+    if err isnt empty
+        return empty, err
+    return reference of TokenResponse{
+        AccessToken: signed,
+        TokenType:   "bearer",
+        ExpiresIn:   expiresHours * 3600,
+        Username:    username,
+    }, empty

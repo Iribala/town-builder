@@ -1,0 +1,28 @@
+petiole model_display_names
+
+import "strings"
+
+var displayNames = map of string to string{
+    "building_A.gltf": "Elementary School",
+    "building_D.gltf": "High School",
+    "building_B.gltf": "Public Library",
+    "building_F.gltf": "Library Branch",
+    "building_E.gltf": "Market/Grocery Store",
+    "building_G.gltf": "Convenience Store",
+    "building_C.gltf": "Warehouse/Storage",
+    "building_H.gltf": "Corporate Office Building",
+    "house.gltf": "Residential Housing",
+    "medical_facility.gltf": "Hospital/Health Center",
+    "base.gltf": "Base Platform",
+    "bench.gltf": "Park Seating",
+    "box_A.gltf": "Storage Box A",
+    "box_B.gltf": "Storage Box B",
+}
+
+func GetModelDisplayName(modelFilename: string) string
+    if name, ok := displayNames[modelFilename]; ok
+        return name
+    name := strings.ReplaceAll(modelFilename, ".glb", "")
+    name = strings.ReplaceAll(name, ".gltf", "")
+    name = strings.ReplaceAll(name, "_", " ")
+    return strings.Title(name)
