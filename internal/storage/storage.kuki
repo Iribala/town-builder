@@ -1,0 +1,121 @@
+petiole storage
+
+import "stdlib/json"
+import "stdlib/log"
+import "stdlib/ctx" as ctxpkg
+import "sync"
+import "github.com/klauspost/compress/zstd"
+import "github.com/redis/go-redis/v9" as redis
+
+import "github.com/duber000/town-builder/internal/normalization"
+
+const townKey = "town_data"
+const redisTimeoutNanos = 2_000_000_000
+
+var client reference redis.Client
+var lock sync.RWMutex
+var memory map of string to any
+var encoder reference zstd.Encoder
+var decoder reference zstd.Decoder
+
+func defaultTownData() map of string to any
+    out := make(map of string to any)
+    for cat in normalization.Categories
+        out[cat] = list of map of string to any{}
+    return out
+
+func init()
+    memory = defaultTownData()
+    enc, err := zstd.NewWriter(empty)
+    if err equals empty
+        encoder = enc
+    dec, err2 := zstd.NewReader(empty)
+    if err2 equals empty
+        decoder = dec
+
+func Initialize(redisURL: string) error
+    opts, err := redis.ParseURL(redisURL)
+    if err isnt empty
+        log.Warn("Redis URL parse failed, using in-memory storage: {err}")
+        return empty
+    c := redis.NewClient(opts)
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+    defer h.Cancel()
+    _, perr := c.Ping(h.Ctx).Result()
+    if perr isnt empty
+        log.Warn("Redis ping failed, using in-memory storage: {perr}")
+        return empty
+    client = c
+    log.Info("Redis client initialized successfully")
+    return empty
+
+func Close() error
+    if client isnt empty
+        err := client.Close()
+        client = empty
+        return err
+    return empty
+
+func deepCopyMap(src: map of string to any) map of string to any
+    data, err := json.Bytes(src)
+    if err isnt empty
+        return defaultTownData()
+    out := make(map of string to any)
+    perr := json.ParseInto(data, reference of out)
+    if perr isnt empty
+        return defaultTownData()
+    return out
+
+func snapshotMemory() map of string to any
+    lock.RLock()
+    defer lock.RUnlock()
+    return deepCopyMap(memory)
+
+func Get() (map of string to any, error)
+    if client isnt empty and decoder isnt empty
+        h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+        defer h.Cancel()
+        data, err := client.Get(h.Ctx, townKey).Bytes()
+        if err equals empty
+            decompressed, derr := decoder.DecodeAll(data, empty)
+            if derr isnt empty
+                log.Warn("Failed to decompress town data: {derr}")
+                return snapshotMemory(), empty
+            out := make(map of string to any)
+            perr := json.ParseInto(decompressed, reference of out)
+            if perr isnt empty
+                log.Warn("Failed to parse stored town data: {perr}")
+                return snapshotMemory(), empty
+            return out, empty
+        else if err isnt redis.Nil
+            log.Warn("Redis get failed, using in-memory storage: {err}")
+    return snapshotMemory(), empty
+
+func Set(data: map of string to any) error
+    lock.Lock()
+    memory = deepCopyMap(data)
+    lock.Unlock()
+
+    if client isnt empty and encoder isnt empty
+        raw, err := json.Bytes(data)
+        if err isnt empty
+            log.Warn("Town data serialize failed: {err}")
+            return empty
+        compressed := encoder.EncodeAll(raw, empty)
+        h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+        defer h.Cancel()
+        serr := client.Set(h.Ctx, townKey, compressed, 0).Err()
+        if serr isnt empty
+            log.Warn("Redis set failed, data saved to memory only: {serr}")
+    return empty
+
+func ResetMemory()
+    lock.Lock()
+    defer lock.Unlock()
+    memory = defaultTownData()
+
+func SetClient(c: reference redis.Client)
+    client = c
+
+func Client() reference redis.Client
+    return client

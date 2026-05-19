@@ -1,0 +1,74 @@
+petiole storage_test
+
+import "testing"
+import "stdlib/test"
+import "github.com/duber000/town-builder/internal/storage"
+
+func resetForTest()
+    storage.SetClient(empty)
+    storage.ResetMemory()
+
+func TestSetAndGetRoundtrip(t: reference testing.T)
+    resetForTest()
+    data := map of string to any{
+        "buildings": list of any{map of string to any{"id": "1", "model": "house.glb"}},
+        "vehicles":  list of any{},
+    }
+    setErr := storage.Set(data)
+    test.AssertNoError(t, setErr)
+    result, err := storage.Get()
+    test.AssertNoError(t, err)
+    buildings, ok := result["buildings"].(list of any)
+    test.AssertTrue(t, ok)
+    test.AssertEqual(t, len(buildings), 1)
+
+func TestGetReturnsDeepCopy(t: reference testing.T)
+    resetForTest()
+    data := map of string to any{
+        "buildings": list of any{map of string to any{"id": "1"}},
+    }
+    setErr := storage.Set(data)
+    test.AssertNoError(t, setErr)
+
+    result, _ := storage.Get()
+    buildings, _ := result["buildings"].(list of any)
+    result["buildings"] = append(buildings, map of string to any{"id": "2"})
+
+    fresh, _ := storage.Get()
+    freshBuildings, _ := fresh["buildings"].(list of any)
+    test.AssertEqual(t, len(freshBuildings), 1)
+
+func TestEmptyInitialState(t: reference testing.T)
+    resetForTest()
+    result, _ := storage.Get()
+    for _, key in list of string{"buildings", "vehicles", "terrain"}
+        items, ok := result[key].(list of any)
+        test.AssertTrue(t, ok)
+        test.AssertEqual(t, len(items), 0)
+
+func TestFallbackWhenRedisUnavailable(t: reference testing.T)
+    resetForTest()
+    test.AssertTrue(t, storage.Client() equals empty)
+    e1 := storage.Set(map of string to any{
+        "buildings": list of any{map of string to any{"id": "x"}},
+    })
+    test.AssertNoError(t, e1)
+    result, _ := storage.Get()
+    buildings, _ := result["buildings"].(list of any)
+    test.AssertEqual(t, len(buildings), 1)
+
+func TestOverwriteReplacesData(t: reference testing.T)
+    resetForTest()
+    e1 := storage.Set(map of string to any{
+        "buildings": list of any{map of string to any{"id": "1"}},
+    })
+    test.AssertNoError(t, e1)
+    e2 := storage.Set(map of string to any{
+        "buildings": list of any{map of string to any{"id": "2"}},
+    })
+    test.AssertNoError(t, e2)
+    result, _ := storage.Get()
+    buildings, _ := result["buildings"].(list of any)
+    test.AssertEqual(t, len(buildings), 1)
+    first, _ := buildings[0].(map of string to any)
+    test.AssertEqual(t, first["id"], "2")

@@ -1,0 +1,112 @@
+petiole normalization
+
+import "stdlib/cast"
+import "stdlib/maps"
+
+var Categories = list of string{
+    "buildings",
+    "vehicles",
+    "trees",
+    "props",
+    "street",
+    "park",
+    "terrain",
+    "roads",
+}
+
+type Vec3 = map of string to float64
+
+func toFloat(v: any, def: float64) float64
+    out, err := cast.SmartFloat64(v)
+    if err isnt empty
+        return def
+    return out
+
+func vecFromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
+    if values equals empty
+        return Vec3{"x": dx, "y": dy, "z": dz}
+    arr, okArr := values.([]any)
+    if okArr and len(arr) >= 3
+        return Vec3{
+            "x": toFloat(arr[0], dx),
+            "y": toFloat(arr[1], dy),
+            "z": toFloat(arr[2], dz),
+        }
+    m, okMap := values.(map[string]any)
+    if okMap
+        return Vec3{
+            "x": toFloat(m["x"], dx),
+            "y": toFloat(m["y"], dy),
+            "z": toFloat(m["z"], dz),
+        }
+    return Vec3{"x": dx, "y": dy, "z": dz}
+
+func normalizeObject(item: map of string to any, category: string) map of string to any
+    out := make(map of string to any)
+    keys := maps.Keys(item)
+    for i from 0 to len(keys)
+        k := keys[i]
+        out[k] = item[k]
+    out["category"] = category
+    model, hasModel := item["model"]
+    if not hasModel or model equals empty
+        if alt, ok := item["modelName"]; ok
+            model = alt
+    out["model"] = model
+    out["position"] = vecFromAny(item["position"], 0.0, 0.0, 0.0)
+    out["rotation"] = vecFromAny(item["rotation"], 0.0, 0.0, 0.0)
+    out["scale"]    = vecFromAny(item["scale"], 1.0, 1.0, 1.0)
+    return out
+
+func normalizeList(items: any, category: string) list of map of string to any
+    out := list of map of string to any{}
+    arr, ok := items.([]any)
+    if not ok
+        return out
+    for raw in arr
+        item, isMap := raw.(map[string]any)
+        if not isMap
+            continue
+        out = append(out, normalizeObject(item, category))
+    return out
+
+func Normalize(layoutData: any) map of string to any
+    out := make(map of string to any)
+
+    inMap, isMap := layoutData.(map[string]any)
+    if isMap
+        for category in Categories
+            out[category] = normalizeList(inMap[category], category)
+        keys := maps.Keys(inMap)
+        for i from 0 to len(keys)
+            name := keys[i]
+            if _, taken := out[name]; not taken
+                out[name] = inMap[name]
+        return out
+
+    arr, isList := layoutData.([]any)
+    if isList
+        for category in Categories
+            out[category] = list of map of string to any{}
+        for raw in arr
+            item, okItem := raw.(map[string]any)
+            if not okItem
+                continue
+            catAny, hasCat := item["category"]
+            if not hasCat
+                continue
+            cat, okCat := catAny.(string)
+            if not okCat
+                continue
+            existing, present := out[cat]
+            if not present
+                continue
+            asList, okList := existing.(list of map of string to any)
+            if not okList
+                continue
+            out[cat] = append(asList, normalizeObject(item, cat))
+        return out
+
+    for category in Categories
+        out[category] = list of map of string to any{}
+    return out

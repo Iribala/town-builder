@@ -1,0 +1,43 @@
+petiole models
+
+type Position
+    X float64 as "x"
+    Y float64 as "y"
+    Z float64 as "z"
+
+type Rotation
+    X float64 as "x"
+    Y float64 as "y"
+    Z float64 as "z"
+
+type Scale
+    X float64 as "x"
+    Y float64 as "y"
+    Z float64 as "z"
+
+type PlacedObject = map of string to any
+
+type TownData
+    Buildings list of PlacedObject as "buildings"
+    Vehicles  list of PlacedObject as "vehicles"
+    Trees     list of PlacedObject as "trees"
+    Props     list of PlacedObject as "props"
+    Street    list of PlacedObject as "street"
+    Park      list of PlacedObject as "park"
+    Terrain   list of PlacedObject as "terrain"
+    Roads     list of PlacedObject as "roads"
+    TownName  string             as "townName,omitempty"
+    Snapshots list of PlacedObject as "snapshots,omitempty"
+    History   list of PlacedObject as "history,omitempty"
+
+func NewDefaultTownData() reference TownData
+    return reference of TownData{
+        Buildings: list of PlacedObject{},
+        Vehicles:  list of PlacedObject{},
+        Trees:     list of PlacedObject{},
+        Props:     list of PlacedObject{},
+        Street:    list of PlacedObject{},
+        Park:      list of PlacedObject{},
+        Terrain:   list of PlacedObject{},
+        Roads:     list of PlacedObject{},
+    }

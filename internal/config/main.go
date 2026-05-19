@@ -1,0 +1,60 @@
+package config
+
+import (
+	"errors"
+	"github.com/kukichalang/kukicha/stdlib/env"
+)
+
+type Settings struct {
+	AppTitle                 string
+	AppDescription           string
+	AppVersion               string
+	Environment              string
+	JwtSecretKey             string
+	JwtAlgorithm             string
+	DisableJwtAuth           bool
+	ApiURL                   string
+	ApiToken                 string
+	RedisURL                 string
+	PubsubChannel            string
+	ModelsPath               string
+	StaticPath               string
+	TemplatesPath            string
+	DataPath                 string
+	RootPath                 string
+	SseTimeout               float64
+	SseKeepaliveInterval     float64
+	UserActivityTimeout      float64
+	MaxHistorySize           int
+	MaxSnapshots             int
+	MaxRequestBodyBytes      int64
+	MaxBatchOperations       int
+	MaxSseConnectionsPerUser int
+	AllowedOrigins           string
+	AllowedDomains           string
+	AllowedApiDomains        []string
+}
+
+var current *Settings
+
+func floatOr(key string, def float64) float64 {
+	v, err_1 := env.GetFloatOr(key, def)
+	if err_1 != nil {
+		v = def
+	}
+	return v
+}
+
+func Load() (*Settings, error) {
+	s := &Settings{AppTitle: env.GetOr("APP_TITLE", "Town Builder API"), AppDescription: env.GetOr("APP_DESCRIPTION", "Interactive 3D town building application with real-time collaboration"), AppVersion: env.GetOr("APP_VERSION", "1.0.0"), Environment: env.GetOr("ENVIRONMENT", "development"), JwtSecretKey: env.GetOr("JWT_SECRET_KEY", ""), JwtAlgorithm: env.GetOr("JWT_ALGORITHM", "HS256"), DisableJwtAuth: env.GetBoolOrDefault("DISABLE_JWT_AUTH", false), ApiURL: env.GetOr("TOWN_API_URL", "http://localhost:8000/api/towns/"), ApiToken: env.GetOr("TOWN_API_JWT_TOKEN", ""), RedisURL: env.GetOr("REDIS_URL", "redis://localhost:6379/0"), PubsubChannel: env.GetOr("PUBSUB_CHANNEL", "town_events"), ModelsPath: env.GetOr("MODELS_PATH", "./static/models"), StaticPath: env.GetOr("STATIC_PATH", "./static"), TemplatesPath: env.GetOr("TEMPLATES_PATH", "./templates"), DataPath: env.GetOr("DATA_PATH", "./data"), RootPath: env.GetOr("ROOT_PATH", ""), SseTimeout: floatOr("SSE_TIMEOUT", 10.0), SseKeepaliveInterval: floatOr("SSE_KEEPALIVE_INTERVAL", 10.0), UserActivityTimeout: floatOr("USER_ACTIVITY_TIMEOUT", 30.0), MaxHistorySize: env.GetIntOrDefault("MAX_HISTORY_SIZE", 100), MaxSnapshots: env.GetIntOrDefault("MAX_SNAPSHOTS", 50), MaxRequestBodyBytes: int64(env.GetIntOrDefault("MAX_REQUEST_BODY_BYTES", ((10 * 1024) * 1024))), MaxBatchOperations: env.GetIntOrDefault("MAX_BATCH_OPERATIONS", 100), MaxSseConnectionsPerUser: env.GetIntOrDefault("MAX_SSE_CONNECTIONS_PER_USER", 3), AllowedOrigins: env.GetOr("ALLOWED_ORIGINS", ""), AllowedDomains: env.GetOr("ALLOWED_DOMAINS", "localhost,127.0.0.1")}
+	s.AllowedApiDomains = env.SplitAndTrim(s.AllowedDomains, ",")
+	if !s.DisableJwtAuth && (s.JwtSecretKey == "") {
+		return nil, errors.New("JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development.")
+	}
+	current = s
+	return s, nil
+}
+
+func Current() *Settings {
+	return current
+}

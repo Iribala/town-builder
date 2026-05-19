@@ -1,3 +1,6 @@
+# Kukicha — extracted by `kukicha init`, re-runnable
+.kukicha/
+
 # Python-generated files
 __pycache__/
 *.py[oc]
