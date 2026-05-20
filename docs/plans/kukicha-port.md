@@ -253,7 +253,7 @@ Note: onerr inside struct field initializers is *not* supported — factor to a 
 | 1 — Foundation | ✅ done | `3c6838f` |
 | 2 — Services + utils | ✅ done | — |
 | 3 — Routes + middleware + main | ✅ done | — |
-| 4 — SSE + Pub/Sub | ◻ | — |
+| 4 — SSE + Pub/Sub | ✅ done | — |
 | 5 — Proxy + UI + static | ◻ | — |
 | 6 — Tests port | ◻ | — |
 | 7 — WASM (optional) | ◻ | — |

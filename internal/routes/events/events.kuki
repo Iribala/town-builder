@@ -1,14 +1,50 @@
 petiole events
 
 import "net/http"
+import "time"
 
 import "stdlib/http" as httphelper
+import "stdlib/json"
+import "stdlib/log"
 
 import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/pubsub"
 import "github.com/duber000/town-builder/internal/services/auth"
+import "github.com/duber000/town-builder/internal/services/town_helpers"
+import "github.com/duber000/town-builder/internal/storage"
 
-# Stage 4 will wire this up to Redis pubsub. For now it authenticates and
-# holds the connection open with a keepalive so the client can connect.
+func writeEvent(w: http.ResponseWriter, flusher: http.Flusher, payload: list of byte) bool
+    _, err := w.Write("data: " as list of byte)
+    if err isnt empty
+        return false
+    _, err = w.Write(payload)
+    if err isnt empty
+        return false
+    _, err = w.Write("\n\n" as list of byte)
+    if err isnt empty
+        return false
+    flusher.Flush()
+    return true
+
+func writeRaw(w: http.ResponseWriter, flusher: http.Flusher, raw: string) bool
+    _, err := w.Write(raw as list of byte)
+    if err isnt empty
+        return false
+    flusher.Flush()
+    return true
+
+func writeEventMap(w: http.ResponseWriter, flusher: http.Flusher, event: map of string to any) bool
+    payload, err := json.Bytes(event)
+    if err isnt empty
+        log.Warn("Failed to encode SSE event: {err}")
+        return true
+    return writeEvent(w, flusher, payload)
+
+func broadcastUsers()
+    town_helpers.BroadcastSSE(map of string to any{
+        "type":  "users",
+        "users": pubsub.OnlineUsers(),
+    })
 
 func sse(w: http.ResponseWriter, r: reference http.Request)
     s := config.Current()
@@ -21,6 +57,9 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
         if verr isnt empty
             httphelper.JSONUnauthorized(w, "Not authenticated")
             return
+
+    playerName := r.URL.Query().Get("name")
+
     w.Header().Set("Content-Type", "text/event-stream")
     w.Header().Set("Cache-Control", "no-cache")
     w.Header().Set("Connection", "keep-alive")
@@ -28,10 +67,58 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
     if not ok
         httphelper.JSONError(w, "streaming unsupported", 500)
         return
-    w.Write(list of byte(": connected\n\n"))
-    flusher.Flush()
-    # Stage 4: subscribe to pubsub and fan out events here.
-    receive from r.Context().Done()
+
+    if playerName isnt "" and not pubsub.CanConnect(playerName)
+        writeEventMap(w, flusher, map of string to any{
+            "type":    "error",
+            "message": "Connection limit reached",
+        })
+        return
+    defer pubsub.Disconnect(playerName)
+
+    if playerName isnt ""
+        broadcastUsers()
+
+    townData, terr := storage.Get()
+    if terr equals empty
+        writeEventMap(w, flusher, map of string to any{"type": "full", "town": townData})
+    writeEventMap(w, flusher, map of string to any{
+        "type":  "users",
+        "users": pubsub.OnlineUsers(),
+    })
+
+    msgs, cancelSub := pubsub.Subscribe()
+    if cancelSub isnt empty
+        defer cancelSub()
+        log.Info("SSE client subscribed to pubsub: {playerName}")
+    else
+        log.Warn("Redis unavailable for SSE; running in keepalive-only mode")
+
+    keepaliveInterval := 10.0
+    if s isnt empty
+        keepaliveInterval = s.SseKeepaliveInterval
+    ticker := time.NewTicker(time.Duration(int64(keepaliveInterval * 1_000_000_000.0)))
+    defer ticker.Stop()
+
+    ctxDone := r.Context().Done()
+
+    for
+        select
+            when receive from ctxDone
+                log.Info("SSE client disconnected: {playerName}")
+                if playerName isnt ""
+                    broadcastUsers()
+                return
+            when payload := receive from msgs
+                if not writeRaw(w, flusher, "data: {payload}\n\n")
+                    return
+                pubsub.Touch(playerName)
+            when receive from ticker.C
+                pubsub.Touch(playerName)
+                if playerName isnt ""
+                    broadcastUsers()
+                if not writeRaw(w, flusher, ": keepalive\n\n")
+                    return
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("GET /events", sse)

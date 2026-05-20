@@ -1,0 +1,129 @@
+petiole pubsub
+
+import "stdlib/log"
+import "stdlib/ctx" as ctxpkg
+import "sync"
+import "time"
+import "github.com/redis/go-redis/v9" as redis
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/storage"
+
+const subscribeTimeoutNanos = 2_000_000_000
+
+var presLock sync.Mutex
+var connectedUsers map of string to int64
+var userCounts map of string to int
+
+func init()
+    connectedUsers = make(map of string to int64)
+    userCounts = make(map of string to int)
+
+func nowNanos() int64
+    return time.Now().UnixNano()
+
+func activityTimeoutNanos() int64
+    s := config.Current()
+    if s equals empty
+        return int64(30_000_000_000)
+    return int64(s.UserActivityTimeout * 1_000_000_000.0)
+
+func cleanupLocked()
+    cutoff := nowNanos() - activityTimeoutNanos()
+    stale := list of string{}
+    for name, _ in connectedUsers
+        if connectedUsers[name] < cutoff
+            stale = append(stale, name)
+    for name in stale
+        delete(connectedUsers, name)
+        delete(userCounts, name)
+
+func usersLocked() list of string
+    out := list of string{}
+    for name, _ in connectedUsers
+        out = append(out, name)
+    return out
+
+# CanConnect reserves a connection slot for the user. Returns false if the
+# per-user limit is already reached. Pair with Disconnect on the same name.
+func CanConnect(name: string) bool
+    if name equals ""
+        return true
+    s := config.Current()
+    limit := 3
+    if s isnt empty
+        limit = s.MaxSseConnectionsPerUser
+    presLock.Lock()
+    defer presLock.Unlock()
+    if userCounts[name] >= limit
+        log.Warn("SSE connection limit ({limit}) reached for user: {name}")
+        return false
+    userCounts[name] = userCounts[name] + 1
+    connectedUsers[name] = nowNanos()
+    return true
+
+func Disconnect(name: string)
+    if name equals ""
+        return
+    presLock.Lock()
+    defer presLock.Unlock()
+    count := userCounts[name] - 1
+    if count <= 0
+        delete(userCounts, name)
+        delete(connectedUsers, name)
+    else
+        userCounts[name] = count
+
+func Touch(name: string)
+    if name equals ""
+        return
+    presLock.Lock()
+    defer presLock.Unlock()
+    if _, ok := userCounts[name]; ok
+        connectedUsers[name] = nowNanos()
+
+func OnlineUsers() list of string
+    presLock.Lock()
+    defer presLock.Unlock()
+    cleanupLocked()
+    return usersLocked()
+
+# Subscribe opens a Redis pub/sub subscription on the configured channel and
+# returns a bidirectional channel of payloads plus a cancel func that closes
+# the subscription. Returns (empty, empty) if Redis is not available; callers
+# should fall back to a keepalive-only loop.
+func Subscribe() (channel of string, func())
+    client := storage.Client()
+    if client equals empty
+        return empty, empty
+    s := config.Current()
+    if s equals empty
+        return empty, empty
+    h := ctxpkg.WithTimeout(ctxpkg.Background(), subscribeTimeoutNanos)
+    defer h.Cancel()
+    sub := client.Subscribe(h.Ctx, s.PubsubChannel)
+    out := make(channel of string)
+    stop := make(channel of bool)
+    go pump(sub, out, stop)
+    cancel := () =>
+        close(stop)
+    return out, cancel
+
+func closeStringChan(ch: channel of string)
+    close(ch)
+
+func pump(sub: reference redis.PubSub, out: channel of string, stop: channel of bool)
+    defer sub.Close()
+    defer closeStringChan(out)
+    msgs := sub.Channel()
+    for
+        select
+            when receive from stop
+                return
+            when msg := receive from msgs
+                if msg equals empty
+                    return
+                select
+                    when send msg.Payload to out
+                    when receive from stop
+                        return
