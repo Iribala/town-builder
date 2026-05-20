@@ -975,6 +975,12 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 - **Float exponent literals (`1e308`, `1.5e10`)** parse correctly.
 - **Go 1.22+ `ServeMux` `{name}` path patterns** in string literals — now treated as literal placeholders (with a warning). `\{name\}` silences the warning if you want it gone.
 
+### Fixed in v0.19.4 (issue #119)
+
+- **Single-var `for x in slice`** brews correctly to `for _, x := range slice` (was previously `for x := range`, x = index).
+- **Method receivers with extra params**: `func M on r: T, w: W, r2: R` parses correctly — no longer requires the parenthesized `func M on r: T (w: W, r2: R)` form.
+- **Go-1.22 mux `/{$}` and `/{path...}` patterns**: plain string literals work without backslash-escaped braces.
+
 ### Still active
 
 1. **Lambda return-type inference fails for multi-statement bodies.** `sort.Slice(xs, (i: int, j: int) => ...)` works when the body is a single expression, but a body with intermediate `:=` bindings and a final `return a < b` errors with `expected 0 return values, got 1`. Workaround: hoist the body into a named helper and pass `(i, j) => helper(xs, i, j)`.
@@ -993,8 +999,4 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 
 8. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.
 
-9. **`for x in slice` brews to `for x := range slice` (x = INDEX, not element).** Despite the syntax table claiming `for item in items` becomes `for _, item := range items`, single-variable iteration over a slice yields the index — silently typing `x` as `int` and failing at first use. Workaround: index loop `for i from 0 to len(xs); x := xs[i]`. Map iteration with two vars (`for k, v in m`) is similarly broken when the value type is a slice — keys come out as `int`. Use `mapspkg.Keys(m)` + the index-loop pattern.
-
-10. **Method receivers with multiple params need parenthesized param lists.** `func M on r: T, w: W, r2: R` fails to parse. Write `func M on r: T (w: W, r2: R)`.
-
-11. **Go-1.22 mux `/{$}` and `/{path...}` patterns confuse the interpolation parser.** `"GET /\{$\}"` and `"GET /api/\{path...\}"` need backslash-escaped braces. The plain `{name}` placeholder works as documented in v0.19.3 — the special `{$}` / `{name...}` forms don't.
+9. **Two-var map iteration (`for k, v in m`) brews silently to an empty file in some contexts.** Fine in isolation and for typed `map of K to V` parameters, but iterating a variable whose type came from a type-assertion (`inMap, _ := layoutData.(map[string]any)`) or in larger functions sometimes produces zero output from `kukicha brew --stdout` with exit 0 and no error. Workaround when bitten: `keys := maps.Keys(m); for i from 0 to len(keys); k := keys[i]; v := m[k]`. (Issue #119 covered the slice-iter variant; this map-iter case is the remaining tail.)

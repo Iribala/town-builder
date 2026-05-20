@@ -80,5 +80,5 @@ func favicon(w: http.ResponseWriter, r: reference http.Request)
     http.ServeFile(w, r, path)
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /\{$\}", index)
+    mux.HandleFunc("GET /{$}", index)
     mux.HandleFunc("GET /favicon.ico", favicon)

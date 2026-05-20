@@ -34,10 +34,8 @@ func vecFromAny(values any, dx float64, dy float64, dz float64) Vec3 {
 
 func normalizeObject(item map[string]any, category string) map[string]any {
 	out := make(map[string]any)
-	keys := maps.Keys(item)
-	for i := range len(keys) {
-		k := keys[i]
-		out[k] = item[k]
+	for k, v := range item {
+		out[k] = v
 	}
 	out["category"] = category
 	model, hasModel := item["model"]

@@ -43,10 +43,8 @@ func vecFromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
 
 func normalizeObject(item: map of string to any, category: string) map of string to any
     out := make(map of string to any)
-    keys := maps.Keys(item)
-    for i from 0 to len(keys)
-        k := keys[i]
-        out[k] = item[k]
+    for k, v in item
+        out[k] = v
     out["category"] = category
     model, hasModel := item["model"]
     if not hasModel or model equals empty
