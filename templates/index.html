@@ -9,7 +9,7 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <!-- Mobile CSS -->
-    <link rel="stylesheet" href="{{ base_path }}/static/css/mobile.css">
+    <link rel="stylesheet" href="{{.BasePath}}/static/css/mobile.css">
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
         #canvas-container { width: 100%; height: 100%; display: block; }
@@ -247,18 +247,18 @@
                 </button>
             </div>
             <div id="model-container" class="mt-3">
-                {% for category, model_list in models.items() %}
+                {{range $category, $modelList := .Models}}
                 <div class="category mb-3">
-                    <h6 class="text-uppercase text-muted mb-2">{{ category|title }}</h6>
+                    <h6 class="text-uppercase text-muted mb-2">{{title $category}}</h6>
                     <div class="list-group list-group-flush">
-                        {% for model in model_list %}
-                        <a href="#" class="list-group-item list-group-item-action model-item py-2" data-category="{{ category }}" data-model="{{ model }}">
-                            <i class="bi bi-box me-2"></i>{{ model|get_display_name }}
+                        {{range $model := $modelList}}
+                        <a href="#" class="list-group-item list-group-item-action model-item py-2" data-category="{{$category}}" data-model="{{$model}}">
+                            <i class="bi bi-box me-2"></i>{{displayName $model}}
                         </a>
-                        {% endfor %}
+                        {{end}}
                     </div>
                 </div>
-                {% endfor %}
+                {{end}}
             </div>
 
             <!-- Bottom section with buttons and controls (doesn't scroll) -->
@@ -355,33 +355,33 @@
     <!-- Embed town_id and base path from server -->
     <script>
       // Base path for reverse proxy deployments
-      window.__BASE_PATH = '{{ base_path }}';
+      window.__BASE_PATH = '{{.BasePath}}';
       // JWT token for authenticated API requests
-      {% if token %}
-      window.__TOKEN = '{{ token }}';
-      {% else %}
+      {{if .Token}}
+      window.__TOKEN = '{{.Token}}';
+      {{else}}
       window.__TOKEN = null;
-      {% endif %}
+      {{end}}
       // Set initial town_id if provided from URL parameter
-      {% if town_id %}
-      window.currentTownId = {{ town_id }};
+      {{if .TownID}}
+      window.currentTownId = {{.TownID}};
       console.log("Town ID from URL:", window.currentTownId);
-      {% else %}
+      {{else}}
       window.currentTownId = null;
-      {% endif %}
+      {{end}}
     </script>
 
     <!-- Import map for Three.js modules -->
     <script type="importmap">
     {
       "imports": {
-        "three": "{{ base_path }}/static/js/three.module.js"
+        "three": "{{.BasePath}}/static/js/three.module.js"
       }
     }
     </script>
 
     <!-- Load Go WASM runtime -->
-    <script src="{{ base_path }}/static/js/wasm_exec.js"></script>
+    <script src="{{.BasePath}}/static/js/wasm_exec.js"></script>
     <script>
       // Load physics WASM module (Go 1.25+ with GreenTea GC experimental and car physics)
       const go = new Go();
@@ -407,6 +407,6 @@
     </script>
 
     <!-- Load main application after WASM -->
-    <script type="module" src="{{ base_path }}/static/js/main.js"></script>
+    <script type="module" src="{{.BasePath}}/static/js/main.js"></script>
 </body>
 </html>

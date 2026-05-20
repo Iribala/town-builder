@@ -1,0 +1,109 @@
+petiole proxy
+
+import "io"
+import "net/http"
+import "strings"
+
+import "stdlib/http" as httphelper
+import "stdlib/log"
+import "stdlib/maps" as mapspkg
+
+import "github.com/duber000/town-builder/internal/routes/common"
+import "github.com/duber000/town-builder/internal/services/django_client"
+
+var skipRequestHeaders = list of string{"host", "content-length"}
+var skipResponseHeaders = list of string{"content-length", "transfer-encoding", "connection", "content-encoding"}
+
+func shouldSkip(skip: list of string, name: string) bool
+    lower := strings.ToLower(name)
+    for s in skip
+        if s equals lower
+            return true
+    return false
+
+func collectHeaders(src: map of string to list of string) map of string to string
+    out := make(map of string to string)
+    keys := mapspkg.Keys(src)
+    for i from 0 to len(keys)
+        k := keys[i]
+        if shouldSkip(skipRequestHeaders, k)
+            continue
+        vs := src[k]
+        if len(vs) > 0
+            out[k] = vs[0]
+    return out
+
+func collectParams(values: map of string to list of string) map of string to string
+    out := make(map of string to string)
+    keys := mapspkg.Keys(values)
+    for i from 0 to len(keys)
+        k := keys[i]
+        vs := values[k]
+        if len(vs) > 0
+            out[k] = vs[0]
+    return out
+
+func handle(w: http.ResponseWriter, r: reference http.Request, method: string)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    path := r.PathValue("path")
+    headers := collectHeaders(r.Header)
+    params := collectParams(r.URL.Query())
+
+    var body list of byte
+    if r.Body isnt empty
+        raw, ierr := io.ReadAll(r.Body)
+        if ierr isnt empty
+            httphelper.JSONBadRequest(w, "Failed to read request body")
+            return
+        body = raw
+
+    resp, perr := django_client.ProxyRequest(method, path, headers, params, body)
+    if perr isnt empty
+        msg := perr.Error()
+        log.Warn("Proxy request failed: {msg}")
+        if strings.Contains(msg, "timeout")
+            httphelper.JSONError(w, "Request to upstream service timed out", 504)
+            return
+        if strings.Contains(msg, "not allowed") or strings.Contains(msg, "Unsupported")
+            httphelper.JSONBadRequest(w, msg)
+            return
+        httphelper.JSONError(w, msg, 502)
+        return
+
+    respKeys := mapspkg.Keys(resp.Headers)
+    for i from 0 to len(respKeys)
+        k := respKeys[i]
+        if shouldSkip(skipResponseHeaders, k)
+            continue
+        for v in resp.Headers[k]
+            w.Header().Add(k, v)
+
+    w.WriteHeader(resp.StatusCode)
+    if len(resp.Body) > 0
+        w.Write(resp.Body)
+
+func get(w: http.ResponseWriter, r: reference http.Request)
+    handle(w, r, "GET")
+
+func post(w: http.ResponseWriter, r: reference http.Request)
+    handle(w, r, "POST")
+
+func put(w: http.ResponseWriter, r: reference http.Request)
+    handle(w, r, "PUT")
+
+func patch(w: http.ResponseWriter, r: reference http.Request)
+    handle(w, r, "PATCH")
+
+func remove(w: http.ResponseWriter, r: reference http.Request)
+    handle(w, r, "DELETE")
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("GET /api/proxy/towns/\{path...\}", get)
+    mux.HandleFunc("POST /api/proxy/towns/\{path...\}", post)
+    mux.HandleFunc("PUT /api/proxy/towns/\{path...\}", put)
+    mux.HandleFunc("PATCH /api/proxy/towns/\{path...\}", patch)
+    mux.HandleFunc("DELETE /api/proxy/towns/\{path...\}", remove)
+    mux.HandleFunc("GET /api/proxy/towns", get)
+    mux.HandleFunc("POST /api/proxy/towns", post)

@@ -9,10 +9,13 @@ import (
 	"github.com/duber000/town-builder/internal/routes/health"
 	"github.com/duber000/town-builder/internal/routes/history"
 	"github.com/duber000/town-builder/internal/routes/models"
+	"github.com/duber000/town-builder/internal/routes/proxy"
 	"github.com/duber000/town-builder/internal/routes/query"
 	"github.com/duber000/town-builder/internal/routes/scene"
 	"github.com/duber000/town-builder/internal/routes/snapshots"
+	staticroute "github.com/duber000/town-builder/internal/routes/static"
 	"github.com/duber000/town-builder/internal/routes/town"
+	"github.com/duber000/town-builder/internal/routes/ui"
 	"net/http"
 )
 
@@ -30,5 +33,8 @@ func NewMux() *http.ServeMux {
 	query.Register(mux)
 	history.Register(mux)
 	snapshots.Register(mux)
+	proxy.Register(mux)
+	staticroute.Register(mux)
+	ui.Register(mux)
 	return mux
 }

@@ -992,3 +992,9 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 7. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
 
 8. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.
+
+9. **`for x in slice` brews to `for x := range slice` (x = INDEX, not element).** Despite the syntax table claiming `for item in items` becomes `for _, item := range items`, single-variable iteration over a slice yields the index — silently typing `x` as `int` and failing at first use. Workaround: index loop `for i from 0 to len(xs); x := xs[i]`. Map iteration with two vars (`for k, v in m`) is similarly broken when the value type is a slice — keys come out as `int`. Use `mapspkg.Keys(m)` + the index-loop pattern.
+
+10. **Method receivers with multiple params need parenthesized param lists.** `func M on r: T, w: W, r2: R` fails to parse. Write `func M on r: T (w: W, r2: R)`.
+
+11. **Go-1.22 mux `/{$}` and `/{path...}` patterns confuse the interpolation parser.** `"GET /\{$\}"` and `"GET /api/\{path...\}"` need backslash-escaped braces. The plain `{name}` placeholder works as documented in v0.19.3 — the special `{$}` / `{name...}` forms don't.

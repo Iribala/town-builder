@@ -1,0 +1,46 @@
+petiole static
+
+import "net/http"
+import "path/filepath"
+import "strings"
+
+func mimeFor(p: string) string
+    ext := strings.ToLower(filepath.Ext(p))
+    if strings.HasSuffix(strings.ToLower(p), ".d.ts")
+        return "text/plain"
+    switch ext
+        when ".js", ".mjs"
+            return "application/javascript"
+        when ".wasm"
+            return "application/wasm"
+        when ".css"
+            return "text/css"
+        when ".html"
+            return "text/html; charset=utf-8"
+        when ".json"
+            return "application/json"
+        when ".svg"
+            return "image/svg+xml"
+        when ".png"
+            return "image/png"
+        when ".jpg", ".jpeg"
+            return "image/jpeg"
+        when ".gif"
+            return "image/gif"
+        when ".ico"
+            return "image/x-icon"
+        default
+            return ""
+
+type mimeHandler
+    next http.Handler
+
+func ServeHTTP on h: reference mimeHandler (w: http.ResponseWriter, r: reference http.Request)
+    if m := mimeFor(r.URL.Path); m isnt ""
+        w.Header().Set("Content-Type", m)
+    h.next.ServeHTTP(w, r)
+
+func Register(mux: reference http.ServeMux)
+    fs := http.FileServer(http.Dir("./static"))
+    handler := http.StripPrefix("/static/", fs)
+    mux.Handle("/static/", reference of mimeHandler{next: handler})
