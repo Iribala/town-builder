@@ -562,6 +562,14 @@ kukicha audit                  # vulnerability check
 
 Run `kukicha fmt -w` before committing; CI should run `kukicha fmt --check`.
 
+### Edit loop for this project
+
+`.go` files are committed alongside `.kuki` sources so `go test` / `go build` work without a build step (see `docs/plans/kukicha-port.md`). The loop after editing a `.kuki` file:
+
+1. `kukicha check internal/foo/foo.kuki` — fastest typed validator. Use this first; **do not** rely on `kukicha brew --stdout | wc -c` as a proxy for success — brew can exit 0 with empty output when it gives up on a construct (e.g. two-var `for k, v in m` over a type-asserted `map[string]any` — see gotcha in "Still active" below).
+2. `kukicha brew --stdout internal/foo/foo.kuki > internal/foo/main.go` — refresh the committed Go. Directory-mode `kukicha brew internal/foo/` is unreliable (sometimes writes to `./main.go` or `./.go` in cwd); prefer the explicit `--stdout > target` form.
+3. `go build ./...` — final correctness check across the whole module.
+
 `kukicha context <file|dir>` emits a JSON snapshot for agents and CI: top-level decls only (methods, fields, enum cases, interface methods are excluded to keep the shape flat):
 
 ```json
