@@ -69,3 +69,4 @@ The physics module outputs to `static/wasm/physics_greentea.wasm` (not `physics.
 ## Writing Kukicha
 
 Detailed Kukicha reference lives in the `kukicha` skill at `.claude/skills/kukicha/SKILL.md`. It auto-loads when editing `.kuki` files or running kukicha tooling. Leave the skill as the source of truth — if `kukicha init` regenerates this section, replace it with this pointer.
+

@@ -1,0 +1,57 @@
+petiole models
+
+import "net/http"
+import "os"
+import "path/filepath"
+
+import "stdlib/http" as httphelper
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/routes/common"
+import "github.com/duber000/town-builder/internal/services/model_loader"
+import "github.com/duber000/town-builder/internal/utils/security"
+
+func listModels(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    httphelper.JSON(w, model_loader.GetAvailableModels())
+
+func getModel(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    category := r.PathValue("category")
+    modelName := r.PathValue("model_name")
+    vc, vn, err := security.ValidateModelPath(category, modelName)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid model path")
+        return
+    s := config.Current()
+    if s equals empty
+        httphelper.JSONError(w, "config not loaded", 500)
+        return
+    modelPath := filepath.Join(s.ModelsPath, vc, vn)
+    _, statErr := os.Stat(modelPath)
+    if statErr isnt empty
+        httphelper.JSONNotFound(w, "Model not found")
+        return
+    info := r.URL.Query().Get("info")
+    if info equals "1"
+        # Minimal metadata (GLTF parsing deferred; Python used pygltflib).
+        body := map of string to any{
+            "name":     modelName,
+            "category": category,
+            "has_bin":  fileExists(modelPath[:len(modelPath)-len(filepath.Ext(modelPath))] + ".bin"),
+        }
+        httphelper.JSON(w, body)
+        return
+    http.ServeFile(w, r, modelPath)
+
+func fileExists(path: string) bool
+    _, err := os.Stat(path)
+    return err equals empty
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("GET /api/models", listModels)
+    mux.HandleFunc("GET /api/model/{category}/{model_name}", getModel)

@@ -1,0 +1,109 @@
+petiole snapshots
+
+import "net/http"
+
+import "stdlib/http" as httphelper
+import "stdlib/log"
+
+import "github.com/duber000/town-builder/internal/routes/common"
+import "github.com/duber000/town-builder/internal/services/snapshots" as snapsvc
+import "github.com/duber000/town-builder/internal/services/town_helpers"
+import "github.com/duber000/town-builder/internal/storage"
+
+func optString(m: map of string to any, key: string) string
+    if v, ok := m[key]; ok
+        if s, sok := v.(string); sok
+            return s
+    return ""
+
+func create(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    body := make(map of string to any)
+    httphelper.ReadJSON(r, reference of body)
+    townData, err := storage.Get()
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    snapID, serr := snapsvc.CreateSnapshot(townData, optString(body, "name"), optString(body, "description"))
+    if serr isnt empty
+        httphelper.JSONError(w, "Failed to create snapshot", 500)
+        return
+    meta, _ := snapsvc.GetSnapshotMetadata(snapID)
+    httphelper.JSON(w, map of string to any{
+        "status":   "success",
+        "message":  "Snapshot created",
+        "snapshot": meta,
+    })
+
+func list(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    items := snapsvc.ListSnapshots()
+    httphelper.JSON(w, map of string to any{
+        "status":    "success",
+        "snapshots": items,
+    })
+
+func get(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    id := r.PathValue("id")
+    data, dok := snapsvc.GetSnapshot(id)
+    if not dok
+        httphelper.JSONNotFound(w, "Snapshot not found")
+        return
+    meta, _ := snapsvc.GetSnapshotMetadata(id)
+    httphelper.JSON(w, map of string to any{
+        "status":   "success",
+        "snapshot": meta,
+        "data":     data,
+    })
+
+func restore(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    id := r.PathValue("id")
+    data, dok := snapsvc.GetSnapshot(id)
+    if not dok
+        httphelper.JSONNotFound(w, "Snapshot not found")
+        return
+    err := storage.Set(data)
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to restore", 500)
+        return
+    town_helpers.BroadcastSSE(map of string to any{"type": "full", "town": data})
+    meta, _ := snapsvc.GetSnapshotMetadata(id)
+    log.Info("Restored snapshot: {id}")
+    name := ""
+    if meta isnt empty
+        name = optString(meta, "name")
+    httphelper.JSON(w, map of string to any{
+        "status":   "success",
+        "message":  "Restored to snapshot: {name}",
+        "snapshot": meta,
+    })
+
+func remove(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    id := r.PathValue("id")
+    if not snapsvc.DeleteSnapshot(id)
+        httphelper.JSONNotFound(w, "Snapshot not found")
+        return
+    httphelper.JSON(w, map of string to any{
+        "status":  "success",
+        "message": "Snapshot deleted",
+    })
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("POST /api/snapshots", create)
+    mux.HandleFunc("GET /api/snapshots", list)
+    mux.HandleFunc("GET /api/snapshots/{id}", get)
+    mux.HandleFunc("POST /api/snapshots/{id}/restore", restore)
+    mux.HandleFunc("DELETE /api/snapshots/{id}", remove)

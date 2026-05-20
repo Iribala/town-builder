@@ -1,0 +1,24 @@
+petiole common
+
+import "net/http"
+import "strings"
+
+import "stdlib/http" as httphelper
+
+import "github.com/duber000/town-builder/internal/services/auth"
+
+func ExtractToken(r: reference http.Request) string
+    h := r.Header.Get("Authorization")
+    if h equals ""
+        return ""
+    if strings.HasPrefix(h, "Bearer ")
+        return h[7:]
+    return h
+
+func CurrentUser(w: http.ResponseWriter, r: reference http.Request) (reference auth.UserInfo, bool)
+    token := ExtractToken(r)
+    u, err := auth.GetCurrentUser(token)
+    if err isnt empty
+        httphelper.JSONUnauthorized(w, "Not authenticated")
+        return empty, false
+    return u, true

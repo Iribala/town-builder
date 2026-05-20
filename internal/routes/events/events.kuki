@@ -1,0 +1,37 @@
+petiole events
+
+import "net/http"
+
+import "stdlib/http" as httphelper
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/services/auth"
+
+# Stage 4 will wire this up to Redis pubsub. For now it authenticates and
+# holds the connection open with a keepalive so the client can connect.
+
+func sse(w: http.ResponseWriter, r: reference http.Request)
+    s := config.Current()
+    if s isnt empty and not s.DisableJwtAuth
+        cookie, err := r.Cookie("auth_token")
+        if err isnt empty or cookie equals empty or cookie.Value equals ""
+            httphelper.JSONUnauthorized(w, "Not authenticated")
+            return
+        _, verr := auth.VerifyTokenString(cookie.Value)
+        if verr isnt empty
+            httphelper.JSONUnauthorized(w, "Not authenticated")
+            return
+    w.Header().Set("Content-Type", "text/event-stream")
+    w.Header().Set("Cache-Control", "no-cache")
+    w.Header().Set("Connection", "keep-alive")
+    flusher, ok := w.(http.Flusher)
+    if not ok
+        httphelper.JSONError(w, "streaming unsupported", 500)
+        return
+    w.Write(list of byte(": connected\n\n"))
+    flusher.Flush()
+    # Stage 4: subscribe to pubsub and fan out events here.
+    receive from r.Context().Done()
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("GET /events", sse)

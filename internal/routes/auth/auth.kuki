@@ -1,0 +1,9 @@
+petiole auth
+
+import "net/http"
+
+func Register(mux: reference http.ServeMux)
+    # /api/auth: no public endpoints — dev token generation removed per upstream.
+    # Tokens are issued by the Django auth service in production; for development
+    # set DISABLE_JWT_AUTH=true.
+    _ = mux

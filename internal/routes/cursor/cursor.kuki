@@ -1,0 +1,42 @@
+petiole cursor
+
+import "net/http"
+
+import "stdlib/http" as httphelper
+
+import "github.com/duber000/town-builder/internal/routes/common"
+import "github.com/duber000/town-builder/internal/services/town_helpers"
+
+func readPosition(raw: any) map of string to any
+    out := map of string to any{"x": 0.0, "y": 0.0, "z": 0.0}
+    m, ok := raw.(map of string to any)
+    if not ok
+        return out
+    for key in list of string{"x", "y", "z"}
+        if v, vok := m[key]; vok
+            if f, fok := v.(float64); fok
+                out[key] = f
+    return out
+
+func update(w: http.ResponseWriter, r: reference http.Request)
+    u, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    body := make(map of string to any)
+    err := httphelper.ReadJSON(r, reference of body)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        return
+    pos := readPosition(body["position"])
+    cam := readPosition(body["camera_position"])
+    event := map of string to any{
+        "type": "cursor",
+        "username": u.Username,
+        "position": pos,
+        "camera_position": cam,
+    }
+    town_helpers.BroadcastSSE(event)
+    httphelper.JSON(w, map of string to any{"status": "success", "message": "Cursor position updated"})
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("POST /api/cursor/update", update)

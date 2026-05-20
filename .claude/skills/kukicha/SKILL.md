@@ -959,9 +959,9 @@ func Execute() Result
 
 ---
 
-## Project-local gotchas (v0.19.1)
+## Project-local gotchas (v0.19.3)
 
-These are tripwires confirmed by hand in this codebase. See also https://github.com/kukichalang/kukicha/issues/115.
+These are tripwires confirmed by hand in this codebase. See also https://github.com/kukichalang/kukicha/issues/115 and https://github.com/kukichalang/kukicha/issues/118.
 
 ### Status of v0.19.0 reports (per maintainer reply on #115)
 
@@ -969,22 +969,26 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 - **CLI fixes landed in ba52ad68:** `kukicha brew dir/` now also brews `*_test.kuki` → `*_test.go`; reserved-keyword identifier diagnostics now say `"<kw>" is a reserved keyword and cannot be used as an identifier` for `default`, `in`, `then`, `is`, `onerr`, `fallback`, `explain`, `petiole`, `import`, `defer`.
 - **The original "`for k, v in m` brews to `for k := range`" claim was wrong** — the actual behavior is that single-variable `for k in m` iterates *values* (Go-like, intentional, now warned about). My original repro confused "iterates values" with "wrong codegen".
 
-### Still active in v0.19.1
+### Fixed in v0.19.2 / v0.19.3
 
-1. **`list of T(x)` type conversion brews to invalid Go.** Type-checks, but transpiles to `[]T{}(x)` (composite literal called as function — a Go syntax error). Always use `x as list of T`. Example: `s as list of byte`, never `list of byte(s)`. Other builtins like `float64(n)`, `int64(n)` aren't recognized as identifiers at all; `as float64` / `as int64` are required. Named types (`StringList(xs)` where `type StringList list of string`) work fine — the bug is specific to the `list of T` parser branch.
+- **`list of T(x)`, `int64(x)`, `float64(x)` type conversions** now type-check and brew to valid Go. Both forms work; `x as T` is still the recommended idiom for readability.
+- **Float exponent literals (`1e308`, `1.5e10`)** parse correctly.
+- **Go 1.22+ `ServeMux` `{name}` path patterns** in string literals — now treated as literal placeholders (with a warning). `\{name\}` silences the warning if you want it gone.
 
-2. **Lambda return-type inference fails for multi-statement bodies.** `sort.Slice(xs, (i: int, j: int) => ...)` works when the body is a single expression, but a body with intermediate `:=` bindings and a final `return a < b` errors with `expected 0 return values, got 1`. Workaround: hoist the body into a named helper and pass `(i, j) => helper(xs, i, j)`.
+### Still active
 
-3. **More reserved keywords with poor diagnostics.** v0.19.1 added friendlier messages for `default`, `in`, etc., but `as` and `list` still emit `unexpected token in expression: AS` / `unexpected token in expression: COMMA` when used as identifiers in tuple-assignment positions (`as, ok := v.(string)`, `if list, ok := v.(list of int); ok`). Both type-check fine if you happen to avoid the tuple/`if`-init form, so the failure mode is positional. Rename to `astr`, `arr`, `items`.
+1. **Lambda return-type inference fails for multi-statement bodies.** `sort.Slice(xs, (i: int, j: int) => ...)` works when the body is a single expression, but a body with intermediate `:=` bindings and a final `return a < b` errors with `expected 0 return values, got 1`. Workaround: hoist the body into a named helper and pass `(i, j) => helper(xs, i, j)`.
 
-4. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
+2. **More reserved keywords with poor diagnostics.** v0.19.1 added friendlier messages for `default`, `in`, etc., but `as` and `list` still emit `unexpected token in expression: AS` / `unexpected token in expression: COMMA` when used as identifiers in tuple-assignment positions (`as, ok := v.(string)`, `if list, ok := v.(list of int); ok`). Both type-check fine if you happen to avoid the tuple/`if`-init form, so the failure mode is positional. Rename to `astr`, `arr`, `items`.
 
-5. **Type switch is `switch x as v ... when T`, not `switch v in x`.** The `in` form looks plausible but parses as a `for`-iteration expression and confuses the parser.
+3. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
 
-6. **`onerr` on external (non-stdlib) calls** still errors with `cannot use onerr on call to X: return signature is unknown`. Annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly.
+4. **Type switch is `switch x as v ... when T`, not `switch v in x`.** The `in` form looks plausible but parses as a `for`-iteration expression and confuses the parser.
 
-7. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `... as redis`.
+5. **`onerr` on external (non-stdlib) calls** still errors with `cannot use onerr on call to X: return signature is unknown`. Annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly.
 
-8. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
+6. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `... as redis`.
 
-9. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.
+7. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
+
+8. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.

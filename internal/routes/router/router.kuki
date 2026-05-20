@@ -1,0 +1,32 @@
+petiole router
+
+import "net/http"
+
+import "github.com/duber000/town-builder/internal/routes/auth"
+import "github.com/duber000/town-builder/internal/routes/batch"
+import "github.com/duber000/town-builder/internal/routes/buildings"
+import "github.com/duber000/town-builder/internal/routes/cursor"
+import "github.com/duber000/town-builder/internal/routes/events"
+import "github.com/duber000/town-builder/internal/routes/health"
+import "github.com/duber000/town-builder/internal/routes/history"
+import "github.com/duber000/town-builder/internal/routes/models"
+import "github.com/duber000/town-builder/internal/routes/query"
+import "github.com/duber000/town-builder/internal/routes/scene"
+import "github.com/duber000/town-builder/internal/routes/snapshots"
+import "github.com/duber000/town-builder/internal/routes/town"
+
+func NewMux() reference http.ServeMux
+    mux := http.NewServeMux()
+    health.Register(mux)
+    auth.Register(mux)
+    models.Register(mux)
+    town.Register(mux)
+    buildings.Register(mux)
+    scene.Register(mux)
+    events.Register(mux)
+    cursor.Register(mux)
+    batch.Register(mux)
+    query.Register(mux)
+    history.Register(mux)
+    snapshots.Register(mux)
+    return mux

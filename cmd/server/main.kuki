@@ -1,0 +1,34 @@
+petiole main
+
+import "net/http"
+
+import "stdlib/log"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/middleware/bodylimit"
+import "github.com/duber000/town-builder/internal/middleware/cors"
+import "github.com/duber000/town-builder/internal/routes/router"
+import "github.com/duber000/town-builder/internal/storage"
+
+func main()
+    s, err := config.Load()
+    if err isnt empty
+        log.Fatal("Failed to load config: {err}")
+        return
+    log.Info("Starting {s.AppTitle} v{s.AppVersion} ({s.Environment})")
+
+    serr := storage.Initialize(s.RedisURL)
+    if serr isnt empty
+        log.Warn("Redis init failed, using in-memory fallback: {serr}")
+    defer storage.Close()
+
+    cors.Init()
+
+    mux := router.NewMux()
+    handler := bodylimit.Wrap(cors.Wrap(mux))
+
+    addr := ":5001"
+    log.Info("Listening on {addr}")
+    lerr := http.ListenAndServe(addr, handler)
+    if lerr isnt empty
+        log.Fatal("Server error: {lerr}")

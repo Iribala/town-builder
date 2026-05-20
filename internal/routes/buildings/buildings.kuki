@@ -1,0 +1,271 @@
+petiole buildings
+
+import "net/http"
+
+import "stdlib/crypto"
+import "stdlib/http" as httphelper
+import "stdlib/log"
+
+import "github.com/duber000/town-builder/internal/normalization"
+import "github.com/duber000/town-builder/internal/routes/common"
+import "github.com/duber000/town-builder/internal/services/town_helpers"
+import "github.com/duber000/town-builder/internal/storage"
+
+func optMap(m: map of string to any, key: string) (map of string to any, bool)
+    if v, ok := m[key]; ok and v isnt empty
+        if mm, mok := v.(map of string to any); mok
+            return mm, true
+    return empty, false
+
+func optString(m: map of string to any, key: string) string
+    if v, ok := m[key]; ok
+        if s, sok := v.(string); sok
+            return s
+    return ""
+
+func vec3(x: float64, y: float64, z: float64) map of string to any
+    return map of string to any{"x": x, "y": y, "z": z}
+
+func defaultRotation() map of string to any
+    return vec3(0.0, 0.0, 0.0)
+
+func defaultScale() map of string to any
+    return vec3(1.0, 1.0, 1.0)
+
+func response(building: map of string to any, category: string) map of string to any
+    pos, _ := optMap(building, "position")
+    if pos equals empty
+        pos = defaultRotation()
+    rot, _ := optMap(building, "rotation")
+    if rot equals empty
+        rot = defaultRotation()
+    scl, _ := optMap(building, "scale")
+    if scl equals empty
+        scl = defaultScale()
+    out := map of string to any{
+        "id":       optString(building, "id"),
+        "model":    optString(building, "model"),
+        "category": category,
+        "position": pos,
+        "rotation": rot,
+        "scale":    scl,
+    }
+    if drv, ok := building["driver"]; ok
+        out["driver"] = drv
+    return out
+
+func findBuilding(townData: map of string to any, buildingID: string) (string, map of string to any, int)
+    for category in normalization.Categories
+        v, ok := townData[category]
+        if not ok
+            continue
+        arr, aok := v.(list of any)
+        if not aok
+            continue
+        for i from 0 to len(arr)
+            entry, eok := arr[i].(map of string to any)
+            if not eok
+                continue
+            if optString(entry, "id") equals buildingID
+                return category, entry, i
+    return "", empty, -1
+
+func newID() string
+    raw, err := crypto.RandomToken(8)
+    if err isnt empty
+        return "obj_00000000"
+    return "obj_" + raw[:8]
+
+func categoryList(townData: map of string to any, category: string) list of any
+    if v, ok := townData[category]; ok
+        if arr, aok := v.(list of any); aok
+            return arr
+    return list of any{}
+
+func setCategory(townData: map of string to any, category: string, arr: list of any)
+    townData[category] = arr
+
+func create(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    body := make(map of string to any)
+    err := httphelper.ReadJSON(r, reference of body)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        return
+    model := optString(body, "model")
+    if model equals ""
+        httphelper.JSONBadRequest(w, "model is required")
+        return
+    category := optString(body, "category")
+    if category equals ""
+        category = "buildings"
+    pos, pok := optMap(body, "position")
+    if not pok
+        httphelper.JSONBadRequest(w, "position is required")
+        return
+    rot, _ := optMap(body, "rotation")
+    if rot equals empty
+        rot = defaultRotation()
+    scl, _ := optMap(body, "scale")
+    if scl equals empty
+        scl = defaultScale()
+    buildingID := newID()
+    building := map of string to any{
+        "id":       buildingID,
+        "model":    model,
+        "position": pos,
+        "rotation": rot,
+        "scale":    scl,
+    }
+    townData, gerr := storage.Get()
+    if gerr isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    arr := categoryList(townData, category)
+    arr = append(arr, building as any)
+    setCategory(townData, category, arr)
+    err = town_helpers.SaveAndBroadcast(townData, map of string to any{"type": "full", "town": townData})
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to save", 500)
+        return
+    log.Info("Created building: {buildingID} ({model}) in category {category}")
+    httphelper.JSONStatus(w, response(building, category), 201)
+
+func list(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    townData, err := storage.Get()
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    cat := r.URL.Query().Get("category")
+    cats := normalization.Categories
+    if cat isnt ""
+        cats = list of string{cat}
+    out := list of map of string to any{}
+    for c in cats
+        v, vok := townData[c]
+        if not vok
+            continue
+        arr, aok := v.(list of any)
+        if not aok
+            continue
+        for item in arr
+            if mm, mok := item.(map of string to any); mok
+                out = append(out, response(mm, c))
+    log.Info("Listed {len(out)} buildings")
+    httphelper.JSON(w, out)
+
+func get(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    id := r.PathValue("id")
+    townData, err := storage.Get()
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    cat, b, _ := findBuilding(townData, id)
+    if b equals empty
+        httphelper.JSONNotFound(w, "Building with ID {id} not found")
+        return
+    httphelper.JSON(w, response(b, cat))
+
+func update(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    id := r.PathValue("id")
+    body := make(map of string to any)
+    err := httphelper.ReadJSON(r, reference of body)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        return
+    townData, gerr := storage.Get()
+    if gerr isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    cat, b, idx := findBuilding(townData, id)
+    if b equals empty
+        httphelper.JSONNotFound(w, "Building with ID {id} not found")
+        return
+    arr := categoryList(townData, cat)
+    current, _ := arr[idx].(map of string to any)
+    if pos, pok := optMap(body, "position"); pok
+        current["position"] = pos
+    if rot, rok := optMap(body, "rotation"); rok
+        current["rotation"] = rot
+    if scl, sok := optMap(body, "scale"); sok
+        current["scale"] = scl
+    if m := optString(body, "model"); m isnt ""
+        current["model"] = m
+    newCat := optString(body, "category")
+    if newCat isnt "" and newCat isnt cat
+        # Remove from current category
+        newArr := list of any{}
+        for i from 0 to len(arr)
+            if i isnt idx
+                newArr = append(newArr, arr[i])
+        setCategory(townData, cat, newArr)
+        # Add to new category
+        destArr := categoryList(townData, newCat)
+        destArr = append(destArr, current as any)
+        setCategory(townData, newCat, destArr)
+        cat = newCat
+    else
+        arr[idx] = current
+        setCategory(townData, cat, arr)
+    err = town_helpers.SaveAndBroadcast(townData, map of string to any{
+        "type":     "edit",
+        "category": cat,
+        "id":       id,
+        "data":     current,
+    })
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to save", 500)
+        return
+    log.Info("Updated building: {id}")
+    httphelper.JSON(w, response(current, cat))
+
+func remove(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    id := r.PathValue("id")
+    townData, err := storage.Get()
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    cat, _, idx := findBuilding(townData, id)
+    if idx equals -1
+        httphelper.JSONNotFound(w, "Building with ID {id} not found")
+        return
+    arr := categoryList(townData, cat)
+    newArr := list of any{}
+    for i from 0 to len(arr)
+        if i isnt idx
+            newArr = append(newArr, arr[i])
+    setCategory(townData, cat, newArr)
+    serr := town_helpers.SaveAndBroadcast(townData, map of string to any{
+        "type":     "delete",
+        "category": cat,
+        "id":       id,
+    })
+    if serr isnt empty
+        httphelper.JSONError(w, "Failed to save", 500)
+        return
+    log.Info("Deleted building: {id} from category {cat}")
+    httphelper.JSON(w, map of string to any{
+        "status":  "success",
+        "message": "Building {id} deleted successfully",
+    })
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("POST /api/buildings", create)
+    mux.HandleFunc("GET /api/buildings", list)
+    mux.HandleFunc("GET /api/buildings/{id}", get)
+    mux.HandleFunc("PUT /api/buildings/{id}", update)
+    mux.HandleFunc("DELETE /api/buildings/{id}", remove)

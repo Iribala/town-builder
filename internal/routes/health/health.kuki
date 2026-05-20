@@ -1,0 +1,37 @@
+petiole health
+
+import "net/http"
+import "stdlib/ctx" as ctxpkg
+import "stdlib/http" as httphelper
+import "stdlib/log"
+
+import "github.com/duber000/town-builder/internal/storage"
+
+func livez(w: http.ResponseWriter, r: reference http.Request)
+    httphelper.JSON(w, map of string to any{"status": "ok"})
+
+func readyz(w: http.ResponseWriter, r: reference http.Request)
+    checks := make(map of string to any)
+    status := "ok"
+    client := storage.Client()
+    if client equals empty
+        checks["redis"] = "unavailable"
+    else
+        h := ctxpkg.WithTimeout(ctxpkg.Background(), 2_000_000_000)
+        defer h.Cancel()
+        perr := client.Ping(h.Ctx).Err()
+        if perr isnt empty
+            log.Warn("Redis health check failed: {perr}")
+            checks["redis"] = "error: {perr}"
+            status = "degraded"
+        else
+            checks["redis"] = "ok"
+    body := map of string to any{
+        "status": status,
+        "checks": checks,
+    }
+    httphelper.JSON(w, body)
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("GET /healthz", livez)
+    mux.HandleFunc("GET /readyz", readyz)

@@ -1,0 +1,55 @@
+petiole cors
+
+import "net/http"
+import "strings"
+
+import "stdlib/log"
+
+import "github.com/duber000/town-builder/internal/config"
+
+var allowedOrigins list of string
+
+func Init()
+    s := config.Current()
+    if s equals empty
+        allowedOrigins = list of string{}
+        return
+    raw := s.AllowedOrigins
+    parts := strings.Split(raw, ",")
+    cleaned := list of string{}
+    for p in parts
+        trimmed := strings.TrimSpace(p)
+        if trimmed isnt ""
+            cleaned = append(cleaned, trimmed)
+    if len(cleaned) equals 0 and strings.EqualFold(s.Environment, "development")
+        cleaned = list of string{"http://localhost:3000", "http://localhost:5001", "http://127.0.0.1:5001"}
+        log.Warn("Using default development CORS origins. Set ALLOWED_ORIGINS in production!")
+    allowedOrigins = cleaned
+    log.Info("CORS allowed origins: {allowedOrigins}")
+
+func isAllowed(origin: string) bool
+    if origin equals ""
+        return false
+    for o in allowedOrigins
+        if o equals origin
+            return true
+    return false
+
+func Wrap(next: http.Handler) http.Handler
+    return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        origin := r.Header.Get("Origin")
+        if isAllowed(origin)
+            w.Header().Set("Access-Control-Allow-Origin", origin)
+            w.Header().Set("Access-Control-Allow-Credentials", "true")
+            w.Header().Set("Vary", "Origin")
+            w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+            reqHeaders := r.Header.Get("Access-Control-Request-Headers")
+            if reqHeaders isnt ""
+                w.Header().Set("Access-Control-Allow-Headers", reqHeaders)
+            else
+                w.Header().Set("Access-Control-Allow-Headers", "*")
+        if r.Method equals "OPTIONS"
+            w.WriteHeader(204)
+            return
+        next.ServeHTTP(w, r)
+    )

@@ -1,0 +1,447 @@
+petiole town
+
+import "net/http"
+import "strings"
+
+import "stdlib/http" as httphelper
+import "stdlib/json"
+import "stdlib/log"
+import "stdlib/sandbox"
+import "strconv"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/normalization"
+import "github.com/duber000/town-builder/internal/routes/common"
+import "github.com/duber000/town-builder/internal/services/django_client"
+import "github.com/duber000/town-builder/internal/services/town_helpers"
+import "github.com/duber000/town-builder/internal/storage"
+import "github.com/duber000/town-builder/internal/utils/geometry"
+import "github.com/duber000/town-builder/internal/utils/security"
+
+func optString(m: map of string to any, key: string) string
+    if v, ok := m[key]; ok
+        if s, sok := v.(string); sok
+            return s
+    return ""
+
+func optMap(m: map of string to any, key: string) (map of string to any, bool)
+    if v, ok := m[key]; ok and v isnt empty
+        if mm, mok := v.(map of string to any); mok
+            return mm, true
+    return empty, false
+
+func hasKey(m: map of string to any, key: string) bool
+    _, ok := m[key]
+    return ok
+
+func getTown(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    data, err := storage.Get()
+    if err isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    httphelper.JSON(w, data)
+
+func updateTown(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    data := make(map of string to any)
+    err := httphelper.ReadJSON(r, reference of data)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        return
+    townData, gerr := storage.Get()
+    if gerr isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    if hasKey(data, "townName") and len(data) equals 1
+        name := optString(data, "townName")
+        townData["townName"] = name
+        town_helpers.SaveAndBroadcast(townData, map of string to any{"type": "name", "townName": name})
+        log.Info("Updated town name to: {name}")
+        httphelper.JSON(w, map of string to any{"status": "success"})
+        return
+    if hasKey(data, "driver") and hasKey(data, "id") and hasKey(data, "category")
+        category := optString(data, "category")
+        modelID := optString(data, "id")
+        driver := optString(data, "driver")
+        updated := false
+        v, vok := townData[category]
+        if vok
+            arr, aok := v.(list of any)
+            if aok
+                for i from 0 to len(arr)
+                    entry, eok := arr[i].(map of string to any)
+                    if not eok
+                        continue
+                    if optString(entry, "id") equals modelID
+                        entry["driver"] = driver
+                        arr[i] = entry
+                        townData[category] = arr
+                        updated = true
+                        town_helpers.SaveAndBroadcast(townData, map of string to any{
+                            "type":     "driver",
+                            "category": category,
+                            "id":       modelID,
+                            "driver":   driver,
+                        })
+                        log.Info("Updated driver for {category} id={modelID} to {driver}")
+                        break
+        if not updated
+            httphelper.JSONNotFound(w, "Model not found")
+            return
+        httphelper.JSON(w, map of string to any{"status": "success"})
+        return
+    canonical := normalization.Normalize(data)
+    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    httphelper.JSON(w, map of string to any{"status": "success"})
+
+func normalizeFilename(name: string) string
+    base := strings.TrimSuffix(name, ".json")
+    return base + ".json"
+
+func saveTown(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    payload := make(map of string to any)
+    err := httphelper.ReadJSON(r, reference of payload)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid JSON payload")
+        return
+    rawData, hasData := payload["data"]
+    if not hasData
+        httphelper.JSONBadRequest(w, "data is required")
+        return
+    filename := optString(payload, "filename")
+    if filename equals "" and not hasKey(payload, "filename")
+        filename = "town_data.json"
+    townName := optString(payload, "townName")
+    canonical := normalization.Normalize(rawData)
+    localMsg := ""
+    if filename isnt ""
+        fn := normalizeFilename(filename)
+        s := config.Current()
+        dataPath := "./data"
+        if s isnt empty
+            dataPath = s.DataPath
+        # Validate filename for path traversal; sandbox enforces the root
+        _, perr := security.SafeFilepath(fn, dataPath, list of string{".json"})
+        if perr isnt empty
+            httphelper.JSONBadRequest(w, "Invalid filename")
+            return
+        box, berr := sandbox.New(dataPath)
+        if berr isnt empty
+            httphelper.JSONError(w, "Failed to open data dir", 500)
+            return
+        bytes, jerr := json.PrettyBytes(canonical)
+        if jerr isnt empty
+            httphelper.JSONError(w, "Failed to encode town data", 500)
+            return
+        werr := sandbox.Write(box, bytes, fn)
+        if werr isnt empty
+            httphelper.JSONError(w, "Failed to write file", 500)
+            return
+        log.Info("Town saved locally to {fn}")
+        localMsg = "Town saved locally to {fn}."
+    else
+        localMsg = "Local save skipped (no filename)."
+    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    djangoMsg := ""
+    var townID any = empty
+    if v, vok := payload["town_id"]; vok and v isnt empty
+        townID = v
+    if townID isnt empty
+        idInt := 0
+        if f, fok := townID.(float64); fok
+            idInt = f as int
+        _, derr := django_client.UpdateTown(idInt, payload, canonical, townName)
+        if derr isnt empty
+            log.Error("Error updating town in Django: {derr}")
+            djangoMsg = " Warning: failed to sync to Django backend: {derr}"
+        else
+            djangoMsg = " Town updated in Django backend (ID: {idInt})."
+    else
+        searchName := townName
+        if searchName equals ""
+            if m, mok := rawData.(map of string to any); mok
+                searchName = optString(m, "townName")
+                if searchName equals ""
+                    searchName = optString(m, "name")
+        if searchName isnt ""
+            existingID, found, serr := django_client.SearchTownByName(searchName)
+            if serr equals empty and found
+                _, uerr := django_client.UpdateTown(existingID, payload, canonical, townName)
+                if uerr isnt empty
+                    djangoMsg = " Warning: failed to sync to Django backend: {uerr}"
+                else
+                    townID = existingID
+                    djangoMsg = " Town updated in Django backend (ID: {existingID})."
+            else
+                result, cerr := django_client.CreateTown(payload, canonical, townName)
+                if cerr isnt empty
+                    djangoMsg = " Warning: failed to sync to Django backend: {cerr}"
+                else
+                    if v, vok := result["town_id"]; vok
+                        townID = v
+                    djangoMsg = " Town created in Django backend."
+        else
+            result, cerr := django_client.CreateTown(payload, canonical, townName)
+            if cerr isnt empty
+                djangoMsg = " Warning: failed to sync to Django backend: {cerr}"
+            else
+                if v, vok := result["town_id"]; vok
+                    townID = v
+                djangoMsg = " Town created in Django backend."
+    httphelper.JSON(w, map of string to any{
+        "status":  "success",
+        "message": "{localMsg}{djangoMsg}",
+        "town_id": townID,
+    })
+
+func loadTown(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    body := make(map of string to any)
+    httphelper.ReadJSON(r, reference of body)
+    filename := optString(body, "filename")
+    if filename equals ""
+        filename = "town_data.json"
+    fn := normalizeFilename(filename)
+    s := config.Current()
+    dataPath := "./data"
+    if s isnt empty
+        dataPath = s.DataPath
+    _, perr := security.SafeFilepath(fn, dataPath, list of string{".json"})
+    if perr isnt empty
+        httphelper.JSONBadRequest(w, "Invalid filename")
+        return
+    box, berr := sandbox.New(dataPath)
+    if berr isnt empty
+        httphelper.JSONError(w, "Failed to open data dir", 500)
+        return
+    if not sandbox.Exists(box, fn)
+        httphelper.JSONNotFound(w, "File {fn} not found")
+        return
+    raw, rerr := sandbox.Read(box, fn)
+    if rerr isnt empty
+        httphelper.JSONError(w, "Failed to read file", 500)
+        return
+    var townData any
+    jerr := json.ParseInto(raw, reference of townData)
+    if jerr isnt empty
+        httphelper.JSONError(w, "Failed to parse town data", 500)
+        return
+    canonical := normalization.Normalize(townData)
+    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    log.Info("Town loaded from {fn}")
+    httphelper.JSON(w, map of string to any{
+        "status":  "success",
+        "message": "Town loaded from {fn}",
+        "data":    canonical,
+    })
+
+func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    idStr := r.PathValue("id")
+    idInt, perr := parseTownID(idStr)
+    if perr isnt empty
+        httphelper.JSONBadRequest(w, "Invalid town id")
+        return
+    townData, derr := django_client.GetTownByID(idInt)
+    if derr isnt empty
+        httphelper.JSONError(w, "Failed to load town from Django: {derr}", 500)
+        return
+    log.Info("Loaded town {idInt} from Django: {optString(townData, "name")}")
+    var layoutData any
+    if v, vok := townData["layout_data"]; vok
+        layoutData = v
+    else
+        layoutData = list of any{}
+    canonical := normalization.Normalize(layoutData)
+    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    info := map of string to any{
+        "id":          townData["id"],
+        "name":        townData["name"],
+        "description": townData["description"],
+        "latitude":    townData["latitude"],
+        "longitude":   townData["longitude"],
+    }
+    if cs, csok := townData["category_statuses"]; csok
+        info["category_statuses"] = cs
+    else
+        info["category_statuses"] = list of any{}
+    httphelper.JSON(w, map of string to any{
+        "status":    "success",
+        "message":   "Town '{optString(townData, "name")}' loaded from Django",
+        "data":      canonical,
+        "town_info": info,
+    })
+
+func parseTownID(s: string) (int, error)
+    n, err := strconv.Atoi(s)
+    if err isnt empty
+        return 0, err
+    return n, empty
+
+func deleteModel(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    body := make(map of string to any)
+    err := httphelper.ReadJSON(r, reference of body)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        return
+    category := optString(body, "category")
+    modelID := optString(body, "id")
+    pos, hasPos := optMap(body, "position")
+    if category equals "" or (modelID equals "" and not hasPos)
+        httphelper.JSONBadRequest(w, "Missing required parameters")
+        return
+    townData, gerr := storage.Get()
+    if gerr isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    v, vok := townData[category]
+    if not vok
+        httphelper.JSONNotFound(w, "Model not found")
+        return
+    arr, aok := v.(list of any)
+    if not aok
+        httphelper.JSONNotFound(w, "Model not found")
+        return
+    if modelID isnt ""
+        for i from 0 to len(arr)
+            entry, eok := arr[i].(map of string to any)
+            if not eok
+                continue
+            if optString(entry, "id") equals modelID
+                newArr := list of any{}
+                for j from 0 to len(arr)
+                    if j isnt i
+                        newArr = append(newArr, arr[j])
+                townData[category] = newArr
+                town_helpers.SaveAndBroadcast(townData, map of string to any{
+                    "type":     "delete",
+                    "category": category,
+                    "id":       modelID,
+                })
+                httphelper.JSON(w, map of string to any{
+                    "status":  "success",
+                    "message": "Deleted model with ID {modelID}",
+                })
+                return
+        httphelper.JSONNotFound(w, "Model not found")
+        return
+    closestIdx := -1
+    closestDist := 1e308
+    for i from 0 to len(arr)
+        entry, eok := arr[i].(map of string to any)
+        if not eok
+            continue
+        mp, _ := optMap(entry, "position")
+        d := geometry.CalculateDistance(pos, mp)
+        if d < closestDist
+            closestDist = d
+            closestIdx = i
+    if closestIdx >= 0 and closestDist < geometry.DeleteProximityThreshold
+        deleted, _ := arr[closestIdx].(map of string to any)
+        newArr := list of any{}
+        for j from 0 to len(arr)
+            if j isnt closestIdx
+                newArr = append(newArr, arr[j])
+        townData[category] = newArr
+        town_helpers.SaveAndBroadcast(townData, map of string to any{
+            "type":       "delete",
+            "category":   category,
+            "position":   pos,
+            "deleted_id": deleted["id"],
+        })
+        px := pos["x"]
+        py := pos["y"]
+        pz := pos["z"]
+        httphelper.JSON(w, map of string to any{
+            "status":  "success",
+            "message": "Deleted model at position ({px}, {py}, {pz})",
+        })
+        return
+    httphelper.JSONNotFound(w, "Model not found")
+
+func editModel(w: http.ResponseWriter, r: reference http.Request)
+    _, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    body := make(map of string to any)
+    err := httphelper.ReadJSON(r, reference of body)
+    if err isnt empty
+        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        return
+    category := optString(body, "category")
+    modelID := optString(body, "id")
+    if category equals "" or modelID equals ""
+        httphelper.JSONBadRequest(w, "Missing required parameters")
+        return
+    townData, gerr := storage.Get()
+    if gerr isnt empty
+        httphelper.JSONError(w, "Failed to load town data", 500)
+        return
+    v, vok := townData[category]
+    if not vok
+        httphelper.JSONNotFound(w, "Model not found")
+        return
+    arr, aok := v.(list of any)
+    if not aok
+        httphelper.JSONNotFound(w, "Model not found")
+        return
+    for i from 0 to len(arr)
+        entry, eok := arr[i].(map of string to any)
+        if not eok
+            continue
+        if optString(entry, "id") equals modelID
+            if pos, pok := optMap(body, "position"); pok
+                entry["position"] = pos
+            if rot, rok := optMap(body, "rotation"); rok
+                entry["rotation"] = rot
+            if scl, sok := optMap(body, "scale"); sok
+                entry["scale"] = scl
+            arr[i] = entry
+            townData[category] = arr
+            town_helpers.SaveAndBroadcast(townData, map of string to any{
+                "type":     "edit",
+                "category": category,
+                "id":       modelID,
+                "data":     entry,
+            })
+            httphelper.JSON(w, map of string to any{
+                "status":  "success",
+                "message": "Updated model with ID {modelID}",
+            })
+            return
+    httphelper.JSONNotFound(w, "Model not found")
+
+func getConfig(w: http.ResponseWriter, r: reference http.Request)
+    u, ok := common.CurrentUser(w, r)
+    if not ok
+        return
+    httphelper.JSON(w, map of string to any{
+        "apiUrl":        "/api/proxy/towns",
+        "authenticated": true,
+        "user":          u.Username,
+    })
+
+func Register(mux: reference http.ServeMux)
+    mux.HandleFunc("GET /api/town", getTown)
+    mux.HandleFunc("POST /api/town", updateTown)
+    mux.HandleFunc("POST /api/town/save", saveTown)
+    mux.HandleFunc("POST /api/town/load", loadTown)
+    mux.HandleFunc("GET /api/town/load-from-django/{id}", loadFromDjango)
+    mux.HandleFunc("DELETE /api/town/model", deleteModel)
+    mux.HandleFunc("PUT /api/town/model", editModel)
+    mux.HandleFunc("GET /api/config", getConfig)

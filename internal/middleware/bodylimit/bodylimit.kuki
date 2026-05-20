@@ -1,0 +1,24 @@
+petiole bodylimit
+
+import "net/http"
+import "strconv"
+
+import "stdlib/http" as httphelper
+
+import "github.com/duber000/town-builder/internal/config"
+
+func Wrap(next: http.Handler) http.Handler
+    return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        s := config.Current()
+        limit := int64(10 * 1024 * 1024)
+        if s isnt empty
+            limit = s.MaxRequestBodyBytes
+        cl := r.Header.Get("Content-Length")
+        if cl isnt ""
+            n, err := strconv.ParseInt(cl, 10, 64)
+            if err equals empty and n > limit
+                httphelper.JSONError(w, "Request body too large. Maximum size: {limit} bytes", 413)
+                return
+        r.Body = http.MaxBytesReader(w, r.Body, limit)
+        next.ServeHTTP(w, r)
+    )
