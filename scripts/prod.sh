@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start the production server with Gunicorn
+# Start the production server (Kukicha backend, prebuilt binary)
 
 set -e
 
@@ -34,16 +34,19 @@ if ! redis-cli ping > /dev/null 2>&1; then
     exit 1
 fi
 
-# Check if gunicorn is installed
-if ! command -v gunicorn &> /dev/null; then
-    echo "❌ Error: Gunicorn not found!"
-    echo "Install with: pip install gunicorn gevent"
+if ! command -v go &> /dev/null; then
+    echo "❌ Error: Go toolchain not found!"
+    echo "Install Go 1.26+ from https://golang.org/dl/"
     exit 1
 fi
 
 echo "✓ Prerequisites checked"
 echo ""
 
-# Start the production server
-echo "Starting Gunicorn with gevent workers..."
-exec gunicorn -w 4 -k gevent -b 0.0.0.0:5000 app.main:app
+# Build optimized binary, then exec it
+echo "Building production binary..."
+mkdir -p bin
+go build -ldflags="-s -w" -o bin/town-server ./cmd/server
+
+echo "Starting town-server..."
+exec ./bin/town-server

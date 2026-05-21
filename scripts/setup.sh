@@ -8,25 +8,25 @@ echo "Town Builder - Development Setup"
 echo "================================"
 echo ""
 
-# Check Python version
-echo "Checking Python version..."
-if ! command -v python &> /dev/null; then
-    echo "❌ Python not found! Please install Python 3.14+"
+# Check Go version
+echo "Checking Go version..."
+if ! command -v go &> /dev/null; then
+    echo "❌ Go not found! Install Go 1.26+ from https://golang.org/dl/"
     exit 1
 fi
 
-PYTHON_VERSION=$(python --version 2>&1 | awk '{print $2}')
-echo "✓ Python $PYTHON_VERSION found"
+GO_VERSION=$(go version | awk '{print $3}')
+echo "✓ $GO_VERSION found"
 echo ""
 
-# Check Go version (optional, for WASM)
-echo "Checking Go version (optional for WASM building)..."
-if command -v go &> /dev/null; then
-    GO_VERSION=$(go version | awk '{print $3}')
-    echo "✓ Go $GO_VERSION found"
+# Check Kukicha (optional — only needed for editing .kuki sources; brewed .go files are committed)
+echo "Checking Kukicha (optional)..."
+if command -v kukicha &> /dev/null; then
+    KUKICHA_VERSION=$(kukicha version 2>&1 | awk '{print $NF}')
+    echo "✓ kukicha $KUKICHA_VERSION found"
 else
-    echo "⚠️  Go not found. You won't be able to rebuild WASM modules."
-    echo "   Install Go 1.24+ from https://golang.org/dl/"
+    echo "⚠️  kukicha not found. Required only if you edit .kuki sources."
+    echo "   Install from https://github.com/kukichalang/kukicha/releases"
 fi
 echo ""
 
@@ -46,18 +46,10 @@ else
 fi
 echo ""
 
-# Install Python dependencies
-echo "Installing Python dependencies..."
-if command -v uv &> /dev/null; then
-    echo "Using uv package manager..."
-    uv sync
-else
-    echo "⚠️  uv not found. Install uv for better dependency management:"
-    echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"
-    echo ""
-    echo "Installing with pip..."
-    pip install -e .
-fi
+# Sync Go modules
+echo "Syncing Go modules..."
+go mod download
+echo "✓ Go modules ready"
 echo ""
 
 # Create .env file
@@ -88,7 +80,6 @@ echo "Next steps:"
 echo "1. Edit .env file with your configuration"
 echo "2. Start Redis: redis-server"
 echo "3. Run development server: ./scripts/dev.sh"
-echo "   or: uv run uvicorn app.main:app --reload --port 5001"
+echo "   or: go run ./cmd/server"
 echo ""
 echo "Access the application at: http://127.0.0.1:5001/"
-echo "API documentation at: http://127.0.0.1:5001/docs"

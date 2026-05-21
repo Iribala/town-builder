@@ -1,5 +1,5 @@
 #!/bin/bash
-# Start the development server with auto-reload
+# Start the development server (Kukicha backend via go run)
 
 set -e
 
@@ -25,4 +25,4 @@ if ! redis-cli ping > /dev/null 2>&1; then
 fi
 
 # Start the development server
-exec uv run uvicorn app.main:app --reload --port 5001
+exec go run ./cmd/server
