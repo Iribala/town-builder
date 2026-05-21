@@ -1,27 +1,31 @@
-FROM python:3.14-slim
+# Build stage — compile the Kukicha-brewed Go server to a static binary
+FROM golang:1.26 AS builder
+WORKDIR /src
 
-# Set the working directory in the container
+# Install kukicha so we can extract the stdlib that go.mod references via a
+# `replace` directive. We don't compile any .kuki sources here — the brewed
+# .go files are committed alongside — but go.mod requires the stdlib path to
+# resolve.
+RUN go install github.com/kukichalang/kukicha/cmd/kukicha@v0.19.5
+
+# Copy module files first for better layer caching, then materialize the
+# stdlib replacement target before `go mod download`.
+COPY go.mod go.sum ./
+COPY . .
+RUN kukicha init > /dev/null
+RUN go mod download
+
+# Brewed .go files are committed, so a plain `go build` works.
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /town-server ./cmd/server
+
+# Runtime stage — minimal image with the binary + static assets
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    gcc \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /town-server /app/town-server
+COPY --from=builder /src/static    /app/static
+COPY --from=builder /src/templates /app/templates
 
-# Install uv
-RUN pip install --no-cache-dir uv
-
-COPY pyproject.toml ./
-
-# Install dependencies using uv instead of pip
-RUN uv pip install --system --no-cache-dir .
-
-# Copy the rest of the application code to the working directory
-COPY . .
-
-# Expose the port that Gunicorn will listen on
-EXPOSE 5000
-
-# Specify the command to run the application via uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000", "--workers", "4"]
+EXPOSE 5001
+ENTRYPOINT ["/app/town-server"]

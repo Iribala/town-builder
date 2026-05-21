@@ -1,2 +1,15 @@
 .encryption-key
 .env
+.kukicha/
+bin/
+data/
+.git/
+*_test.go
+*_test.kuki
+docs/
+k8s/
+scripts/
+README.md
+CONTRIBUTING.md
+AGENTS.md
+CLAUDE.md
