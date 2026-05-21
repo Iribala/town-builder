@@ -1,6 +1,9 @@
 # Kukicha — extracted by `kukicha init`, re-runnable
 .kukicha/
 
+# Built binaries (scripts/prod.sh drops town-server here)
+bin/
+
 # Python-generated files
 __pycache__/
 *.py[oc]

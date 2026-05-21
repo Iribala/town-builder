@@ -12,6 +12,6 @@ spec:
   ports:
   - name: http
     protocol: TCP
-    port: 5000 # Port the Service listens on internally (changed from 80 to match production)
-    targetPort: 5000 # Target port 5000 in the container (FastAPI/Uvicorn default production port)
+    port: 5001 # Port the Service listens on internally
+    targetPort: 5001 # Target port in the container (cmd/server listens on :5001)
   type: ClusterIP # Default type, only reachable within the cluster

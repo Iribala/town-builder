@@ -16,22 +16,13 @@ spec:
       labels:
         app: town-builder
     spec:
-      # Note: initContainer removed - shapes are included in the image
-      # If you need to generate shapes, uncomment this section
-      # initContainers:
-      # - name: generate-shapes
-      #   image: duber000/town-builder:latest
-      #   command: ["python", "-m", "app.generate_shapes"]
-      #   volumeMounts:
-      #   - name: static-props-data
-      #     mountPath: /app/static/models/props
       containers:
       - name: town-builder
         image: duber000/town-builder:latest
         imagePullPolicy: Always # Or IfNotPresent
         ports:
         - name: http
-          containerPort: 5000 # Port exposed by FastAPI/Uvicorn in the container
+          containerPort: 5001 # Port exposed by cmd/server in the container
         envFrom:
         - secretRef:
             name: town-builder-secrets
@@ -39,7 +30,7 @@ spec:
             name: town-builder-config
         readinessProbe:
           httpGet:
-            path: /readyz # Readiness endpoint implemented in app/routes/ui.py
+            path: /readyz # Readiness endpoint (internal/routes/health)
             port: http
           initialDelaySeconds: 10 # Time before first probe
           periodSeconds: 15 # How often to probe
@@ -47,7 +38,7 @@ spec:
           failureThreshold: 3
         livenessProbe:
           httpGet:
-            path: /healthz # Liveness endpoint implemented in app/routes/ui.py
+            path: /healthz # Liveness endpoint (internal/routes/health)
             port: http
           initialDelaySeconds: 20 # Time before first probe
           periodSeconds: 20 # How often to probe
@@ -55,9 +46,6 @@ spec:
           failureThreshold: 3
         # Volume mounts
         volumeMounts:
-        # Uncomment if using initContainer for shape generation
-        # - name: static-props-data
-        #   mountPath: /app/static/models/props
         # Town save data persistence (optional but recommended)
         - name: town-data
           mountPath: /app/data
@@ -69,9 +57,6 @@ spec:
             cpu: "1"
             memory: "1Gi"
       volumes:
-      # Uncomment if using initContainer for shape generation
-      # - name: static-props-data
-      #   emptyDir: {}
       # Town save data - use PersistentVolumeClaim for production
       # For development/testing, emptyDir is acceptable (data lost on pod restart)
       - name: town-data

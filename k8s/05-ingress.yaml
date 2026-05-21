@@ -24,7 +24,7 @@ spec:
           service:
             name: town-builder
             port:
-              number: 5000
+              number: 5001
   tls:
   - hosts:
     - town.kibigia.org
