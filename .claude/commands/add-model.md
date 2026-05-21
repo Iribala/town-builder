@@ -32,14 +32,14 @@ Add a new 3D model to Town Builder.
    - Keep names short but clear
 
 5. **Test the model**
-   - Start the dev server: `uv run uvicorn app.main:app --reload --port 5001`
+   - Start the dev server: `go run ./cmd/server`
    - Open http://127.0.0.1:5001/
    - The model should appear in the UI automatically
    - Test placement, rotation, and collision detection
 
 6. **Configure model properties (optional)**
    Models are auto-discovered, but you can customize behavior in:
-   - `app/services/model_loader.py` - Server-side model discovery
+   - `internal/services/model_loader/model_loader.kuki` - Server-side model discovery
    - `static/js/models/loader.js` - Client-side model loading
 
 ## Model Requirements

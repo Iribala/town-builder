@@ -128,11 +128,15 @@ Translate `physics_wasm.go` → `physics_wasm.kuki`. Mostly mechanical (`&&` →
 
 ### Cutover
 
-Once stages 2–6 land and tests pass:
-- Delete `app/`, `tests/`, `pyproject.toml`, `uv.lock`, `conftest.py`, `requirements.txt`.
-- Retire `scripts/dev.sh`/`prod.sh` Python invocations; replace with `kukicha run cmd/server/` / `kukicha build cmd/server/`.
+✅ Done (commits `8e_phase1` / `ee4ce6e` phase 2 / phase 3):
+- Deleted `app/`, `tests/`, `pyproject.toml`, `uv.lock`.
+- `scripts/dev.sh` → `go run ./cmd/server`; `scripts/prod.sh` → builds `bin/town-server` and execs it; `scripts/setup.sh` → Go + Kukicha + Redis checks; `scripts/clean.sh` → Go caches + bin/ + .kukicha/.
+- `CLAUDE.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`, `.claude/commands/dev.md|prod.md|add-model.md` rewritten for the Kukicha stack.
 
-User said: keep Python tests + `pyproject.toml` for now.
+Deferred (revisit later):
+- `Dockerfile` — still Python/uvicorn-based; needs port to Go multi-stage build.
+- `README.md` and `CONTRIBUTING.md` — still reference uv / FastAPI / pytest.
+- `scripts/README.md` — likely needs a refresh to match the new script bodies.
 
 ## Build pipeline
 

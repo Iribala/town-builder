@@ -17,25 +17,25 @@ This document provides a comprehensive overview of the Town Builder codebase str
 ## Overview
 
 Town Builder is a real-time multiplayer 3D town building application with:
-- **Backend**: FastAPI (Python 3.14) with Redis for state management
+- **Backend**: Kukicha (transpiled to Go) with Redis for state management
 - **Frontend**: Three.js for 3D rendering, vanilla JavaScript
-- **WASM**: Go 1.26+ for high-performance physics calculations
+- **WASM**: Kukicha (compiled via Go 1.26+) for high-performance physics calculations
 - **Multiplayer**: Server-Sent Events (SSE) with Redis Pub/Sub
 
 ## Technology Stack
 
 ### Backend
-- **FastAPI 0.128.0+** - Modern async web framework
-- **Pydantic 2.12.5+** - Data validation and settings management
+- **Kukicha** - Readable language transpiled to Go (sources in `*.kuki`, brewed `.go` files committed alongside)
+- **Go 1.26+** - Underlying runtime (`net/http.ServeMux` with Go 1.22+ method patterns, no chi)
 - **Redis 7.1.0+** - In-memory data store for state sharing
-- **Authlib 1.6.6+** - JWT authentication
-- **Uvicorn 0.40.0+** - ASGI server (development)
-- **Gunicorn + Gevent** - Production server with async support
+- **github.com/golang-jwt/jwt/v5** - JWT authentication
+- **github.com/redis/go-redis/v9** - Redis client
+- **github.com/klauspost/compress/zstd** - Compression
 
 ### Frontend
 - **Three.js r181** - 3D rendering engine
 - **Vanilla JavaScript** - No framework dependencies
-- **WebAssembly** - Go-compiled WASM for physics
+- **WebAssembly** - Kukicha-compiled WASM for physics
 - **Server-Sent Events** - Real-time updates
 
 ### Deployment
@@ -48,40 +48,48 @@ Town Builder is a real-time multiplayer 3D town building application with:
 ### Application Structure
 
 ```
-app/
-├── main.py              # FastAPI app initialization & route registration
-├── config.py            # Environment configuration (Pydantic Settings)
-├── models/
-│   └── schemas.py       # Pydantic request/response models
-├── routes/              # API endpoint handlers (routers)
-│   ├── ui.py           # HTML template rendering
-│   ├── auth.py         # JWT authentication endpoints
-│   ├── models.py       # 3D model listing
-│   ├── town.py         # Town CRUD operations
-│   ├── buildings.py    # Programmatic building CRUD
-│   ├── scene.py        # Scene description/stats
-│   ├── proxy.py        # Django API proxy
-│   ├── events.py       # Server-Sent Events (SSE)
-│   ├── cursor.py       # Multiplayer cursor positions
-│   ├── batch.py        # Batch operations (programmatic API)
-│   ├── query.py        # Spatial queries & filtering (programmatic API)
-│   ├── history.py      # Undo/redo operations (programmatic API)
-│   └── snapshots.py    # Town snapshots (programmatic API)
-├── services/            # Business logic layer
-│   ├── auth.py         # JWT token generation/validation
-│   ├── storage.py      # Redis + in-memory storage abstraction
-│   ├── events.py       # Event publishing/subscription
-│   ├── django_client.py # External Django API client
-│   ├── model_display_names.py # Friendly model names
-│   ├── model_loader.py  # 3D model file discovery
-│   ├── batch_operations.py # Batch operations manager
-│   ├── query.py        # Spatial queries & filtering
-│   ├── history.py      # Operation history management
-│   └── snapshots.py    # Snapshot versioning
-│   └── scene_description.py # Scene description generation
+cmd/server/main.kuki        # HTTP server bootstrap (config, storage, router, listen)
+internal/
+├── config/                 # Settings loaded from .env (with SetForTest helper)
+├── models/schemas.kuki     # Value types for request/response payloads
+├── normalization/          # Layout-data shape coercion (map-of-categories ↔ list)
+├── storage/                # Redis primary + in-memory fallback
+├── pubsub/                 # Redis Pub/Sub fan-out for SSE
+├── middleware/
+│   ├── bodylimit/          # MaxRequestBodyBytes enforcement
+│   └── cors/               # Origin allowlist
+├── routes/                 # API endpoint handlers
+│   ├── router/             # NewMux() — central route registration
+│   ├── ui/                 # HTML template rendering
+│   ├── auth/               # JWT auth endpoints
+│   ├── models/             # 3D model listing
+│   ├── town/               # Town CRUD
+│   ├── buildings/          # Programmatic building CRUD
+│   ├── scene/              # Scene description / stats
+│   ├── proxy/              # Django API proxy (SSRF-protected)
+│   ├── events/             # SSE endpoint
+│   ├── cursor/             # Multiplayer cursor positions
+│   ├── batch/              # Batch operations (programmatic API)
+│   ├── query/              # Spatial queries
+│   ├── history/            # Undo/redo
+│   ├── snapshots/          # Town snapshots
+│   ├── static/             # Static file serving
+│   ├── common/             # Shared helpers
+│   └── health/             # /healthz, /readyz
+├── services/               # Business logic layer
+│   ├── auth/               # JWT token generation/validation
+│   ├── django_client/      # External Django API client
+│   ├── model_display_names/
+│   ├── model_loader/       # 3D model file discovery
+│   ├── batch/              # Batch operations manager
+│   ├── query/              # Spatial queries & filtering
+│   ├── history/            # Operation history
+│   ├── snapshots/          # Snapshot versioning
+│   ├── scene_description/  # Natural-language scene summary
+│   └── town_helpers/       # Shared town manipulation helpers
 └── utils/
-    ├── static_files.py  # Static file serving with MIME types
-    └── security.py      # Path traversal & SSRF prevention
+    ├── geometry/           # AABB and spatial math
+    └── security/           # Path-traversal + SSRF prevention + JWT helpers
 ```
 
 ### Layered Architecture
@@ -89,13 +97,13 @@ app/
 ```
 ┌─────────────────────────────────────────┐
 │          Routes (API Handlers)          │  - HTTP request handling
-│        app/routes/*.py                   │  - Input validation
+│        internal/routes/*/               │  - Input validation
 └─────────────────────────────────────────┘  - Response formatting
                   │
                   ▼
 ┌─────────────────────────────────────────┐
 │      Services (Business Logic)          │  - Core functionality
-│        app/services/*.py                 │  - Data transformation
+│        internal/services/*/             │  - Data transformation
 └─────────────────────────────────────────┘  - External integrations
                   │
                   ▼
@@ -107,34 +115,30 @@ app/
 
 ### Key Backend Modules
 
-#### `app/main.py`
-- FastAPI application initialization
-- CORS middleware configuration
-- Route registration
-- Startup/shutdown event handlers
-- Static file serving
+#### `cmd/server/main.kuki`
+- Application initialization
+- Config load, storage init, CORS + bodylimit middleware, route registration
+- Listen on port 5001
 
-#### `app/config.py`
+#### `internal/config/`
 - Environment variable loading (.env)
-- Configuration validation with Pydantic
-- Singleton settings instance
-- Security configurations (JWT, CORS, SSRF protection)
+- Singleton settings + `SetForTest(s)` for test injection
+- Security configurations (JWT, CORS, SSRF allowlist)
 
-#### `app/services/storage.py`
+#### `internal/storage/`
 - Abstract storage interface
 - Redis implementation for multiplayer state
 - In-memory fallback when Redis unavailable
 - Town data persistence (Redis + optional JSON files via `/api/town/save`)
 
-#### `app/services/events.py`
+#### `internal/pubsub/`
 - Event publishing to Redis Pub/Sub
 - SSE connection management
 - User presence tracking
 - Broadcast system for multiplayer updates
 
-#### `app/services/auth.py`
-- JWT token generation
-- Token validation and decoding
+#### `internal/services/auth/`
+- JWT token validation and decoding
 - Optional authentication bypass (development)
 
 ## Frontend Architecture
@@ -306,7 +310,7 @@ Each placed object has:
 
 ### WASM Physics Module
 
-Go WASM module provides:
+Kukicha WASM module provides:
 - Spatial grid for O(k) collision detection
 - Batch collision checking
 - Nearest neighbor queries
@@ -327,7 +331,6 @@ API functions:
 
 - `.env` - Environment variables (gitignored)
 - `.env.example` - Environment variable template
-- `pyproject.toml` - Python dependencies and project metadata
 - `go.mod` - Go module dependencies
 - `Dockerfile` - Container build instructions
 - `.gitignore` - Git ignore patterns
@@ -353,7 +356,7 @@ static/
 
 ```
 templates/
-└── index.html       # Main application HTML (Jinja2 template)
+└── index.html       # Main application HTML (Go html/template)
 ```
 
 ### Data Storage
@@ -405,14 +408,9 @@ data/
 - `GET /api/scene/description` - Natural language scene summary
 - `GET /api/scene/stats` - Scene statistics
 
-### Documentation
-- `GET /docs` - Swagger UI
-- `GET /redoc` - ReDoc documentation
-- `GET /openapi.json` - OpenAPI schema
-
 ### Programmatic APIs (Claude Integration)
 
-New medium-level APIs for programmatic interaction and AI-driven automation:
+Medium-level APIs for programmatic interaction and AI-driven automation:
 
 **Batch Operations:**
 - `POST /api/batch/operations` - Execute multiple create/update/delete/edit operations atomically
@@ -458,25 +456,25 @@ See `.env.example` for complete list. Key variables:
 
 ### Port Configuration
 
-- **Development**: Port 5001 (uvicorn with --reload)
-- **Production**: Port 5000 (gunicorn with gevent)
+- **Development & Production**: Port 5001 (single Go binary; goroutine-per-connection means no separate worker model)
 
 ### Security
 
 - **CORS**: Configured via `ALLOWED_ORIGINS`
 - **JWT**: Optional authentication for API endpoints
-- **Path Traversal**: Prevented via `app/utils/security.py`
-- **SSRF**: URL validation for external API calls
+- **Path Traversal**: Prevented via `internal/utils/security/`
+- **SSRF**: URL validation for external API calls (allowlist in `settings.AllowedApiDomains`)
 
 ## Development Workflow
 
 ### Adding a New Feature
 
 1. **Backend**:
-   - Define request/response models in `app/models/schemas.py`
-   - Implement business logic in `app/services/`
-   - Create route handler in `app/routes/`
-   - Register route in `app/main.py`
+   - Define request/response types in `internal/models/schemas.kuki`
+   - Implement business logic in `internal/services/<name>/<name>.kuki`
+   - Create route handler in `internal/routes/<name>/<name>.kuki`
+   - Register route in `internal/routes/router/router.kuki`
+   - Brew the `.kuki` files to refresh committed `.go` (see `docs/plans/kukicha-port.md` "Build pipeline")
 
 2. **Frontend**:
    - Add UI controls in `static/js/ui.js`
@@ -485,13 +483,13 @@ See `.env.example` for complete list. Key variables:
    - Add network sync if needed in `static/js/network.js`
 
 3. **Testing**:
-   - Manual testing in browser
-   - Check browser console for errors
-   - Test multiplayer with multiple windows
+   - Write `<name>_test.kuki` next to the subject and brew it
+   - `go test ./internal/...` for the full suite
+   - Manual testing in browser; check console for errors; test multiplayer with multiple windows
 
 ### Debugging Tips
 
-- **Backend Logs**: Watch uvicorn output for errors
+- **Backend Logs**: Watch `go run ./cmd/server` output for errors
 - **Frontend Logs**: Check browser Developer Console
 - **Network**: Use browser Network tab for API calls
 - **Redis**: Use `redis-cli monitor` to watch events
@@ -500,9 +498,9 @@ See `.env.example` for complete list. Key variables:
 ## Performance Considerations
 
 ### Backend
-- Redis connection pooling
-- Async/await for I/O operations
-- Gevent for SSE handling (non-blocking)
+- Redis connection pooling (go-redis defaults are fine)
+- Goroutine-per-connection (no async/await ceremony)
+- SSE fan-out via Redis Pub/Sub
 
 ### Frontend
 - Model caching (avoid re-loading same models)
@@ -524,19 +522,19 @@ Key protections:
 - SSRF prevention for external API calls
 - CORS restrictions
 - Optional JWT authentication
-- Input validation with Pydantic
+- Input validation in route handlers (typed via `internal/models/schemas.kuki`)
 
 ## Deployment
 
 ### Local Development
 ```bash
-uv run uvicorn app.main:app --reload --port 5001
+go run ./cmd/server
 ```
 
 ### Production (Docker)
 ```bash
 docker build -t town-builder .
-docker run -p 5000:5000 town-builder
+docker run -p 5001:5001 town-builder
 ```
 
 ### Kubernetes
@@ -550,31 +548,32 @@ See `k8s/` directory for deployment manifests.
 
 ### Adding a New API Endpoint
 
-```python
-# 1. Define model in app/models/schemas.py
-class MyRequest(BaseModel):
-    data: str
+```kukicha
+# 1. Define types in internal/models/schemas.kuki
+type MyRequest struct
+    Data string `json:"data"`
 
-class MyResponse(BaseModel):
-    result: str
+type MyResponse struct
+    Result string `json:"result"`
 
-# 2. Create service in app/services/my_service.py
-async def process_data(data: str) -> str:
-    # Business logic here
-    return result
+# 2. Create service in internal/services/my_service/my_service.kuki
+petiole my_service
 
-# 3. Create route in app/routes/my_route.py
-from fastapi import APIRouter
-router = APIRouter(prefix="/api/my", tags=["my-feature"])
+func ProcessData(data: string) (string, error)
+    # business logic
+    return result, empty
 
-@router.post("/action", response_model=MyResponse)
-async def my_action(request: MyRequest):
-    result = await process_data(request.data)
-    return MyResponse(result=result)
+# 3. Create route in internal/routes/my_route/my_route.kuki
+petiole my_route
 
-# 4. Register in app/main.py
-from app.routes import my_route
-app.include_router(my_route.router)
+func Handler(w: http.ResponseWriter, r: reference http.Request)
+    var req models.MyRequest
+    json.ParseInto(body, reference of req) onerr return
+    result, err := my_service.ProcessData(req.Data)
+    httphelper.JSONOK(w, models.MyResponse{Result: result})
+
+# 4. Register in internal/routes/router/router.kuki
+mux.HandleFunc("POST /api/my/action", my_route.Handler)
 ```
 
 ### Adding a Frontend Feature
@@ -600,7 +599,8 @@ initMyFeature();
 
 ## Resources
 
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Kukicha](https://github.com/kukichalang/kukicha) — language reference
+- [Go net/http](https://pkg.go.dev/net/http) — standard library HTTP
 - [Three.js Documentation](https://threejs.org/docs/)
 - [Go WebAssembly Wiki](https://github.com/golang/go/wiki/WebAssembly)
 - [Redis Documentation](https://redis.io/documentation)
