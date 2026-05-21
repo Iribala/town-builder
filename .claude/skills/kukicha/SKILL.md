@@ -989,6 +989,12 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 - **Method receivers with extra params**: `func M on r: T, w: W, r2: R` parses correctly — no longer requires the parenthesized `func M on r: T (w: W, r2: R)` form.
 - **Go-1.22 mux `/{$}` and `/{path...}` patterns**: plain string literals work without backslash-escaped braces.
 
+### Fixed in v0.19.5 (issue #125)
+
+- **`onerr return` in void functions** emits a bare `return` instead of erroring — no more sprinkling `onerr discard` through `http.HandlerFunc` bodies.
+- **Bare `func(w, r)` literals auto-wrap to `http.HandlerFunc`** when passed where `http.Handler` is expected (e.g. `httptest.NewServer(func(w, r) ...)`).
+- **Unused `i` in `for i from 0 to N`** is auto-rewritten to `_` — no need to manually use `_` when the index isn't referenced.
+
 ### Still active
 
 1. **Lambda return-type inference fails for multi-statement bodies.** `sort.Slice(xs, (i: int, j: int) => ...)` works when the body is a single expression, but a body with intermediate `:=` bindings and a final `return a < b` errors with `expected 0 return values, got 1`. Workaround: hoist the body into a named helper and pass `(i, j) => helper(xs, i, j)`.

@@ -48,11 +48,11 @@ func do(mux: reference http.ServeMux, method: string, path: string, body: map of
 
 func TestProxyGetForwards(t: reference testing.T)
     var called bool
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         called = true
         w.WriteHeader(200)
         w.Write(`[{"id": 1, "name": "Springfield"}]` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
@@ -62,11 +62,11 @@ func TestProxyGetForwards(t: reference testing.T)
 
 func TestProxyGetWithPath(t: reference testing.T)
     var seenPath string
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenPath = r.URL.Path
         w.WriteHeader(200)
         w.Write(`{"id": 42}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
@@ -76,11 +76,11 @@ func TestProxyGetWithPath(t: reference testing.T)
 
 func TestProxyPostForwardsBody(t: reference testing.T)
     var called bool
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         called = true
         w.WriteHeader(201)
         w.Write(`{"id": 1}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
@@ -90,11 +90,11 @@ func TestProxyPostForwardsBody(t: reference testing.T)
 
 func TestProxyPatchWithPath(t: reference testing.T)
     var seenMethod string
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenMethod = r.Method
         w.WriteHeader(200)
         w.Write(`{"id": 42}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
@@ -105,10 +105,10 @@ func TestProxyPatchWithPath(t: reference testing.T)
     test.AssertEqual(t, seenMethod, "PATCH")
 
 func TestProxyPreservesStatusCode(t: reference testing.T)
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.WriteHeader(404)
         w.Write(`{"detail": "Not found."}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()

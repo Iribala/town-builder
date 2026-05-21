@@ -88,11 +88,11 @@ func doJSON(mux: reference http.ServeMux, method: string, path: string, body: ma
 
 func TestSaveWithTownIdPatches(t: reference testing.T)
     var seenMethod string
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenMethod = r.Method
         w.WriteHeader(200)
         w.Write(`{"id": 42}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := newRouter()
@@ -108,7 +108,7 @@ func TestSaveWithTownIdPatches(t: reference testing.T)
 
 func TestSaveWithoutIdSearchesThenCreates(t: reference testing.T)
     var postSeen bool
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         if r.Method equals "GET"
             w.WriteHeader(200)
             w.Write(`[]` as list of byte) onerr discard
@@ -116,7 +116,7 @@ func TestSaveWithoutIdSearchesThenCreates(t: reference testing.T)
             postSeen = true
             w.WriteHeader(201)
             w.Write(`{"id": 99, "name": "NewTown"}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := newRouter()
@@ -132,7 +132,7 @@ func TestSaveWithoutIdSearchesThenCreates(t: reference testing.T)
 
 func TestSaveWithoutIdSearchesThenPatches(t: reference testing.T)
     var patchSeen bool
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         if r.Method equals "GET"
             w.WriteHeader(200)
             w.Write(`[{"id": 42, "name": "Springfield"}]` as list of byte) onerr discard
@@ -140,7 +140,7 @@ func TestSaveWithoutIdSearchesThenPatches(t: reference testing.T)
             patchSeen = true
             w.WriteHeader(200)
             w.Write(`{"id": 42}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := newRouter()
@@ -163,10 +163,10 @@ func TestSaveNoDataReturns400(t: reference testing.T)
     test.AssertEqual(t, status, 400)
 
 func TestDjangoErrorReturnsSuccessWithWarning(t: reference testing.T)
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.WriteHeader(500)
         w.Write(`{"error": "boom"}` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := newRouter()
@@ -183,11 +183,11 @@ func TestDjangoErrorReturnsSuccessWithWarning(t: reference testing.T)
 # ── LoadFromDjango ────────────────────────────────────────────────
 
 func TestLoadFromDjangoResponseShape(t: reference testing.T)
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.WriteHeader(200)
         data, _ := json.Bytes(kibigiaTownResponse)
         w.Write(data) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := newRouter()
@@ -203,11 +203,11 @@ func TestLoadFromDjangoResponseShape(t: reference testing.T)
     test.AssertEqual(t, info["name"], "Springfield")
 
 func TestLoadFromDjangoNormalizesLayout(t: reference testing.T)
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.WriteHeader(200)
         data, _ := json.Bytes(kibigiaTownResponse)
         w.Write(data) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := newRouter()
@@ -222,10 +222,10 @@ func TestLoadFromDjangoNormalizesLayout(t: reference testing.T)
     test.AssertTrue(t, hasTerrain)
 
 func TestLoadFromDjangoUnreachable(t: reference testing.T)
-    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.WriteHeader(500)
         w.Write(`refused` as list of byte) onerr discard
-    ))
+    )
     defer srv.Close()
     setup(srv.URL + "/")
     mux := newRouter()
