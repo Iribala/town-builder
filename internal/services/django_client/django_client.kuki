@@ -141,12 +141,20 @@ func SearchTownByName(townName: string) (int, bool, error)
     if resp.StatusCode >= 400
         resp.Body.Close()
         return 0, false, error "django returned status {resp.StatusCode}"
-    data, derr := decodeJSON(resp)
-    if derr isnt empty
-        return 0, false, derr
+    defer resp.Body.Close()
+    raw, rerr := io.ReadAll(resp.Body)
+    if rerr isnt empty
+        return 0, false, rerr
     var results list of any
-    if arr, ok := data["results"].(list of any); ok
+    var parsedAny any
+    perr := json.ParseInto(raw, reference of parsedAny)
+    if perr isnt empty
+        return 0, false, perr
+    if arr, ok := parsedAny.(list of any); ok
         results = arr
+    else if data, ok := parsedAny.(map of string to any); ok
+        if arr, aok := data["results"].(list of any); aok
+            results = arr
     if results equals empty or len(results) equals 0
         log.Info("No town found with name '{townName}'")
         return 0, false, empty

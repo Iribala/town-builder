@@ -95,3 +95,6 @@ func Load() (reference Settings, error)
 
 func Current() reference Settings
     return current
+
+func SetForTest(s: reference Settings)
+    current = s

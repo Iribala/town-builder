@@ -80,7 +80,7 @@ func handle(w http.ResponseWriter, r *http.Request, method string) {
 			httphelper.JSONError(w, "Request to upstream service timed out", 504)
 			return
 		}
-		if strings.Contains(msg, "not allowed") || strings.Contains(msg, "Unsupported") {
+		if ((strings.Contains(msg, "not allowed") || strings.Contains(msg, "Unsupported")) || strings.Contains(msg, "must not contain")) || strings.Contains(msg, "disallowed") {
 			httphelper.JSONBadRequest(w, msg)
 			return
 		}

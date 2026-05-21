@@ -1,0 +1,277 @@
+petiole town_test
+
+import "testing"
+import "stdlib/json"
+import "stdlib/test"
+import "bytes"
+import "io"
+import "net/http"
+import "net/http/httptest"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/routes/router"
+import "github.com/duber000/town-builder/internal/storage"
+
+var sampleLayout = map of string to any{
+    "buildings": list of any{
+        map of string to any{
+            "id":       "bld-001",
+            "model":    "house.glb",
+            "category": "buildings",
+            "position": map of string to any{"x": 10.0, "y": 0.0, "z": 5.0},
+            "rotation": map of string to any{"x": 0.0, "y": 1.57, "z": 0.0},
+            "scale":    map of string to any{"x": 1.0, "y": 1.0, "z": 1.0},
+        },
+    },
+    "vehicles": list of any{},
+    "trees":    list of any{},
+    "props":    list of any{},
+    "street":   list of any{},
+    "park":     list of any{},
+    "terrain":  list of any{},
+    "roads":    list of any{},
+    "townName": "Springfield",
+}
+
+var kibigiaTownResponse = map of string to any{
+    "id":             42,
+    "name":           "Springfield",
+    "description":    "A test town",
+    "population":     25000,
+    "latitude":       42.1015,
+    "longitude":      -72.5898,
+    "layout_data":    sampleLayout,
+    "category_statuses": list of any{},
+}
+
+func setup(djangoURL: string)
+    s := reference of config.Settings{
+        ApiURL:                   djangoURL,
+        ApiToken:                 "test-token",
+        DisableJwtAuth:           true,
+        Environment:              "development",
+        AllowedDomains:           "localhost,127.0.0.1",
+        AllowedApiDomains:        list of string{"localhost", "127.0.0.1"},
+        DataPath:                 "./data",
+        StaticPath:               "./static",
+        TemplatesPath:            "./templates",
+        ModelsPath:               "./static/models",
+        MaxRequestBodyBytes:      10 * 1024 * 1024,
+        MaxSseConnectionsPerUser: 3,
+    }
+    config.SetForTest(s)
+    storage.SetClient(empty)
+    storage.ResetMemory()
+
+func newRouter() reference http.ServeMux
+    return router.NewMux()
+
+func doJSON(mux: reference http.ServeMux, method: string, path: string, body: map of string to any) (int, map of string to any)
+    var reader io.Reader
+    if body isnt empty
+        data, err := json.Bytes(body)
+        if err isnt empty
+            return 0, empty
+        reader = bytes.NewReader(data)
+    req := httptest.NewRequest(method, path, reader)
+    req.Header.Set("Content-Type", "application/json")
+    rec := httptest.NewRecorder()
+    mux.ServeHTTP(rec, req)
+    resp := rec.Result()
+    raw, _ := io.ReadAll(resp.Body)
+    out := make(map of string to any)
+    if len(raw) > 0
+        json.ParseInto(raw, reference of out) onerr discard
+    return resp.StatusCode, out
+
+# ── SaveTown ──────────────────────────────────────────────────────
+
+func TestSaveWithTownIdPatches(t: reference testing.T)
+    var seenMethod string
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        seenMethod = r.Method
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := newRouter()
+
+    status, body := doJSON(mux, "POST", "/api/town/save", map of string to any{
+        "data":     sampleLayout,
+        "town_id":  42,
+        "townName": "Springfield",
+    })
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, body["status"], "success")
+    test.AssertEqual(t, seenMethod, "PATCH")
+
+func TestSaveWithoutIdSearchesThenCreates(t: reference testing.T)
+    var postSeen bool
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        if r.Method equals "GET"
+            w.WriteHeader(200)
+            w.Write(`[]` as list of byte) onerr discard
+        else if r.Method equals "POST"
+            postSeen = true
+            w.WriteHeader(201)
+            w.Write(`{"id": 99, "name": "NewTown"}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := newRouter()
+
+    status, body := doJSON(mux, "POST", "/api/town/save", map of string to any{
+        "data":     sampleLayout,
+        "townName": "NewTown",
+    })
+    test.AssertEqual(t, status, 200)
+    test.AssertTrue(t, postSeen)
+    townID, _ := body["town_id"].(float64)
+    test.AssertEqual(t, townID as int, 99)
+
+func TestSaveWithoutIdSearchesThenPatches(t: reference testing.T)
+    var patchSeen bool
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        if r.Method equals "GET"
+            w.WriteHeader(200)
+            w.Write(`[{"id": 42, "name": "Springfield"}]` as list of byte) onerr discard
+        else if r.Method equals "PATCH"
+            patchSeen = true
+            w.WriteHeader(200)
+            w.Write(`{"id": 42}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := newRouter()
+
+    status, body := doJSON(mux, "POST", "/api/town/save", map of string to any{
+        "data":     sampleLayout,
+        "townName": "Springfield",
+    })
+    test.AssertEqual(t, status, 200)
+    test.AssertTrue(t, patchSeen)
+    townID, _ := body["town_id"].(float64)
+    test.AssertEqual(t, townID as int, 42)
+
+func TestSaveNoDataReturns400(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := newRouter()
+    status, _ := doJSON(mux, "POST", "/api/town/save", map of string to any{
+        "filename": "test.json",
+    })
+    test.AssertEqual(t, status, 400)
+
+func TestDjangoErrorReturnsSuccessWithWarning(t: reference testing.T)
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(500)
+        w.Write(`{"error": "boom"}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := newRouter()
+
+    status, body := doJSON(mux, "POST", "/api/town/save", map of string to any{
+        "data":    sampleLayout,
+        "town_id": 42,
+    })
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, body["status"], "success")
+    msg, _ := body["message"].(string)
+    test.AssertTrue(t, len(msg) > 0)
+
+# ── LoadFromDjango ────────────────────────────────────────────────
+
+func TestLoadFromDjangoResponseShape(t: reference testing.T)
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(200)
+        data, _ := json.Bytes(kibigiaTownResponse)
+        w.Write(data) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := newRouter()
+
+    status, body := doJSON(mux, "GET", "/api/town/load-from-django/42", empty)
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, body["status"], "success")
+    _, hasData := body["data"]
+    test.AssertTrue(t, hasData)
+    info, _ := body["town_info"].(map of string to any)
+    townID, _ := info["id"].(float64)
+    test.AssertEqual(t, townID as int, 42)
+    test.AssertEqual(t, info["name"], "Springfield")
+
+func TestLoadFromDjangoNormalizesLayout(t: reference testing.T)
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(200)
+        data, _ := json.Bytes(kibigiaTownResponse)
+        w.Write(data) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := newRouter()
+
+    _, body := doJSON(mux, "GET", "/api/town/load-from-django/42", empty)
+    data, _ := body["data"].(map of string to any)
+    _, hasBuildings := data["buildings"]
+    _, hasVehicles := data["vehicles"]
+    _, hasTerrain := data["terrain"]
+    test.AssertTrue(t, hasBuildings)
+    test.AssertTrue(t, hasVehicles)
+    test.AssertTrue(t, hasTerrain)
+
+func TestLoadFromDjangoUnreachable(t: reference testing.T)
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(500)
+        w.Write(`refused` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := newRouter()
+
+    status, _ := doJSON(mux, "GET", "/api/town/load-from-django/42", empty)
+    test.AssertEqual(t, status, 500)
+
+# ── GetTown / UpdateTown / DeleteModel / EditModel ────────────────
+
+func TestGetTownReturnsCurrent(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := newRouter()
+    status, body := doJSON(mux, "GET", "/api/town", empty)
+    test.AssertEqual(t, status, 200)
+    test.AssertTrue(t, body isnt empty)
+
+func TestUpdateTownName(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := newRouter()
+    status, body := doJSON(mux, "POST", "/api/town", map of string to any{
+        "townName": "NewName",
+    })
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, body["status"], "success")
+
+func TestFullDataUpdate(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := newRouter()
+    status, _ := doJSON(mux, "POST", "/api/town", sampleLayout)
+    test.AssertEqual(t, status, 200)
+
+func TestDeleteNonexistentReturns404(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := newRouter()
+    status, _ := doJSON(mux, "DELETE", "/api/town/model", map of string to any{
+        "id":       "nonexistent",
+        "category": "buildings",
+    })
+    test.AssertEqual(t, status, 404)
+
+func TestEditNonexistentReturns404(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := newRouter()
+    status, _ := doJSON(mux, "PUT", "/api/town/model", map of string to any{
+        "id":       "nonexistent",
+        "category": "buildings",
+        "position": map of string to any{"x": 1, "y": 2, "z": 3},
+    })
+    test.AssertEqual(t, status, 404)

@@ -255,5 +255,31 @@ Note: onerr inside struct field initializers is *not* supported — factor to a 
 | 3 — Routes + middleware + main | ✅ done | — |
 | 4 — SSE + Pub/Sub | ✅ done | — |
 | 5 — Proxy + UI + static | ✅ done | — |
-| 6 — Tests port | ◻ | — |
-| 7 — WASM (optional) | ◻ | — |
+| 6 — Tests port | ✅ done | — |
+| 7 — WASM (optional) | ✅ done | — |
+
+### Stage 6 notes
+
+Ported 9/10 test files; `test_schemas.py` remains deferred (per the schemas plan). 67 test cases across:
+
+- `internal/normalization/normalization_test.kuki` — 16 cases
+- `internal/utils/security/security_test.kuki` — 30 cases
+- `internal/services/auth/auth_test.kuki` — 11 cases
+- `internal/services/django_client/django_client_test.kuki` — 22 cases
+- `internal/services/batch/batch_test.kuki` — 6 cases
+- `internal/routes/town/town_test.kuki` — 13 cases
+- `internal/routes/proxy/proxy_test.kuki` — 7 cases
+- `internal/routes/batch/batch_test.kuki` — 5 cases
+
+Tests use `httptest.NewServer` against `router.NewMux()` with `config.SetForTest()` for settings injection (added `SetForTest` to `internal/config`). Real bug fixed during port: `django_client.SearchTownByName` only handled paginated map responses; now handles both plain list and `{"results": [...]}` shapes (Python parity).
+
+### Stage 7 notes
+
+`syscall/js` type-checks and brews cleanly in Kukicha. `physics_wasm.go` (626 lines) ported to `physics_wasm.kuki` (493 lines). Ported using:
+- Explicit consts instead of `1 << iota` bit flags (Kukicha enums are sequential only).
+- Module-level funcs taking `reference SpatialGrid` instead of `*T` method receivers.
+- `for k, _ in map` for map iteration; `for i := range length` → `for i from 0 to length`.
+- Local function-scope `const` not supported — use `:=` assignment.
+- No `println` builtin — use `fmt.Println`.
+
+Build flow: `kukicha brew --stdout physics_wasm.kuki > physics_wasm.go`, then sed-replace `//go:build ignore` → `//go:build js && wasm` (kukicha emits `ignore` constraint; WASM build needs the real one), then `./build_wasm.sh`. Output: `static/wasm/physics_greentea.wasm` (2.6 MB).

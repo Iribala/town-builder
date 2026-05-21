@@ -1,0 +1,301 @@
+petiole django_client_test
+
+import "testing"
+import "stdlib/json"
+import "stdlib/string" as strpkg
+import "stdlib/test"
+import "net/http"
+import "net/http/httptest"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/services/django_client"
+
+var sampleLayout = map of string to any{
+    "buildings": list of any{
+        map of string to any{"id": "bld-001", "model": "house.glb"},
+    },
+}
+
+func setupWithURL(apiURL: string)
+    s := reference of config.Settings{
+        ApiURL:            apiURL,
+        ApiToken:          "test-token-123",
+        AllowedDomains:    "localhost,127.0.0.1",
+        AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
+    }
+    config.SetForTest(s)
+
+func newServer(handler: http.HandlerFunc) reference httptest.Server
+    return httptest.NewServer(handler)
+
+# ── SearchTownByName ──────────────────────────────────────────────
+
+func TestSearchFoundListResponse(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`[{"id": 1, "name": "Springfield"}]` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    id, ok, err := django_client.SearchTownByName("Springfield")
+    test.AssertNoError(t, err)
+    test.AssertTrue(t, ok)
+    test.AssertEqual(t, id, 1)
+
+func TestSearchPaginatedResponse(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`{"results": [{"id": 5, "name": "Boston"}]}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    id, ok, err := django_client.SearchTownByName("Boston")
+    test.AssertNoError(t, err)
+    test.AssertTrue(t, ok)
+    test.AssertEqual(t, id, 5)
+
+func TestSearchNotFound(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`[]` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    _, ok, err := django_client.SearchTownByName("Nonexistent")
+    test.AssertNoError(t, err)
+    test.AssertFalse(t, ok)
+
+func TestSearchHttpErrorRaises(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(500)
+        w.Write(`{"error": "Internal server error"}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    _, _, err := django_client.SearchTownByName("Springfield")
+    test.AssertError(t, err)
+
+func TestSearchMultipleReturnsFirst(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`[{"id": 10, "name": "Springfield"}, {"id": 20, "name": "Springfield"}]` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    id, ok, err := django_client.SearchTownByName("Springfield")
+    test.AssertNoError(t, err)
+    test.AssertTrue(t, ok)
+    test.AssertEqual(t, id, 10)
+
+# ── CreateTown ────────────────────────────────────────────────────
+
+func TestCreatePayloadShape(t: reference testing.T)
+    var lastBody []byte
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        buf := make(list of byte, r.ContentLength)
+        r.Body.Read(buf) onerr discard
+        lastBody = buf
+        w.WriteHeader(201)
+        w.Write(`{"id": 42, "name": "Springfield"}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    req := map of string to any{"latitude": 42.1, "longitude": -72.5}
+    _, err := django_client.CreateTown(req, sampleLayout, "Springfield")
+    test.AssertNoError(t, err)
+
+    body := make(map of string to any)
+    json.ParseInto(lastBody, reference of body) onerr discard
+    test.AssertEqual(t, body["name"], "Springfield")
+    _, hasLayout := body["layout_data"]
+    test.AssertTrue(t, hasLayout)
+    test.AssertEqual(t, body["latitude"], 42.1)
+    test.AssertEqual(t, body["longitude"], -72.5)
+
+func TestCreateExtractsId(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(201)
+        w.Write(`{"id": 42, "name": "Springfield"}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    result, err := django_client.CreateTown(map of string to any{}, sampleLayout, "Springfield")
+    test.AssertNoError(t, err)
+    townID, ok := result["town_id"].(float64)
+    test.AssertTrue(t, ok)
+    test.AssertEqual(t, townID as int, 42)
+
+func TestCreateHttpErrorRaises(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(400)
+        w.Write(`{"name": ["This field is required."]}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    _, err := django_client.CreateTown(map of string to any{}, sampleLayout, "")
+    test.AssertError(t, err)
+
+# ── UpdateTown ────────────────────────────────────────────────────
+
+func TestUpdateUsesPatch(t: reference testing.T)
+    var seenMethod string
+    var seenPath string
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        seenMethod = r.Method
+        seenPath = r.URL.Path
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    _, err := django_client.UpdateTown(42, map of string to any{}, sampleLayout, "Springfield")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, seenMethod, "PATCH")
+    test.AssertTrue(t, strpkg.HasSuffix(seenPath, "/42/"))
+
+func TestUpdateOmitsName(t: reference testing.T)
+    var lastBody []byte
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        buf := make(list of byte, r.ContentLength)
+        r.Body.Read(buf) onerr discard
+        lastBody = buf
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    _, err := django_client.UpdateTown(42, map of string to any{}, sampleLayout, "Springfield")
+    test.AssertNoError(t, err)
+
+    body := make(map of string to any)
+    json.ParseInto(lastBody, reference of body) onerr discard
+    _, hasName := body["name"]
+    test.AssertFalse(t, hasName)
+    _, hasLayout := body["layout_data"]
+    test.AssertTrue(t, hasLayout)
+
+# ── PrepareDjangoPayload ──────────────────────────────────────────
+
+func TestPrepareCreateIncludesName(t: reference testing.T)
+    payload := django_client.PrepareDjangoPayload(
+        map of string to any{},
+        sampleLayout,
+        "Springfield",
+        false,
+    )
+    test.AssertEqual(t, payload["name"], "Springfield")
+
+func TestPrepareUpdateOmitsName(t: reference testing.T)
+    payload := django_client.PrepareDjangoPayload(
+        map of string to any{},
+        sampleLayout,
+        "Springfield",
+        true,
+    )
+    _, hasName := payload["name"]
+    test.AssertFalse(t, hasName)
+
+func TestPrepareNameFallbackToTownName(t: reference testing.T)
+    payload := django_client.PrepareDjangoPayload(
+        map of string to any{},
+        map of string to any{"townName": "Shelbyville"},
+        "",
+        false,
+    )
+    test.AssertEqual(t, payload["name"], "Shelbyville")
+
+func TestPrepareNameFallbackToLayoutName(t: reference testing.T)
+    payload := django_client.PrepareDjangoPayload(
+        map of string to any{},
+        map of string to any{"name": "Ogdenville"},
+        "",
+        false,
+    )
+    test.AssertEqual(t, payload["name"], "Ogdenville")
+
+func TestPrepareOptionalFieldsPropagated(t: reference testing.T)
+    payload := django_client.PrepareDjangoPayload(
+        map of string to any{"latitude": 42.1, "description": "Nice town"},
+        map of string to any{},
+        "X",
+        false,
+    )
+    test.AssertEqual(t, payload["latitude"], 42.1)
+    test.AssertEqual(t, payload["description"], "Nice town")
+
+# ── GetBaseURL ────────────────────────────────────────────────────
+
+func TestBaseUrlValidPasses(t: reference testing.T)
+    setupWithURL("http://localhost:8000/api/towns/")
+    u, err := django_client.GetBaseURL()
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, u, "http://localhost:8000/api/towns/")
+
+func TestBaseUrlInvalidDomain(t: reference testing.T)
+    setupWithURL("http://evil.com/api/")
+    _, err := django_client.GetBaseURL()
+    test.AssertError(t, err)
+
+func TestBaseUrlAddsTrailingSlash(t: reference testing.T)
+    setupWithURL("http://localhost:8000/api/towns")
+    u, err := django_client.GetBaseURL()
+    test.AssertNoError(t, err)
+    test.AssertTrue(t, strpkg.HasSuffix(u, "/"))
+
+# ── ProxyRequest ──────────────────────────────────────────────────
+
+func TestProxyGetForwards(t: reference testing.T)
+    var seenPath string
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        seenPath = r.URL.Path
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    resp, err := django_client.ProxyRequest("GET", "42/", map of string to string{}, map of string to string{}, empty)
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, resp.StatusCode, 200)
+    test.AssertTrue(t, strpkg.HasSuffix(seenPath, "/42/"))
+
+func TestProxyPostForwardsBody(t: reference testing.T)
+    var lastBody []byte
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        buf := make(list of byte, r.ContentLength)
+        r.Body.Read(buf) onerr discard
+        lastBody = buf
+        w.WriteHeader(201)
+        w.Write(`{"id": 1}` as list of byte) onerr discard
+    )
+    defer srv.Close()
+    setupWithURL(srv.URL + "/")
+    bodyBytes := `{"name": "Test"}` as list of byte
+    _, err := django_client.ProxyRequest("POST", "", map of string to string{}, map of string to string{}, bodyBytes)
+    test.AssertNoError(t, err)
+    body := make(map of string to any)
+    json.ParseInto(lastBody, reference of body) onerr discard
+    test.AssertEqual(t, body["name"], "Test")
+
+func TestProxyUnsupportedMethod(t: reference testing.T)
+    setupWithURL("http://localhost:8000/api/towns/")
+    _, err := django_client.ProxyRequest("OPTIONS", "", map of string to string{}, map of string to string{}, empty)
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "Unsupported HTTP method"))
+
+func TestProxyTraversalRejected(t: reference testing.T)
+    setupWithURL("http://localhost:8000/api/towns/")
+    _, err := django_client.ProxyRequest("GET", "../../other-api/", map of string to string{}, map of string to string{}, empty)
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), ".."))
+
+func TestProxySchemeRejected(t: reference testing.T)
+    setupWithURL("http://localhost:8000/api/towns/")
+    _, err := django_client.ProxyRequest("GET", "http://evil.com/", map of string to string{}, map of string to string{}, empty)
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "scheme"))
+
+func TestProxyAuthorityRejected(t: reference testing.T)
+    setupWithURL("http://localhost:8000/api/towns/")
+    _, err := django_client.ProxyRequest("GET", "user@evil.com/", map of string to string{}, map of string to string{}, empty)
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "@"))

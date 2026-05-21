@@ -1,0 +1,119 @@
+petiole batch_test
+
+import "testing"
+import "stdlib/json"
+import "stdlib/test"
+import "bytes"
+import "io"
+import "strconv"
+import "net/http"
+import "net/http/httptest"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/middleware/bodylimit"
+import "github.com/duber000/town-builder/internal/routes/router"
+import "github.com/duber000/town-builder/internal/storage"
+
+func setupLimits(maxBody: int64, maxOps: int)
+    s := reference of config.Settings{
+        DisableJwtAuth:           true,
+        Environment:              "development",
+        MaxRequestBodyBytes:      maxBody,
+        MaxSseConnectionsPerUser: 3,
+        MaxBatchOperations:       maxOps,
+        DataPath:                 "./data",
+        StaticPath:               "./static",
+        TemplatesPath:            "./templates",
+        ModelsPath:               "./static/models",
+        AllowedDomains:           "localhost,127.0.0.1",
+        AllowedApiDomains:        list of string{"localhost", "127.0.0.1"},
+    }
+    config.SetForTest(s)
+    storage.SetClient(empty)
+    storage.ResetMemory()
+
+func do(handler: http.Handler, method: string, path: string, body: map of string to any) (int, map of string to any)
+    var reader io.Reader
+    bodyBytes := list of byte{}
+    if body isnt empty
+        data, err := json.Bytes(body)
+        if err isnt empty
+            return 0, empty
+        bodyBytes = data
+        reader = bytes.NewReader(data)
+    req := httptest.NewRequest(method, path, reader)
+    req.Header.Set("Content-Type", "application/json")
+    if len(bodyBytes) > 0
+        req.ContentLength = int64(len(bodyBytes))
+        req.Header.Set("Content-Length", strconv.Itoa(len(bodyBytes)))
+    rec := httptest.NewRecorder()
+    handler.ServeHTTP(rec, req)
+    resp := rec.Result()
+    raw, _ := io.ReadAll(resp.Body)
+    out := make(map of string to any)
+    if len(raw) > 0
+        json.ParseInto(raw, reference of out) onerr discard
+    return resp.StatusCode, out
+
+func buildOp(i: int) map of string to any
+    return map of string to any{
+        "op":       "create",
+        "category": "buildings",
+        "data": map of string to any{
+            "model":    "house.glb",
+            "category": "buildings",
+            "position": map of string to any{"x": float64(i), "y": 0.0, "z": 0.0},
+        },
+    }
+
+# ── Body Size Limit ────────────────────────────────────────────────
+
+func TestSmallRequestAccepted(t: reference testing.T)
+    setupLimits(10 * 1024 * 1024, 100)
+    handler := bodylimit.Wrap(router.NewMux())
+    status, _ := do(handler, "POST", "/api/town", map of string to any{"townName": "TestTown"})
+    test.AssertEqual(t, status, 200)
+
+func TestLargeRequestRejected(t: reference testing.T)
+    setupLimits(100, 100)
+    handler := bodylimit.Wrap(router.NewMux())
+    big := ""
+    for _ from 0 to 200
+        big = big + "x"
+    status, _ := do(handler, "POST", "/api/town", map of string to any{"data": big})
+    test.AssertEqual(t, status, 413)
+
+# ── Batch Operations Cap ──────────────────────────────────────────
+
+func TestBatchWithinLimitAccepted(t: reference testing.T)
+    setupLimits(10 * 1024 * 1024, 100)
+    handler := bodylimit.Wrap(router.NewMux())
+    ops := list of any{}
+    for i from 0 to 5
+        ops = append(ops, buildOp(i))
+    status, _ := do(handler, "POST", "/api/batch/operations", map of string to any{
+        "operations": ops,
+    })
+    test.AssertEqual(t, status, 200)
+
+func TestBatchExceedsLimitRejected(t: reference testing.T)
+    setupLimits(10 * 1024 * 1024, 100)
+    handler := bodylimit.Wrap(router.NewMux())
+    ops := list of any{}
+    for i from 0 to 101
+        ops = append(ops, buildOp(i))
+    status, _ := do(handler, "POST", "/api/batch/operations", map of string to any{
+        "operations": ops,
+    })
+    test.AssertEqual(t, status, 400)
+
+func TestBatchAtLimitAccepted(t: reference testing.T)
+    setupLimits(10 * 1024 * 1024, 100)
+    handler := bodylimit.Wrap(router.NewMux())
+    ops := list of any{}
+    for i from 0 to 100
+        ops = append(ops, buildOp(i))
+    status, _ := do(handler, "POST", "/api/batch/operations", map of string to any{
+        "operations": ops,
+    })
+    test.AssertNotEqual(t, status, 400)

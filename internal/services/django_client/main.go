@@ -164,13 +164,23 @@ func SearchTownByName(townName string) (int, bool, error) {
 		resp.Body.Close()
 		return 0, false, fmt.Errorf("django returned status %v", resp.StatusCode)
 	}
-	data, derr := decodeJSON(resp)
-	if derr != nil {
-		return 0, false, derr
+	defer resp.Body.Close()
+	raw, rerr := io.ReadAll(resp.Body)
+	if rerr != nil {
+		return 0, false, rerr
 	}
 	var results []any
-	if arr, ok := data["results"].([]any); ok {
+	var parsedAny any
+	perr := json.ParseInto(raw, &parsedAny)
+	if perr != nil {
+		return 0, false, perr
+	}
+	if arr, ok := parsedAny.([]any); ok {
 		results = arr
+	} else if data, ok := parsedAny.(map[string]any); ok {
+		if arr, aok := data["results"].([]any); aok {
+			results = arr
+		}
 	}
 	if (results == nil) || (len(results) == 0) {
 		log.Info(fmt.Sprintf("No town found with name '%v'", townName))

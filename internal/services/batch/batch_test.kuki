@@ -1,0 +1,136 @@
+petiole batch_test
+
+import "testing"
+import "stdlib/test"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/services/batch"
+import "github.com/duber000/town-builder/internal/storage"
+
+func setupBatch()
+    s := reference of config.Settings{
+        DisableJwtAuth:           true,
+        Environment:              "development",
+        MaxRequestBodyBytes:      10 * 1024 * 1024,
+        MaxSseConnectionsPerUser: 3,
+        MaxBatchOperations:       100,
+    }
+    config.SetForTest(s)
+    storage.SetClient(empty)
+    storage.ResetMemory()
+    initial := map of string to any{
+        "buildings": list of any{
+            map of string to any{
+                "id":       "bld-1",
+                "model":    "house.glb",
+                "category": "buildings",
+                "position": map of string to any{"x": 0.0, "y": 0.0, "z": 0.0},
+            },
+            map of string to any{
+                "id":       "bld-2",
+                "model":    "shop.glb",
+                "category": "buildings",
+                "position": map of string to any{"x": 10.0, "y": 0.0, "z": 10.0},
+            },
+        },
+        "vehicles": list of any{},
+        "trees":    list of any{},
+        "props":    list of any{},
+        "street":   list of any{},
+        "park":     list of any{},
+        "terrain":  list of any{},
+        "roads":    list of any{},
+    }
+    storage.Set(initial) onerr discard
+
+func TestBatchCreateAddsObject(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op":       "create",
+            "category": "vehicles",
+            "data": map of string to any{
+                "model":    "car.glb",
+                "category": "vehicles",
+                "position": map of string to any{"x": 0.0, "y": 0.0, "z": 0.0},
+            },
+        },
+    }
+    results, ok, failed := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, ok, 1)
+    test.AssertEqual(t, failed, 0)
+    success, _ := results[0]["success"].(bool)
+    test.AssertTrue(t, success)
+    data, _ := storage.Get()
+    vehicles, _ := data["vehicles"].(list of any)
+    test.AssertEqual(t, len(vehicles), 1)
+
+func TestBatchCreateMissingCategoryFails(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op": "create",
+            "data": map of string to any{"model": "car.glb"},
+        },
+    }
+    _, _, failed := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, failed, 1)
+
+func TestBatchDeleteById(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op":       "delete",
+            "category": "buildings",
+            "id":       "bld-1",
+        },
+    }
+    _, ok, _ := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, ok, 1)
+    data, _ := storage.Get()
+    buildings, _ := data["buildings"].(list of any)
+    test.AssertEqual(t, len(buildings), 1)
+    first, _ := buildings[0].(map of string to any)
+    test.AssertEqual(t, first["id"], "bld-2")
+
+func TestBatchDeleteNonexistentFails(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op":       "delete",
+            "category": "buildings",
+            "id":       "nonexistent",
+        },
+    }
+    _, _, failed := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, failed, 1)
+
+func TestBatchEditPosition(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op":       "edit",
+            "category": "buildings",
+            "id":       "bld-1",
+            "position": map of string to any{"x": 99.0, "y": 0.0, "z": 99.0},
+        },
+    }
+    _, ok, _ := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, ok, 1)
+    data, _ := storage.Get()
+    buildings, _ := data["buildings"].(list of any)
+    first, _ := buildings[0].(map of string to any)
+    pos, _ := first["position"].(map of string to any)
+    test.AssertEqual(t, pos["x"], 99.0)
+
+func TestBatchUnknownOpFails(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op":       "teleport",
+            "category": "buildings",
+            "id":       "bld-1",
+        },
+    }
+    _, _, failed := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, failed, 1)

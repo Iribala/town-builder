@@ -1,0 +1,176 @@
+petiole security_test
+
+import "testing"
+import "stdlib/string" as strpkg
+import "stdlib/test"
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/utils/security"
+
+func setup()
+    s := reference of config.Settings{
+        AllowedDomains:    "localhost,127.0.0.1",
+        AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
+    }
+    config.SetForTest(s)
+
+# ── ValidateApiURL ────────────────────────────────────────────────
+
+func TestApiUrlLocalhostAllowed(t: reference testing.T)
+    setup()
+    test.AssertTrue(t, security.ValidateApiURL("http://localhost:8000/api/towns/"))
+
+func TestApiUrl127Allowed(t: reference testing.T)
+    setup()
+    test.AssertTrue(t, security.ValidateApiURL("http://127.0.0.1:8000/api/towns/"))
+
+func TestApiUrlSubdomainMatches(t: reference testing.T)
+    setup()
+    test.AssertTrue(t, security.ValidateApiURL("http://api.localhost:8000/api/"))
+
+func TestApiUrlExternalRejected(t: reference testing.T)
+    setup()
+    test.AssertFalse(t, security.ValidateApiURL("http://evil.com/api/"))
+
+func TestApiUrlEmptyRejected(t: reference testing.T)
+    setup()
+    test.AssertFalse(t, security.ValidateApiURL(""))
+
+func TestApiUrlNoHostnameRejected(t: reference testing.T)
+    setup()
+    test.AssertFalse(t, security.ValidateApiURL("not-a-url"))
+
+func TestApiUrlPartialMatchRejected(t: reference testing.T)
+    setup()
+    test.AssertFalse(t, security.ValidateApiURL("http://malicious-localhost.com/"))
+
+# ── ValidateProxyPath ─────────────────────────────────────────────
+
+func TestProxyEmptyPath(t: reference testing.T)
+    result, err := security.ValidateProxyPath("")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, result, "")
+
+func TestProxyNumericId(t: reference testing.T)
+    result, err := security.ValidateProxyPath("42/")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, result, "42/")
+
+func TestProxyLeadingSlashStripped(t: reference testing.T)
+    result, err := security.ValidateProxyPath("/42/")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, result, "42/")
+
+func TestProxyNestedPath(t: reference testing.T)
+    result, err := security.ValidateProxyPath("42/layout/")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, result, "42/layout/")
+
+func TestProxySchemeRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("http://evil.com/")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "scheme"))
+
+func TestProxyAtSignRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("user@evil.com/")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "@"))
+
+func TestProxyParentTraversalRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("../../other-api/")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), ".."))
+
+func TestProxyDoubleSlashRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("//evil.com/steal")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "//"))
+
+func TestProxyEncodedDotRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("%2e%2e/secret")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "encoded"))
+
+func TestProxyEncodedSlashRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("secret%2fpath")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "encoded"))
+
+func TestProxyBackslashRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("secret\\path")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "backslash"))
+
+func TestProxyNullByteRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("42/\x00")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "null"))
+
+func TestProxyEncodedBackslashRejected(t: reference testing.T)
+    _, err := security.ValidateProxyPath("secret%5cpath")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "encoded"))
+
+func TestProxyCombinedTraversalEncoded(t: reference testing.T)
+    _, err := security.ValidateProxyPath("..%2f..%2fetc/passwd")
+    test.AssertError(t, err)
+
+# ── ValidateFilename ──────────────────────────────────────────────
+
+func TestFilenameClean(t: reference testing.T)
+    out, err := security.ValidateFilename("town_data.json", list of string{})
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, out, "town_data.json")
+
+func TestFilenameAlphanumericDotsDashes(t: reference testing.T)
+    out, err := security.ValidateFilename("my-town_v2.json", list of string{})
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, out, "my-town_v2.json")
+
+func TestFilenameTraversalRejected(t: reference testing.T)
+    _, err := security.ValidateFilename("../etc/passwd", list of string{})
+    test.AssertError(t, err)
+
+func TestFilenameForwardSlashRejected(t: reference testing.T)
+    _, err := security.ValidateFilename("path/file.json", list of string{})
+    test.AssertError(t, err)
+
+func TestFilenameBackslashRejected(t: reference testing.T)
+    _, err := security.ValidateFilename("path\\file.json", list of string{})
+    test.AssertError(t, err)
+
+func TestFilenameNullBytesRejected(t: reference testing.T)
+    _, err := security.ValidateFilename("file\x00.json", list of string{})
+    test.AssertError(t, err)
+
+func TestFilenameEmptyRejected(t: reference testing.T)
+    _, err := security.ValidateFilename("", list of string{})
+    test.AssertError(t, err)
+
+func TestFilenameSpecialCharsRejected(t: reference testing.T)
+    _, err := security.ValidateFilename("file name.json", list of string{})
+    test.AssertError(t, err)
+
+func TestFilenameExtensionAllowed(t: reference testing.T)
+    out, err := security.ValidateFilename("data.json", list of string{".json"})
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, out, "data.json")
+
+func TestFilenameExtensionRejected(t: reference testing.T)
+    _, err := security.ValidateFilename("data.exe", list of string{".json"})
+    test.AssertError(t, err)
+
+# ── ValidateModelPath ─────────────────────────────────────────────
+
+func TestModelPathClean(t: reference testing.T)
+    cat, name, err := security.ValidateModelPath("buildings", "house.glb")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, cat, "buildings")
+    test.AssertEqual(t, name, "house.glb")
+
+func TestModelPathCategoryTraversalRejected(t: reference testing.T)
+    _, _, err := security.ValidateModelPath("../etc", "house.glb")
+    test.AssertError(t, err)
+
+func TestModelPathModelTraversalRejected(t: reference testing.T)
+    _, _, err := security.ValidateModelPath("buildings", "../secret.glb")
+    test.AssertError(t, err)

@@ -1,0 +1,130 @@
+petiole proxy_test
+
+import "testing"
+import "stdlib/json"
+import "stdlib/test"
+import "bytes"
+import "io"
+import "net/http"
+import "net/http/httptest"
+
+import "github.com/duber000/town-builder/internal/config"
+import "github.com/duber000/town-builder/internal/routes/router"
+import "github.com/duber000/town-builder/internal/storage"
+
+func setup(djangoURL: string)
+    s := reference of config.Settings{
+        ApiURL:                   djangoURL,
+        ApiToken:                 "test-token",
+        DisableJwtAuth:           true,
+        Environment:              "development",
+        AllowedDomains:           "localhost,127.0.0.1",
+        AllowedApiDomains:        list of string{"localhost", "127.0.0.1"},
+        DataPath:                 "./data",
+        StaticPath:               "./static",
+        TemplatesPath:            "./templates",
+        ModelsPath:               "./static/models",
+        MaxRequestBodyBytes:      10 * 1024 * 1024,
+        MaxSseConnectionsPerUser: 3,
+    }
+    config.SetForTest(s)
+    storage.SetClient(empty)
+    storage.ResetMemory()
+
+func do(mux: reference http.ServeMux, method: string, path: string, body: map of string to any) (int, list of byte)
+    var reader io.Reader
+    if body isnt empty
+        data, err := json.Bytes(body)
+        if err isnt empty
+            return 0, empty
+        reader = bytes.NewReader(data)
+    req := httptest.NewRequest(method, path, reader)
+    req.Header.Set("Content-Type", "application/json")
+    rec := httptest.NewRecorder()
+    mux.ServeHTTP(rec, req)
+    resp := rec.Result()
+    raw, _ := io.ReadAll(resp.Body)
+    return resp.StatusCode, raw
+
+func TestProxyGetForwards(t: reference testing.T)
+    var called bool
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        called = true
+        w.WriteHeader(200)
+        w.Write(`[{"id": 1, "name": "Springfield"}]` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := router.NewMux()
+    status, _ := do(mux, "GET", "/api/proxy/towns/", empty)
+    test.AssertEqual(t, status, 200)
+    test.AssertTrue(t, called)
+
+func TestProxyGetWithPath(t: reference testing.T)
+    var seenPath string
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        seenPath = r.URL.Path
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := router.NewMux()
+    status, _ := do(mux, "GET", "/api/proxy/towns/42/", empty)
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, seenPath, "/42/")
+
+func TestProxyPostForwardsBody(t: reference testing.T)
+    var called bool
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        called = true
+        w.WriteHeader(201)
+        w.Write(`{"id": 1}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := router.NewMux()
+    status, _ := do(mux, "POST", "/api/proxy/towns", map of string to any{"name": "Test"})
+    test.AssertEqual(t, status, 201)
+    test.AssertTrue(t, called)
+
+func TestProxyPatchWithPath(t: reference testing.T)
+    var seenMethod string
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        seenMethod = r.Method
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := router.NewMux()
+    status, _ := do(mux, "PATCH", "/api/proxy/towns/42/", map of string to any{
+        "layout_data": map of string to any{"buildings": list of any{}},
+    })
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, seenMethod, "PATCH")
+
+func TestProxyPreservesStatusCode(t: reference testing.T)
+    srv := httptest.NewServer(http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(404)
+        w.Write(`{"detail": "Not found."}` as list of byte) onerr discard
+    ))
+    defer srv.Close()
+    setup(srv.URL + "/")
+    mux := router.NewMux()
+    status, _ := do(mux, "GET", "/api/proxy/towns/999/", empty)
+    test.AssertEqual(t, status, 404)
+
+# ── SSRF protection ─────────────────────────────────────────────
+
+func TestProxyAuthorityInPathRejected(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := router.NewMux()
+    status, _ := do(mux, "GET", "/api/proxy/towns/user@evil.com/", empty)
+    test.AssertEqual(t, status, 400)
+
+func TestProxyEncodedTraversalRejected(t: reference testing.T)
+    setup("http://localhost:8000/api/towns/")
+    mux := router.NewMux()
+    status, _ := do(mux, "GET", "/api/proxy/towns/%2e%2e/secret", empty)
+    test.AssertEqual(t, status, 400)

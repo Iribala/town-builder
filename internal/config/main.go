@@ -58,3 +58,7 @@ func Load() (*Settings, error) {
 func Current() *Settings {
 	return current
 }
+
+func SetForTest(s *Settings) {
+	current = s
+}

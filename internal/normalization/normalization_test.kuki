@@ -1,0 +1,195 @@
+petiole normalization_test
+
+import "testing"
+import "stdlib/test"
+import "github.com/duber000/town-builder/internal/normalization"
+
+func sampleDict() map of string to any
+    return map of string to any{
+        "buildings": list of any{
+            map of string to any{
+                "id":       "bld-001",
+                "model":    "house.glb",
+                "category": "buildings",
+                "position": map of string to any{"x": 10.0, "y": 0.0, "z": 5.0},
+                "rotation": map of string to any{"x": 0.0, "y": 1.57, "z": 0.0},
+                "scale":    map of string to any{"x": 1.0, "y": 1.0, "z": 1.0},
+            },
+        },
+        "vehicles": list of any{},
+        "trees":    list of any{},
+        "props":    list of any{},
+        "street":   list of any{},
+        "park":     list of any{},
+        "terrain":  list of any{},
+        "roads":    list of any{},
+        "townName": "Springfield",
+    }
+
+func sampleArray() list of any
+    return list of any{
+        map of string to any{
+            "category": "buildings",
+            "model":    "house.glb",
+            "position": list of any{10, 0, 5},
+            "rotation": list of any{0, 1.57, 0},
+            "scale":    list of any{1, 1, 1},
+        },
+        map of string to any{
+            "category": "vehicles",
+            "model":    "car.glb",
+            "position": list of any{20, 0, 15},
+            "rotation": list of any{0, 0, 0},
+            "scale":    list of any{1, 1, 1},
+        },
+    }
+
+func TestCanonicalDictPassthrough(t: reference testing.T)
+    result := normalization.Normalize(sampleDict())
+    buildings, _ := result["buildings"].(list of map of string to any)
+    test.AssertEqual(t, len(buildings), 1)
+    bld := buildings[0]
+    test.AssertEqual(t, bld["model"], "house.glb")
+    pos, _ := bld["position"].(normalization.Vec3)
+    test.AssertEqual(t, pos["x"], 10.0)
+    test.AssertEqual(t, pos["y"], 0.0)
+    test.AssertEqual(t, pos["z"], 5.0)
+    rot, _ := bld["rotation"].(normalization.Vec3)
+    test.AssertEqual(t, rot["y"], 1.57)
+    scale, _ := bld["scale"].(normalization.Vec3)
+    test.AssertEqual(t, scale["x"], 1.0)
+
+func TestAllCategoriesPresent(t: reference testing.T)
+    result := normalization.Normalize(sampleDict())
+    for cat in normalization.Categories
+        _, present := result[cat]
+        test.AssertTrue(t, present)
+
+func TestExtraTopLevelKeysPreserved(t: reference testing.T)
+    data := sampleDict()
+    data["customField"] = "custom_value"
+    data["version"] = 2
+    result := normalization.Normalize(data)
+    test.AssertEqual(t, result["townName"], "Springfield")
+    test.AssertEqual(t, result["customField"], "custom_value")
+    test.AssertEqual(t, result["version"], 2)
+
+func TestEmptyDictReturnsEmptyCategories(t: reference testing.T)
+    result := normalization.Normalize(map of string to any{})
+    for cat in normalization.Categories
+        items, ok := result[cat].(list of map of string to any)
+        test.AssertTrue(t, ok)
+        test.AssertEqual(t, len(items), 0)
+
+func TestArrayToDictConversion(t: reference testing.T)
+    result := normalization.Normalize(sampleArray())
+    buildings, _ := result["buildings"].(list of map of string to any)
+    vehicles, _ := result["vehicles"].(list of map of string to any)
+    test.AssertEqual(t, len(buildings), 1)
+    test.AssertEqual(t, len(vehicles), 1)
+    test.AssertEqual(t, buildings[0]["model"], "house.glb")
+    test.AssertEqual(t, vehicles[0]["model"], "car.glb")
+
+func TestUnknownCategoriesIgnored(t: reference testing.T)
+    data := list of any{
+        map of string to any{
+            "category": "dragons",
+            "model":    "dragon.glb",
+            "position": list of any{0, 0, 0},
+        },
+    }
+    result := normalization.Normalize(data)
+    for cat in normalization.Categories
+        items, _ := result[cat].(list of map of string to any)
+        test.AssertEqual(t, len(items), 0)
+
+func TestNonDictItemsSkipped(t: reference testing.T)
+    data := list of any{
+        map of string to any{"category": "buildings", "model": "house.glb"},
+        "not a dict",
+        42,
+        empty,
+    }
+    result := normalization.Normalize(data)
+    buildings, _ := result["buildings"].(list of map of string to any)
+    test.AssertEqual(t, len(buildings), 1)
+
+func TestPositionArrayToDict(t: reference testing.T)
+    data := map of string to any{
+        "buildings": list of any{
+            map of string to any{
+                "model":    "h.glb",
+                "position": list of any{1, 2, 3},
+            },
+        },
+    }
+    result := normalization.Normalize(data)
+    buildings, _ := result["buildings"].(list of map of string to any)
+    pos, _ := buildings[0]["position"].(normalization.Vec3)
+    test.AssertEqual(t, pos["x"], 1.0)
+    test.AssertEqual(t, pos["y"], 2.0)
+    test.AssertEqual(t, pos["z"], 3.0)
+
+func TestPositionDictPreserved(t: reference testing.T)
+    data := map of string to any{
+        "buildings": list of any{
+            map of string to any{
+                "model":    "h.glb",
+                "position": map of string to any{"x": 5, "y": 6, "z": 7},
+            },
+        },
+    }
+    result := normalization.Normalize(data)
+    buildings, _ := result["buildings"].(list of map of string to any)
+    pos, _ := buildings[0]["position"].(normalization.Vec3)
+    test.AssertEqual(t, pos["x"], 5.0)
+    test.AssertEqual(t, pos["y"], 6.0)
+    test.AssertEqual(t, pos["z"], 7.0)
+
+func TestMissingPositionDefaultsZero(t: reference testing.T)
+    data := map of string to any{
+        "buildings": list of any{map of string to any{"model": "h.glb"}},
+    }
+    result := normalization.Normalize(data)
+    buildings, _ := result["buildings"].(list of map of string to any)
+    pos, _ := buildings[0]["position"].(normalization.Vec3)
+    test.AssertEqual(t, pos["x"], 0.0)
+    test.AssertEqual(t, pos["y"], 0.0)
+    test.AssertEqual(t, pos["z"], 0.0)
+
+func TestMissingScaleDefaultsOne(t: reference testing.T)
+    data := map of string to any{
+        "buildings": list of any{map of string to any{"model": "h.glb"}},
+    }
+    result := normalization.Normalize(data)
+    buildings, _ := result["buildings"].(list of map of string to any)
+    scale, _ := buildings[0]["scale"].(normalization.Vec3)
+    test.AssertEqual(t, scale["x"], 1.0)
+    test.AssertEqual(t, scale["y"], 1.0)
+    test.AssertEqual(t, scale["z"], 1.0)
+
+func TestModelNameNormalizedToModel(t: reference testing.T)
+    data := map of string to any{
+        "buildings": list of any{map of string to any{"modelName": "house.glb"}},
+    }
+    result := normalization.Normalize(data)
+    buildings, _ := result["buildings"].(list of map of string to any)
+    test.AssertEqual(t, buildings[0]["model"], "house.glb")
+
+func TestNoneReturnsEmpty(t: reference testing.T)
+    result := normalization.Normalize(empty)
+    for cat in normalization.Categories
+        items, _ := result[cat].(list of map of string to any)
+        test.AssertEqual(t, len(items), 0)
+
+func TestIntReturnsEmpty(t: reference testing.T)
+    result := normalization.Normalize(42)
+    for cat in normalization.Categories
+        items, _ := result[cat].(list of map of string to any)
+        test.AssertEqual(t, len(items), 0)
+
+func TestStringReturnsEmpty(t: reference testing.T)
+    result := normalization.Normalize("not valid")
+    for cat in normalization.Categories
+        items, _ := result[cat].(list of map of string to any)
+        test.AssertEqual(t, len(items), 0)
