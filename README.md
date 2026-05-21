@@ -5,10 +5,9 @@ A web-based 3D town building application with real-time multiplayer collaboratio
 ## Quick Start
 
 ### Prerequisites
-- Python 3.14+
-- Go 1.26+ (for WASM builds)
+- Go 1.26+
 - Redis (for multiplayer)
-- [uv](https://github.com/astral-sh/uv) (recommended)
+- [Kukicha](https://github.com/kukichalang/kukicha) (only if editing `.kuki` sources — brewed `.go` files are committed)
 
 ### Installation
 ```bash
@@ -16,8 +15,8 @@ A web-based 3D town building application with real-time multiplayer collaboratio
 git clone https://github.com/your-repo/town-builder.git
 cd town-builder
 
-# Install dependencies
-uv sync
+# Sync Go modules
+go mod download
 
 # Make scripts executable
 chmod +x scripts/*.sh
@@ -31,24 +30,24 @@ chmod +x scripts/*.sh
 **Development mode:**
 ```bash
 ./scripts/dev.sh
+# or directly: go run ./cmd/server
 ```
 - Starts server on http://127.0.0.1:5001
-- Auto-reload on code changes
 - Default CORS for localhost
 
 **Production mode:**
 ```bash
 ./scripts/prod.sh
 ```
-- Starts server on http://127.0.0.1:5000
-- Uses Gunicorn with gevent workers
+- Builds `bin/town-server` (with `-ldflags="-s -w"`) and execs it
+- Listens on http://127.0.0.1:5001
 - Requires proper JWT configuration
 
 ## Features
 
 - **3D Town Building**: Drag-and-drop buildings, street pieces, trees, and props
 - **Real-time Multiplayer**: Collaborate with others using Server-Sent Events
-- **Physics Engine**: Go WASM for high-performance collision detection and car physics
+- **Physics Engine**: Kukicha WASM for high-performance collision detection and car physics
 - **Multiple Modes**: Place, Edit, Delete, and Drive modes
 - **Save/Load**: Persist your town layouts
 - **Mobile Controls**: Touch-friendly interface
@@ -83,7 +82,7 @@ The `scripts/` directory contains helpful utilities:
 
 - `setup.sh` - Initial setup and dependency check
 - `dev.sh` - Start development server
-- `prod.sh` - Start production server
+- `prod.sh` - Build and start production server
 - `check-health.sh` - System health diagnostics
 - `clean.sh` - Clean build artifacts
 
@@ -105,14 +104,16 @@ See `scripts/README.md` for detailed usage.
 
 ## Architecture
 
-- **Backend**: FastAPI (Python 3.14+) with Redis
+- **Backend**: Kukicha (transpiled to Go) with Redis — `net/http.ServeMux` + Go 1.22 method patterns
 - **Frontend**: Three.js with vanilla JavaScript
-- **Physics**: Go WASM (spatial grid, collision detection, car physics)
+- **Physics**: Kukicha WASM (spatial grid, collision detection, car physics)
 - **Multiplayer**: Server-Sent Events + Redis Pub/Sub
+
+Sources live in `*.kuki` files under `cmd/` and `internal/`; brewed `.go` files are committed alongside so `go test` / `go build` work without a Kukicha toolchain.
 
 ## Deployment
 
-- **Docker**: Production-ready container
+- **Docker**: Container build (see `Dockerfile`)
 - **Kubernetes**: Full deployment manifests in `k8s/`
 - **Valkey/Redis**: Required for multiplayer state
 
@@ -120,19 +121,24 @@ See `docs/ARCHITECTURE.md` for technical details.
 
 ## Development
 
+### Running Tests
+```bash
+go test ./...
+```
+
 ### Building WASM Modules
 ```bash
+# Edit physics_wasm.kuki, then:
+kukicha brew --stdout physics_wasm.kuki > physics_wasm.go
+sed -i 's|^//go:build ignore$|//go:build js \&\& wasm|' physics_wasm.go
 ./build_wasm.sh
 ```
 Outputs `static/wasm/physics_greentea.wasm`.
 
-### Running Tests
+### Other tools
 ```bash
-# Check system health
-./scripts/check-health.sh
-
-# Clean artifacts
-./scripts/clean.sh
+./scripts/check-health.sh   # System health diagnostics
+./scripts/clean.sh          # Clean build artifacts and Go caches
 ```
 
 ## License

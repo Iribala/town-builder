@@ -7,23 +7,24 @@ This directory contains helper scripts for common development and deployment tas
 ### `setup.sh`
 **Initial project setup**
 
-Sets up the development environment by checking prerequisites, installing dependencies, and creating configuration files.
+Sets up the development environment by checking prerequisites, syncing Go modules, and creating configuration files.
 
 ```bash
 ./scripts/setup.sh
 ```
 
 What it does:
-- Checks Python and Go versions
-- Checks Redis installation
-- Installs Python dependencies (using uv or pip)
-- Creates .env file from template
+- Checks Go version (1.26+ required)
+- Checks Kukicha (optional — only needed for editing `.kuki` sources)
+- Checks Redis installation and status
+- Runs `go mod download`
+- Creates .env from template
 - Creates data directory
 
 ### `dev.sh`
 **Start development server**
 
-Starts the FastAPI development server with auto-reload on port 5001.
+Starts the Kukicha backend on port 5001 via `go run`.
 
 ```bash
 ./scripts/dev.sh
@@ -32,13 +33,13 @@ Starts the FastAPI development server with auto-reload on port 5001.
 Features:
 - Auto-creates .env if missing
 - Checks for Redis connection
-- Starts uvicorn with --reload flag
+- Execs `go run ./cmd/server`
 - Accessible at http://127.0.0.1:5001/
 
 ### `prod.sh`
 **Start production server**
 
-Starts the production server using Gunicorn with gevent workers on port 5000.
+Builds an optimized binary and execs it on port 5001.
 
 ```bash
 ./scripts/prod.sh
@@ -49,7 +50,11 @@ Safety checks:
 - Checks JWT_SECRET_KEY is not default
 - Warns if JWT auth is disabled
 - Ensures Redis is running
-- Verifies Gunicorn is installed
+- Verifies Go toolchain is available
+
+What it does:
+- `go build -ldflags="-s -w" -o bin/town-server ./cmd/server`
+- `exec ./bin/town-server`
 
 ### `check-health.sh`
 **System health check**
@@ -77,8 +82,9 @@ Removes generated files and caches.
 ```
 
 Cleans:
-- Python cache files (__pycache__, *.pyc)
-- Build artifacts (build/, dist/)
+- Go build and test caches (`go clean -cache -testcache`)
+- Compiled binary (`bin/`)
+- Extracted Kukicha stdlib (`.kukicha/` — re-extracted by `kukicha init`)
 - Optional: WASM builds (commented out)
 - Optional: Saved towns (commented out, requires confirmation)
 
@@ -130,16 +136,18 @@ cat .env
 # Check health
 ./scripts/check-health.sh
 
-# Start production server
+# Build & start production server
 ./scripts/prod.sh
 ```
 
 ### Maintenance
 ```bash
-# Clean cache files
+# Clean cache files and compiled binary
 ./scripts/clean.sh
 
-# Rebuild WASM (if Go code changed)
+# Rebuild WASM (if physics_wasm.kuki changed)
+kukicha brew --stdout physics_wasm.kuki > physics_wasm.go
+sed -i 's|^//go:build ignore$|//go:build js \&\& wasm|' physics_wasm.go
 ./build_wasm.sh
 
 # Check system health
@@ -160,7 +168,7 @@ See `.claude/commands/` for more Claude Code slash commands.
 
 - All scripts use `set -e` to exit on first error
 - Scripts check for common issues before starting
-- Production scripts have additional security checks
+- `prod.sh` has additional security checks (JWT key, Redis, .env presence)
 - Health check script provides detailed diagnostics
 
 ## Troubleshooting
@@ -177,10 +185,8 @@ redis-server &
 
 **Port already in use:**
 ```bash
-# Check what's using the port
+# Check what's using port 5001
 lsof -i :5001
-# or
-lsof -i :5000
 
 # Kill the process
 kill -9 <PID>
@@ -191,6 +197,6 @@ kill -9 <PID>
 # Re-run setup
 ./scripts/setup.sh
 
-# Or manually install
-uv sync
+# Or manually
+go mod download
 ```
