@@ -1,0 +1,494 @@
+petiole main
+
+import "fmt"
+import "math"
+import "slices"
+import "syscall/js"
+
+# ============================================================================
+# Data Structures
+# ============================================================================
+
+type BoundingBox
+    MinX float64
+    MinY float64
+    MaxX float64
+    MaxY float64
+
+type CategoryMask = uint32
+
+const CategoryUnknown  CategoryMask = 1
+const CategoryVehicle  CategoryMask = 2
+const CategoryBuilding CategoryMask = 4
+const CategoryTerrain  CategoryMask = 8
+const CategoryProp     CategoryMask = 16
+const CategoryRoad     CategoryMask = 32
+const CategoryTree     CategoryMask = 64
+const CategoryPark     CategoryMask = 128
+
+func categoryFromString(category: string) CategoryMask
+    switch category
+        when "vehicles"
+            return CategoryVehicle
+        when "buildings"
+            return CategoryBuilding
+        when "terrain"
+            return CategoryTerrain
+        when "props"
+            return CategoryProp
+        when "roads"
+            return CategoryRoad
+        when "trees"
+            return CategoryTree
+        when "park"
+            return CategoryPark
+    return CategoryUnknown
+
+type GameObject
+    ID           int
+    X            float64
+    Y            float64
+    BBox         BoundingBox
+    CategoryMask CategoryMask
+
+type GridKey
+    X int
+    Y int
+
+# ============================================================================
+# Spatial Grid
+# ============================================================================
+
+type SpatialGrid
+    cellSize float64
+    cells    map of GridKey to list of int
+
+func newSpatialGrid(cellSize: float64) reference SpatialGrid
+    return reference of SpatialGrid{
+        cellSize: cellSize,
+        cells:    make(map of GridKey to list of int, 256),
+    }
+
+func getCellKey(g: reference SpatialGrid, x: float64, y: float64) GridKey
+    return GridKey{
+        X: int(math.Floor(x / g.cellSize)),
+        Y: int(math.Floor(y / g.cellSize)),
+    }
+
+func getCellsForBBox(g: reference SpatialGrid, bbox: BoundingBox) list of GridKey
+    minKey := getCellKey(g, bbox.MinX, bbox.MinY)
+    maxKey := getCellKey(g, bbox.MaxX, bbox.MaxY)
+
+    cells := make(list of GridKey, 0, (maxKey.X - minKey.X + 1) * (maxKey.Y - minKey.Y + 1))
+
+    for x from minKey.X to maxKey.X + 1
+        for y from minKey.Y to maxKey.Y + 1
+            cells = append(cells, GridKey{X: x, Y: y})
+
+    return cells
+
+func gridInsert(g: reference SpatialGrid, id: int, bbox: BoundingBox)
+    cells := getCellsForBBox(g, bbox)
+    for cell in cells
+        g.cells[cell] = append(g.cells[cell], id)
+
+func gridRemove(g: reference SpatialGrid, id: int, bbox: BoundingBox)
+    cells := getCellsForBBox(g, bbox)
+    for cell in cells
+        objects := g.cells[cell]
+        i := slices.Index(objects, id)
+        if i >= 0
+            updated := slices.Delete(objects, i, i + 1)
+            if len(updated) equals 0
+                delete(g.cells, cell)
+            else
+                g.cells[cell] = updated
+
+func gridQuery(g: reference SpatialGrid, bbox: BoundingBox) list of int
+    cells := getCellsForBBox(g, bbox)
+    seen := make(map of int to bool, 16)
+    results := make(list of int, 0, 16)
+
+    for cell in cells
+        objects, exists := g.cells[cell]
+        if exists
+            for id in objects
+                if not seen[id]
+                    seen[id] = true
+                    results = append(results, id)
+
+    return results
+
+func gridClear(g: reference SpatialGrid)
+    g.cells = make(map of GridKey to list of int, 256)
+
+# ============================================================================
+# Collision Detection
+# ============================================================================
+
+func checkAABBCollision(a: BoundingBox, b: BoundingBox) bool
+    return a.MinX <= b.MaxX and a.MaxX >= b.MinX and a.MinY <= b.MaxY and a.MaxY >= b.MinY
+
+var spatialGrid = newSpatialGrid(10.0)
+var objectCache = make(map of int to GameObject, 256)
+
+# ============================================================================
+# WASM Exported Functions
+# ============================================================================
+
+func updateSpatialGrid(this: js.Value, args: list of js.Value) any
+    if len(args) < 1
+        return js.ValueOf(false)
+
+    objectsArray := args[0]
+    length := objectsArray.Length()
+
+    newGrid := newSpatialGrid(spatialGrid.cellSize)
+    newCache := make(map of int to GameObject, length)
+
+    for i from 0 to length
+        obj := objectsArray.Index(i)
+
+        id := obj.Get("id").Int()
+        x := obj.Get("x").Float()
+        y := obj.Get("y").Float()
+        category := obj.Get("category").String()
+
+        bboxJS := obj.Get("bbox")
+        bbox := BoundingBox{
+            MinX: bboxJS.Get("minX").Float(),
+            MinY: bboxJS.Get("minY").Float(),
+            MaxX: bboxJS.Get("maxX").Float(),
+            MaxY: bboxJS.Get("maxY").Float(),
+        }
+
+        gameObj := GameObject{
+            ID:           id,
+            X:            x,
+            Y:            y,
+            BBox:         bbox,
+            CategoryMask: categoryFromString(category),
+        }
+
+        newCache[id] = gameObj
+        gridInsert(newGrid, id, bbox)
+
+    objectCache = newCache
+    spatialGrid = newGrid
+
+    return js.ValueOf(true)
+
+func checkCollision(this: js.Value, args: list of js.Value) any
+    if len(args) < 2
+        return js.ValueOf(list of any{})
+
+    objID := args[0].Int()
+    bboxJS := args[1]
+
+    bbox := BoundingBox{
+        MinX: bboxJS.Get("minX").Float(),
+        MinY: bboxJS.Get("minY").Float(),
+        MaxX: bboxJS.Get("maxX").Float(),
+        MaxY: bboxJS.Get("maxY").Float(),
+    }
+
+    candidateIDs := gridQuery(spatialGrid, bbox)
+    collisions := make(list of any, 0, 8)
+
+    for candidateID in candidateIDs
+        if candidateID equals objID
+            continue
+        candidate, exists := objectCache[candidateID]
+        if exists and checkAABBCollision(bbox, candidate.BBox)
+            collisions = append(collisions, candidateID)
+
+    return js.ValueOf(collisions)
+
+func batchCheckCollisions(this: js.Value, args: list of js.Value) any
+    if len(args) < 1
+        return js.ValueOf(list of any{})
+
+    checksArray := args[0]
+    length := checksArray.Length()
+
+    results := make(list of any, length)
+
+    for i from 0 to length
+        check := checksArray.Index(i)
+        objID := check.Get("id").Int()
+        bboxJS := check.Get("bbox")
+
+        bbox := BoundingBox{
+            MinX: bboxJS.Get("minX").Float(),
+            MinY: bboxJS.Get("minY").Float(),
+            MaxX: bboxJS.Get("maxX").Float(),
+            MaxY: bboxJS.Get("maxY").Float(),
+        }
+
+        candidateIDs := gridQuery(spatialGrid, bbox)
+        collisions := make(list of any, 0, 8)
+
+        for candidateID in candidateIDs
+            if candidateID equals objID
+                continue
+            candidate, exists := objectCache[candidateID]
+            if exists and checkAABBCollision(bbox, candidate.BBox)
+                collisions = append(collisions, candidateID)
+
+        result := map of string to any{
+            "id":         objID,
+            "collisions": collisions,
+        }
+        results[i] = result
+
+    return js.ValueOf(results)
+
+func findNearestObject(this: js.Value, args: list of js.Value) any
+    if len(args) < 4
+        return js.ValueOf(empty)
+
+    x := args[0].Float()
+    y := args[1].Float()
+    targetCategory := args[2].String()
+    maxDistance := args[3].Float()
+
+    targetMask := categoryFromString(targetCategory)
+
+    searchRadius := spatialGrid.cellSize
+    if searchRadius > maxDistance
+        searchRadius = maxDistance
+
+    nearestID := 0
+    nearestDistSq := maxDistance * maxDistance
+    found := false
+
+    for searchRadius <= maxDistance
+        bbox := BoundingBox{
+            MinX: x - searchRadius,
+            MinY: y - searchRadius,
+            MaxX: x + searchRadius,
+            MaxY: y + searchRadius,
+        }
+
+        candidateIDs := gridQuery(spatialGrid, bbox)
+
+        for id in candidateIDs
+            obj, exists := objectCache[id]
+            if not exists or obj.CategoryMask isnt targetMask
+                continue
+
+            dx := obj.X - x
+            dy := obj.Y - y
+            distSq := dx * dx + dy * dy
+
+            if distSq < nearestDistSq
+                nearestDistSq = distSq
+                nearestID = id
+                found = true
+
+        if found
+            break
+
+        searchRadius = searchRadius * 2
+        if searchRadius > maxDistance
+            searchRadius = maxDistance
+        if searchRadius equals maxDistance and not found
+            finalBBox := BoundingBox{
+                MinX: x - maxDistance,
+                MinY: y - maxDistance,
+                MaxX: x + maxDistance,
+                MaxY: y + maxDistance,
+            }
+            finalCandidates := gridQuery(spatialGrid, finalBBox)
+            for id in finalCandidates
+                obj, exists := objectCache[id]
+                if not exists or obj.CategoryMask isnt targetMask
+                    continue
+                dx := obj.X - x
+                dy := obj.Y - y
+                distSq := dx * dx + dy * dy
+                if distSq < nearestDistSq
+                    nearestDistSq = distSq
+                    nearestID = id
+                    found = true
+            break
+
+    if not found
+        return js.ValueOf(empty)
+
+    result := map of string to any{
+        "id":       nearestID,
+        "distance": math.Sqrt(nearestDistSq),
+    }
+    return js.ValueOf(result)
+
+func findObjectsInRadius(this: js.Value, args: list of js.Value) any
+    if len(args) < 3
+        return js.ValueOf(list of any{})
+
+    x := args[0].Float()
+    y := args[1].Float()
+    radius := args[2].Float()
+
+    filterMask := CategoryUnknown
+    useFilter := false
+    if len(args) >= 4 and not args[3].IsNull() and not args[3].IsUndefined()
+        filterMask = categoryFromString(args[3].String())
+        useFilter = true
+
+    bbox := BoundingBox{
+        MinX: x - radius,
+        MinY: y - radius,
+        MaxX: x + radius,
+        MaxY: y + radius,
+    }
+
+    candidateIDs := gridQuery(spatialGrid, bbox)
+    results := make(list of any, 0, len(candidateIDs))
+    radiusSq := radius * radius
+
+    for id in candidateIDs
+        obj, exists := objectCache[id]
+        if not exists
+            continue
+
+        if useFilter and obj.CategoryMask isnt filterMask
+            continue
+
+        dx := obj.X - x
+        dy := obj.Y - y
+        distSq := dx * dx + dy * dy
+
+        if distSq <= radiusSq
+            result := map of string to any{
+                "id":       id,
+                "distance": math.Sqrt(distSq),
+            }
+            results = append(results, result)
+
+    return js.ValueOf(results)
+
+func getGridStats(this: js.Value, args: list of js.Value) any
+    cellCount := len(spatialGrid.cells)
+    totalObjects := 0
+
+    for _, objects in spatialGrid.cells
+        totalObjects = totalObjects + len(objects)
+
+    avgObjectsPerCell := 0.0
+    if cellCount > 0
+        avgObjectsPerCell = float64(totalObjects) / float64(cellCount)
+
+    result := map of string to any{
+        "cellCount":         cellCount,
+        "objectCount":       totalObjects,
+        "avgObjectsPerCell": avgObjectsPerCell,
+    }
+    return js.ValueOf(result)
+
+# ============================================================================
+# Car Physics
+# ============================================================================
+
+type CarState
+    X         float64
+    Z         float64
+    RotationY float64
+    VelocityX float64
+    VelocityZ float64
+
+func updateCarPhysics(this: js.Value, args: list of js.Value) any
+    if len(args) < 3
+        return js.ValueOf(empty)
+
+    ACCELERATION := 5.0
+    MAX_SPEED    := 20.0
+    FRICTION     := 0.02
+    BRAKE_POWER  := 10.0
+    ROTATE_SPEED := 4.0
+
+    carJS := args[0]
+    car := CarState{
+        X:         carJS.Get("x").Float(),
+        Z:         carJS.Get("z").Float(),
+        RotationY: carJS.Get("rotation_y").Float(),
+        VelocityX: carJS.Get("velocity_x").Float(),
+        VelocityZ: carJS.Get("velocity_z").Float(),
+    }
+
+    inputJS := args[1]
+    forward := inputJS.Get("forward").Bool()
+    backward := inputJS.Get("backward").Bool()
+    left := inputJS.Get("left").Bool()
+    right := inputJS.Get("right").Bool()
+
+    dt := args[2].Float()
+
+    if dt > 0.1
+        dt = 0.1
+
+    if left
+        car.RotationY = car.RotationY + ROTATE_SPEED * dt
+    if right
+        car.RotationY = car.RotationY - ROTATE_SPEED * dt
+
+    forwardX := math.Sin(car.RotationY)
+    forwardZ := math.Cos(car.RotationY)
+
+    if forward
+        car.VelocityX = car.VelocityX + forwardX * ACCELERATION * dt
+        car.VelocityZ = car.VelocityZ + forwardZ * ACCELERATION * dt
+
+    if backward
+        speed := math.Sqrt(car.VelocityX * car.VelocityX + car.VelocityZ * car.VelocityZ)
+        dot := car.VelocityX * forwardX + car.VelocityZ * forwardZ
+
+        if dot > 0.0 and speed > 0.0
+            car.VelocityX = car.VelocityX - (car.VelocityX / speed) * BRAKE_POWER * dt
+            car.VelocityZ = car.VelocityZ - (car.VelocityZ / speed) * BRAKE_POWER * dt
+        else
+            car.VelocityX = car.VelocityX - forwardX * ACCELERATION * dt
+            car.VelocityZ = car.VelocityZ - forwardZ * ACCELERATION * dt
+
+    frictionFactor := math.Pow(1.0 - FRICTION, dt * 60.0)
+    car.VelocityX = car.VelocityX * frictionFactor
+    car.VelocityZ = car.VelocityZ * frictionFactor
+
+    speed := math.Sqrt(car.VelocityX * car.VelocityX + car.VelocityZ * car.VelocityZ)
+    if speed > MAX_SPEED
+        car.VelocityX = (car.VelocityX / speed) * MAX_SPEED
+        car.VelocityZ = (car.VelocityZ / speed) * MAX_SPEED
+
+    if speed < 0.01
+        car.VelocityX = 0.0
+        car.VelocityZ = 0.0
+
+    car.X = car.X + car.VelocityX * dt
+    car.Z = car.Z + car.VelocityZ * dt
+
+    result := map of string to any{
+        "x":          car.X,
+        "z":          car.Z,
+        "rotation_y": car.RotationY,
+        "velocity_x": car.VelocityX,
+        "velocity_z": car.VelocityZ,
+    }
+    return js.ValueOf(result)
+
+# ============================================================================
+# Registration and Main
+# ============================================================================
+
+func registerCallbacks()
+    js.Global().Set("wasmUpdateSpatialGrid", js.FuncOf(updateSpatialGrid))
+    js.Global().Set("wasmCheckCollision", js.FuncOf(checkCollision))
+    js.Global().Set("wasmBatchCheckCollisions", js.FuncOf(batchCheckCollisions))
+    js.Global().Set("wasmFindNearestObject", js.FuncOf(findNearestObject))
+    js.Global().Set("wasmFindObjectsInRadius", js.FuncOf(findObjectsInRadius))
+    js.Global().Set("wasmUpdateCarPhysics", js.FuncOf(updateCarPhysics))
+    js.Global().Set("wasmGetGridStats", js.FuncOf(getGridStats))
+
+func main()
+    registerCallbacks()
+    fmt.Println("Physics WASM module loaded")
+    select{}
