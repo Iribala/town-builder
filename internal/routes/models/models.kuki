@@ -54,4 +54,4 @@ func fileExists(path: string) bool
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("GET /api/models", listModels)
-    mux.HandleFunc("GET /api/model/{category}/{model_name}", getModel)
+    mux.HandleFunc(`GET /api/model/{category}/{model_name}`, getModel)

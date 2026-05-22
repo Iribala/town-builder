@@ -224,7 +224,8 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
     results := list of map of string to any{}
     successful := 0
     failed := 0
-    townData, _ := storage.Get()
+    var townData map of string to any
+    townData, _ = storage.Get()
     originalTownData := deepCopy(townData)
 
     for op in operations

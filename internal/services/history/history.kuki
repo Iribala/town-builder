@@ -32,10 +32,10 @@ func maxSize() int
 func newCtx() ctxpkg.Handle
     return ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
 
-func appendCapped(stack: list of map of string to any, entry: map of string to any, cap: int) list of map of string to any
+func appendCapped(stack: list of map of string to any, entry: map of string to any, limit: int) list of map of string to any
     stack = append(stack, entry)
-    if len(stack) > cap
-        stack = stack[len(stack)-cap:]
+    if len(stack) > limit
+        stack = stack[len(stack)-limit:]
     return stack
 
 func AddEntry(operation: string, category: string, objectID: string, before: map of string to any, after: map of string to any) (string, error)

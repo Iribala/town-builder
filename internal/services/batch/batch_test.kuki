@@ -41,6 +41,7 @@ func setupBatch()
         "terrain":  list of any{},
         "roads":    list of any{},
     }
+    # kuki:returns 1
     storage.Set(initial) onerr discard
 
 func TestBatchCreateAddsObject(t: reference testing.T)
