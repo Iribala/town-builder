@@ -1,6 +1,12 @@
 # Kukicha — extracted by `kukicha init`, re-runnable
 .kukicha/
 
+# Kukicha transpiled output — sources are *.kuki, the Go is a build artifact
+cmd/**/main.go
+internal/**/main.go
+internal/**/*_test.go
+physics_wasm.go
+
 # Built binaries (scripts/prod.sh drops town-server here)
 bin/
 
