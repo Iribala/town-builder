@@ -967,49 +967,9 @@ func Execute() Result
 
 ---
 
-## Project-local gotchas (v0.19.3)
+## Project-local gotchas
 
-These are tripwires confirmed by hand in this codebase. See also https://github.com/kukichalang/kukicha/issues/115 and https://github.com/kukichalang/kukicha/issues/118.
-
-### Status of v0.19.0 reports (per maintainer reply on #115)
-
-- **Docs fixes landed in 2e43ce38:** multi-return signature requires `(T, error)`; map iteration semantics (`for k in m` = values, `for k, _ in m` = keys, `for k, v in m` = both); `# kuki:returns N` directive worked example.
-- **CLI fixes landed in ba52ad68:** `kukicha brew dir/` now also brews `*_test.kuki` → `*_test.go`; reserved-keyword identifier diagnostics now say `"<kw>" is a reserved keyword and cannot be used as an identifier` for `default`, `in`, `then`, `is`, `onerr`, `fallback`, `explain`, `petiole`, `import`, `defer`.
-- **The original "`for k, v in m` brews to `for k := range`" claim was wrong** — the actual behavior is that single-variable `for k in m` iterates *values* (Go-like, intentional, now warned about). My original repro confused "iterates values" with "wrong codegen".
-
-### Fixed in v0.19.2 / v0.19.3
-
-- **`list of T(x)`, `int64(x)`, `float64(x)` type conversions** now type-check and brew to valid Go. Both forms work; `x as T` is still the recommended idiom for readability.
-- **Float exponent literals (`1e308`, `1.5e10`)** parse correctly.
-- **Go 1.22+ `ServeMux` `{name}` path patterns** in string literals — now treated as literal placeholders (with a warning). `\{name\}` silences the warning if you want it gone.
-
-### Fixed in v0.19.4 (issue #119)
-
-- **Single-var `for x in slice`** brews correctly to `for _, x := range slice` (was previously `for x := range`, x = index).
-- **Method receivers with extra params**: `func M on r: T, w: W, r2: R` parses correctly — no longer requires the parenthesized `func M on r: T (w: W, r2: R)` form.
-- **Go-1.22 mux `/{$}` and `/{path...}` patterns**: plain string literals work without backslash-escaped braces.
-
-### Fixed in v0.19.5 (issue #125)
-
-- **`onerr return` in void functions** emits a bare `return` instead of erroring — no more sprinkling `onerr discard` through `http.HandlerFunc` bodies.
-- **Bare `func(w, r)` literals auto-wrap to `http.HandlerFunc`** when passed where `http.Handler` is expected (e.g. `httptest.NewServer(func(w, r) ...)`).
-- **Unused `i` in `for i from 0 to N`** is auto-rewritten to `_` — no need to manually use `_` when the index isn't referenced.
-
-### Fixed in v0.19.8
-
-- **Lambda return-type inference for multi-statement bodies** — `sort.Slice(xs, (i: int, j: int) => { a := xs[i]; b := xs[j]; return a < b })` now type-checks and compiles.
-- **`as` reserved-keyword diagnostic** — using `as` as an identifier now emits `"as" is a reserved keyword (the type-cast operator (\`x as T\`))…` instead of the old `unexpected token in expression: AS`.
-- **Two-var map iteration (`for k, v in m`) after a type-assertion** — now brews to correct Go and runs.
-
-### Fixed in v0.19.9
-
-- **`cast.IsNil(v: any) bool`** (#153) — canonical nil check for `any`-typed values. Use it instead of `v equals empty`, which silently misses typed-nil pointers wrapped in an interface. Drove deletion of this repo's old `internal/utils/nilcheck` helper.
-- **`stdlib/string.Compare`** (#152) — returns -1/0/1, mirrors Go's `strings.Compare`. Use for sort comparators instead of inline `<`/`>`.
-- **`kukicha check ./...` recursive expander** (#151) — sibling files with the same `petiole main` in different directories are now treated as independent packages. No more enumerating targets to dodge `function 'main' already declared`.
-- **`stdlib/test.AssertNil`/`AssertNotNil`** (#149) — now correctly handle typed-nil pointers wrapped in `any`. The `test.AssertTrue(t, x equals empty)` workaround is no longer needed.
-- **`json.Parse` typed form is now mandatory** (#150) — call as `json.Parse of T from data`. For decoding into an existing variable, `json.ParseInto(data, reference of target)` is unchanged.
-
-### Still active
+Tripwires confirmed by hand in this codebase against the current kukicha release.
 
 1. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
 
