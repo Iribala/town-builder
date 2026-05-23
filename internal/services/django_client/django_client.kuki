@@ -7,11 +7,13 @@ import "fmt"
 import "io"
 import "net/http"
 import "net/url"
-import "strings"
 import "time"
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/utils/security"
+import "stdlib/string" as strpkg
+
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
+import "github.com/Iribala/town-builder/internal/utils/security"
 
 type ProxyResponse
     StatusCode int
@@ -37,7 +39,7 @@ func getHeaders() map of string to string
     h := make(map of string to string)
     h["Content-Type"] = "application/json"
     s := config.Current()
-    if s isnt empty and strings.TrimSpace(s.ApiToken) isnt ""
+    if s isnt empty and strpkg.TrimSpace(s.ApiToken) isnt ""
         h["Authorization"] = "Token " + s.ApiToken
     return h
 
@@ -46,7 +48,7 @@ func GetBaseURL() (string, error)
     if s equals empty
         return "", error "config not loaded"
     baseURL := s.ApiURL
-    if not strings.HasSuffix(baseURL, "/")
+    if not strpkg.HasSuffix(baseURL, "/")
         baseURL = baseURL + "/"
     if not security.ValidateApiURL(baseURL)
         log.Error("API URL '{baseURL}' is not in the allowed domains list")
@@ -79,9 +81,9 @@ func PrepareDjangoPayload(requestPayload: map of string to any, normalizedTownDa
 
     for key in fieldsToPropagate
         value, ok := requestPayload[key]
-        if not ok or value equals empty
+        if not ok or nilcheck.IsNil(value)
             value, ok = currentLayoutData[key]
-        if ok and value isnt empty
+        if ok and not nilcheck.IsNil(value)
             payload[key] = value
     return payload
 
@@ -228,7 +230,7 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
     if not security.ValidateApiURL(fullURL)
         return empty, error "Constructed proxy URL is not allowed: {fullURL}"
 
-    methodLower := strings.ToLower(method)
+    methodLower := strpkg.ToLower(method)
     allowed := list of string{"get", "post", "put", "patch", "delete"}
     valid := false
     for m in allowed
@@ -243,14 +245,14 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
         for k, v in params
             qs.Set(k, v)
         sep := "?"
-        if strings.Contains(fullURL, "?")
+        if strpkg.Contains(fullURL, "?")
             sep = "&"
         fullURL = fullURL + sep + qs.Encode()
 
     var reader io.Reader
     if body isnt empty and len(body) > 0
         reader = bytes.NewReader(body)
-    req, rerr := http.NewRequest(strings.ToUpper(methodLower), fullURL, reader)
+    req, rerr := http.NewRequest(strpkg.ToUpper(methodLower), fullURL, reader)
     if rerr isnt empty
         return empty, rerr
     for k, v in headers

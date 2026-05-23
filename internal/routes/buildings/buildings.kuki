@@ -6,13 +6,14 @@ import "stdlib/crypto"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
-import "github.com/duber000/town-builder/internal/normalization"
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/town_helpers"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/normalization"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 func optMap(m: map of string to any, key: string) (map of string to any, bool)
-    if v, ok := m[key]; ok and v isnt empty
+    if v, ok := m[key]; ok and not nilcheck.IsNil(v)
         if mm, mok := v.(map of string to any); mok
             return mm, true
     return empty, false

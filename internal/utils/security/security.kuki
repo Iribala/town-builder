@@ -6,7 +6,7 @@ import "stdlib/string" as strpkg
 import "net/url"
 import "path/filepath"
 
-import "github.com/duber000/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/config"
 
 var safeNameRe = regex.MustCompile("^[a-zA-Z0-9._-]+$")
 var safePathRe = regex.MustCompile("^[a-zA-Z0-9_.~:/?#\\[\\]=&+,;%-]*$")

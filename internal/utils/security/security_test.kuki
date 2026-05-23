@@ -3,8 +3,8 @@ petiole security_test
 import "testing"
 import "stdlib/string" as strpkg
 import "stdlib/test"
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/utils/security"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/utils/security"
 
 func setup()
     s := reference of config.Settings{

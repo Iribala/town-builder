@@ -2,7 +2,7 @@ petiole storage_test
 
 import "testing"
 import "stdlib/test"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func resetForTest()
     storage.SetClient(empty)

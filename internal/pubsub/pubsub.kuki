@@ -6,8 +6,8 @@ import "sync"
 import "time"
 import "github.com/redis/go-redis/v9" as redis
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/storage"
 
 const subscribeTimeoutNanos = 2_000_000_000
 
@@ -35,8 +35,8 @@ func cleanupLocked()
         if connectedUsers[name] < cutoff
             stale = append(stale, name)
     for name in stale
-        delete(connectedUsers, name)
-        delete(userCounts, name)
+        delete connectedUsers[name]
+        delete userCounts[name]
 
 func usersLocked() list of string
     out := list of string{}
@@ -69,8 +69,8 @@ func Disconnect(name: string)
     defer presLock.Unlock()
     count := userCounts[name] - 1
     if count <= 0
-        delete(userCounts, name)
-        delete(connectedUsers, name)
+        delete userCounts[name]
+        delete connectedUsers[name]
     else
         userCounts[name] = count
 

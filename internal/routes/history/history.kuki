@@ -5,10 +5,11 @@ import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/history" as histsvc
-import "github.com/duber000/town-builder/internal/services/town_helpers"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/history" as histsvc
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 func optString(m: map of string to any, key: string) string
     if v, ok := m[key]; ok
@@ -31,7 +32,7 @@ func getHistory(w: http.ResponseWriter, r: reference http.Request)
 
 func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey: string, action: string, pastTense: string, pushBack: func(map of string to any)) bool
     sv, sok := entry[stateKey]
-    if not sok or sv equals empty
+    if not sok or nilcheck.IsNil(sv)
         httphelper.JSONBadRequest(w, "Cannot {action}: no {stateKey}")
         return false
     state, mok := sv.(map of string to any)

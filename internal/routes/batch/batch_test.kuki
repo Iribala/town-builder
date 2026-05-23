@@ -9,10 +9,10 @@ import "strconv"
 import "net/http"
 import "net/http/httptest"
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/middleware/bodylimit"
-import "github.com/duber000/town-builder/internal/routes/router"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/middleware/bodylimit"
+import "github.com/Iribala/town-builder/internal/routes/router"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func setupLimits(maxBody: int64, maxOps: int)
     s := reference of config.Settings{

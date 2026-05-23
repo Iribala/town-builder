@@ -5,7 +5,7 @@ import "strconv"
 
 import "stdlib/http" as httphelper
 
-import "github.com/duber000/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/config"
 
 func Wrap(next: http.Handler) http.Handler
     return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)

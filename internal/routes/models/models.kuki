@@ -6,10 +6,10 @@ import "path/filepath"
 
 import "stdlib/http" as httphelper
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/model_loader"
-import "github.com/duber000/town-builder/internal/utils/security"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/model_loader"
+import "github.com/Iribala/town-builder/internal/utils/security"
 
 func listModels(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)

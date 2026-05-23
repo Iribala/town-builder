@@ -4,8 +4,8 @@ import "stdlib/json"
 import "stdlib/log"
 import "stdlib/ctx" as ctxpkg
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/storage"
 
 const publishTimeoutNanos = 2_000_000_000
 

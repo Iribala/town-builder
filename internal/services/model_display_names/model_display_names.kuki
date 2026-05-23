@@ -1,6 +1,6 @@
 petiole model_display_names
 
-import "strings"
+import "stdlib/string" as strpkg
 
 var displayNames = map of string to string{
     "building_A.gltf": "Elementary School",
@@ -22,7 +22,7 @@ var displayNames = map of string to string{
 func GetModelDisplayName(modelFilename: string) string
     if name, ok := displayNames[modelFilename]; ok
         return name
-    name := strings.ReplaceAll(modelFilename, ".glb", "")
-    name = strings.ReplaceAll(name, ".gltf", "")
-    name = strings.ReplaceAll(name, "_", " ")
-    return strings.Title(name)
+    name := strpkg.ReplaceAll(modelFilename, ".glb", "")
+    name = strpkg.ReplaceAll(name, ".gltf", "")
+    name = strpkg.ReplaceAll(name, "_", " ")
+    return strpkg.Title(name)

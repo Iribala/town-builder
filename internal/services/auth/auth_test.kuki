@@ -5,8 +5,8 @@ import "time"
 import "stdlib/test"
 import "github.com/golang-jwt/jwt/v5" as jwtpkg
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/services/auth"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/services/auth"
 
 const TestJwtSecret = "test-secret-key-at-least-32-bytes-long!"
 

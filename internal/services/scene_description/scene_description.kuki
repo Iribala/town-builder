@@ -2,11 +2,12 @@ petiole scene_description
 
 import "stdlib/log"
 import "stdlib/cast"
-import "strings"
+import "stdlib/string" as strpkg
 import "fmt"
 
-import "github.com/duber000/town-builder/internal/normalization"
-import "github.com/duber000/town-builder/internal/services/model_display_names"
+import "github.com/Iribala/town-builder/internal/normalization"
+import "github.com/Iribala/town-builder/internal/services/model_display_names"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 func getModelNameFriendly(modelFilename: string) string
     return model_display_names.GetModelDisplayName(modelFilename)
@@ -40,7 +41,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
             if ms, mss := mv.(string); mss
                 model = ms
         modelCounts[model] = modelCounts[model] + 1
-        if d, ok := obj["driver"]; ok and d isnt empty
+        if d, ok := obj["driver"]; ok and not nilcheck.IsNil(d)
             driverCount = driverCount + 1
         pos, pok := toMap(obj["position"])
         if pok
@@ -119,7 +120,7 @@ func formatModels(catData: map of string to any) string
     for k in keys
         cnt := models[k]
         parts = append(parts, fmt.Sprintf("%d %s", cnt, getModelNameFriendly(k)))
-    return strings.Join(parts, ", ")
+    return strpkg.Join(parts, ", ")
 
 func appendCategory(parts: list of string, categories: map of string to any, name: string, label: string, suffix: string, showModels: bool, extra: string) list of string
     catRaw, ok := categories[name]
@@ -185,7 +186,7 @@ func generateNaturalDescription(analysis: map of string to any) string
     depth, _ := cast.SmartFloat64(dims["depth"])
     if width > 0.0 or depth > 0.0
         parts = append(parts, fmt.Sprintf("Scene dimensions: %.1f x %.1f units", width, depth))
-    return strings.Join(parts, "\n")
+    return strpkg.Join(parts, "\n")
 
 func GenerateSceneDescription(townData: map of string to any) map of string to any
     log.Info("Generating scene description")

@@ -5,7 +5,7 @@ import "stdlib/log"
 import "stdlib/string" as strpkg
 import "path/filepath"
 
-import "github.com/duber000/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/config"
 
 func GetAvailableModels() map of string to list of string
     out := make(map of string to list of string)

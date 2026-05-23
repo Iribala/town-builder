@@ -1,17 +1,17 @@
 petiole common
 
 import "net/http"
-import "strings"
 
 import "stdlib/http" as httphelper
+import "stdlib/string" as strpkg
 
-import "github.com/duber000/town-builder/internal/services/auth"
+import "github.com/Iribala/town-builder/internal/services/auth"
 
 func ExtractToken(r: reference http.Request) string
     h := r.Header.Get("Authorization")
     if h equals ""
         return ""
-    if strings.HasPrefix(h, "Bearer ")
+    if strpkg.HasPrefix(h, "Bearer ")
         return h[7:]
     return h
 

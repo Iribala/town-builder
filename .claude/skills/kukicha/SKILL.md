@@ -995,22 +995,22 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 - **Bare `func(w, r)` literals auto-wrap to `http.HandlerFunc`** when passed where `http.Handler` is expected (e.g. `httptest.NewServer(func(w, r) ...)`).
 - **Unused `i` in `for i from 0 to N`** is auto-rewritten to `_` — no need to manually use `_` when the index isn't referenced.
 
+### Fixed in v0.19.8
+
+- **Lambda return-type inference for multi-statement bodies** — `sort.Slice(xs, (i: int, j: int) => { a := xs[i]; b := xs[j]; return a < b })` now type-checks and compiles.
+- **`as` reserved-keyword diagnostic** — using `as` as an identifier now emits `"as" is a reserved keyword (the type-cast operator (\`x as T\`))…` instead of the old `unexpected token in expression: AS`.
+- **Two-var map iteration (`for k, v in m`) after a type-assertion** — now brews to correct Go and runs.
+
 ### Still active
 
-1. **Lambda return-type inference fails for multi-statement bodies.** `sort.Slice(xs, (i: int, j: int) => ...)` works when the body is a single expression, but a body with intermediate `:=` bindings and a final `return a < b` errors with `expected 0 return values, got 1`. Workaround: hoist the body into a named helper and pass `(i, j) => helper(xs, i, j)`.
+1. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
 
-2. **More reserved keywords with poor diagnostics.** v0.19.1 added friendlier messages for `default`, `in`, etc., but `as` and `list` still emit `unexpected token in expression: AS` / `unexpected token in expression: COMMA` when used as identifiers in tuple-assignment positions (`as, ok := v.(string)`, `if list, ok := v.(list of int); ok`). Both type-check fine if you happen to avoid the tuple/`if`-init form, so the failure mode is positional. Rename to `astr`, `arr`, `items`.
+2. **Type switch is `switch x as v ... when T`, not `switch v in x`.** The `in` form looks plausible but parses as a `for`-iteration expression and confuses the parser.
 
-3. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
+3. **`onerr` on external (non-stdlib) calls** still errors with `cannot use onerr on call to X: return signature is unknown`. Annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly.
 
-4. **Type switch is `switch x as v ... when T`, not `switch v in x`.** The `in` form looks plausible but parses as a `for`-iteration expression and confuses the parser.
+4. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `... as redis`.
 
-5. **`onerr` on external (non-stdlib) calls** still errors with `cannot use onerr on call to X: return signature is unknown`. Annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly.
+5. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
 
-6. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `... as redis`.
-
-7. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
-
-8. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.
-
-9. **Two-var map iteration (`for k, v in m`) brews silently to an empty file in some contexts.** Fine in isolation and for typed `map of K to V` parameters, but iterating a variable whose type came from a type-assertion (`inMap, _ := layoutData.(map[string]any)`) or in larger functions sometimes produces zero output from `kukicha brew --stdout` with exit 0 and no error. Workaround when bitten: `keys := maps.Keys(m); for i from 0 to len(keys); k := keys[i]; v := m[k]`. (Issue #119 covered the slice-iter variant; this map-iter case is the remaining tail.)
+6. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.

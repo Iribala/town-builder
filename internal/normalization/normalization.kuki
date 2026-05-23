@@ -2,6 +2,7 @@ petiole normalization
 
 import "stdlib/cast"
 import "stdlib/maps"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 var Categories = list of string{
     "buildings",
@@ -23,7 +24,7 @@ func toFloat(v: any, def: float64) float64
     return out
 
 func vecFromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
-    if values equals empty
+    if nilcheck.IsNil(values)
         return Vec3{"x": dx, "y": dy, "z": dz}
     arr, okArr := values.([]any)
     if okArr and len(arr) >= 3
@@ -47,7 +48,7 @@ func normalizeObject(item: map of string to any, category: string) map of string
         out[k] = v
     out["category"] = category
     model, hasModel := item["model"]
-    if not hasModel or model equals empty
+    if not hasModel or nilcheck.IsNil(model)
         if alt, ok := item["modelName"]; ok
             model = alt
     out["model"] = model

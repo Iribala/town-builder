@@ -4,8 +4,8 @@ import "net/http"
 
 import "stdlib/http" as httphelper
 
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/town_helpers"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
 
 func readPosition(raw: any) map of string to any
     out := map of string to any{"x": 0.0, "y": 0.0, "z": 0.0}

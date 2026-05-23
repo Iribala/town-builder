@@ -1,11 +1,10 @@
 petiole cors
 
 import "net/http"
-import "strings"
-
 import "stdlib/log"
+import "stdlib/string" as strpkg
 
-import "github.com/duber000/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/config"
 
 var allowedOrigins list of string
 
@@ -15,13 +14,13 @@ func Init()
         allowedOrigins = list of string{}
         return
     raw := s.AllowedOrigins
-    parts := strings.Split(raw, ",")
+    parts := strpkg.Split(raw, ",")
     cleaned := list of string{}
     for p in parts
-        trimmed := strings.TrimSpace(p)
+        trimmed := strpkg.TrimSpace(p)
         if trimmed isnt ""
             cleaned = append(cleaned, trimmed)
-    if len(cleaned) equals 0 and strings.EqualFold(s.Environment, "development")
+    if len(cleaned) equals 0 and strpkg.EqualFold(s.Environment, "development")
         cleaned = list of string{"http://localhost:3000", "http://localhost:5001", "http://127.0.0.1:5001"}
         log.Warn("Using default development CORS origins. Set ALLOWED_ORIGINS in production!")
     allowedOrigins = cleaned

@@ -4,8 +4,9 @@ import "net/http"
 
 import "stdlib/http" as httphelper
 
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/query" as querysvc
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/query" as querysvc
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 func readBody(r: reference http.Request) (map of string to any, bool)
     body := make(map of string to any)
@@ -87,7 +88,7 @@ func nearest(w: http.ResponseWriter, r: reference http.Request)
         return
     hasMaxDist := false
     maxDist := 0.0
-    if v, vok := body["max_distance"]; vok and v isnt empty
+    if v, vok := body["max_distance"]; vok and not nilcheck.IsNil(v)
         if f, fok := v.(float64); fok
             hasMaxDist = true
             maxDist = f

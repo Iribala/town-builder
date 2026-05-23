@@ -3,9 +3,9 @@ petiole batch_test
 import "testing"
 import "stdlib/test"
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/services/batch"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/services/batch"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func setupBatch()
     s := reference of config.Settings{

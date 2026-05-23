@@ -1,22 +1,23 @@
 petiole town
 
 import "net/http"
-import "strings"
 
 import "stdlib/http" as httphelper
 import "stdlib/json"
 import "stdlib/log"
 import "stdlib/sandbox"
+import "stdlib/string" as strpkg
 import "strconv"
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/normalization"
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/django_client"
-import "github.com/duber000/town-builder/internal/services/town_helpers"
-import "github.com/duber000/town-builder/internal/storage"
-import "github.com/duber000/town-builder/internal/utils/geometry"
-import "github.com/duber000/town-builder/internal/utils/security"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/normalization"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/django_client"
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/utils/geometry"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
+import "github.com/Iribala/town-builder/internal/utils/security"
 
 func optString(m: map of string to any, key: string) string
     if v, ok := m[key]; ok
@@ -25,7 +26,7 @@ func optString(m: map of string to any, key: string) string
     return ""
 
 func optMap(m: map of string to any, key: string) (map of string to any, bool)
-    if v, ok := m[key]; ok and v isnt empty
+    if v, ok := m[key]; ok and not nilcheck.IsNil(v)
         if mm, mok := v.(map of string to any); mok
             return mm, true
     return empty, false
@@ -100,7 +101,7 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
     httphelper.JSON(w, map of string to any{"status": "success"})
 
 func normalizeFilename(name: string) string
-    base := strings.TrimSuffix(name, ".json")
+    base := strpkg.TrimSuffix(name, ".json")
     return base + ".json"
 
 func saveTown(w: http.ResponseWriter, r: reference http.Request)
@@ -152,9 +153,9 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
     town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
     djangoMsg := ""
     var townID any = empty
-    if v, vok := payload["town_id"]; vok and v isnt empty
+    if v, vok := payload["town_id"]; vok and not nilcheck.IsNil(v)
         townID = v
-    if townID isnt empty
+    if not nilcheck.IsNil(townID)
         idInt := 0
         if f, fok := townID.(float64); fok
             idInt = f as int

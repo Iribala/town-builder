@@ -2,20 +2,20 @@ petiole proxy
 
 import "io"
 import "net/http"
-import "strings"
 
 import "stdlib/http" as httphelper
 import "stdlib/log"
 import "stdlib/maps" as mapspkg
+import "stdlib/string" as strpkg
 
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/django_client"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/django_client"
 
 var skipRequestHeaders = list of string{"host", "content-length"}
 var skipResponseHeaders = list of string{"content-length", "transfer-encoding", "connection", "content-encoding"}
 
 func shouldSkip(skip: list of string, name: string) bool
-    lower := strings.ToLower(name)
+    lower := strpkg.ToLower(name)
     for s in skip
         if s equals lower
             return true
@@ -63,10 +63,10 @@ func handle(w: http.ResponseWriter, r: reference http.Request, method: string)
     if perr isnt empty
         msg := perr.Error()
         log.Warn("Proxy request failed: {msg}")
-        if strings.Contains(msg, "timeout")
+        if strpkg.Contains(msg, "timeout")
             httphelper.JSONError(w, "Request to upstream service timed out", 504)
             return
-        if strings.Contains(msg, "not allowed") or strings.Contains(msg, "Unsupported") or strings.Contains(msg, "must not contain") or strings.Contains(msg, "disallowed")
+        if strpkg.Contains(msg, "not allowed") or strpkg.Contains(msg, "Unsupported") or strpkg.Contains(msg, "must not contain") or strpkg.Contains(msg, "disallowed")
             httphelper.JSONBadRequest(w, msg)
             return
         httphelper.JSONError(w, msg, 502)

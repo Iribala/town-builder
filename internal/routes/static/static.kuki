@@ -2,11 +2,12 @@ petiole static
 
 import "net/http"
 import "path/filepath"
-import "strings"
+
+import "stdlib/string" as strpkg
 
 func mimeFor(p: string) string
-    ext := strings.ToLower(filepath.Ext(p))
-    if strings.HasSuffix(strings.ToLower(p), ".d.ts")
+    ext := strpkg.ToLower(filepath.Ext(p))
+    if strpkg.HasSuffix(strpkg.ToLower(p), ".d.ts")
         return "text/plain"
     switch ext
         when ".js", ".mjs"

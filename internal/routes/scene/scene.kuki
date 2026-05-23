@@ -5,10 +5,10 @@ import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
-import "github.com/duber000/town-builder/internal/normalization"
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/scene_description"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/normalization"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/scene_description"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func description(w: http.ResponseWriter, r: reference http.Request)
     u, ok := common.CurrentUser(w, r)

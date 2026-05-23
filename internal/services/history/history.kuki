@@ -8,8 +8,8 @@ import "time"
 import "github.com/google/uuid"
 import "github.com/redis/go-redis/v9" as redis
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/storage"
 
 const historyKey = "town_history"
 const redoKey = "town_redo"

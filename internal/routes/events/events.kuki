@@ -7,11 +7,11 @@ import "stdlib/http" as httphelper
 import "stdlib/json"
 import "stdlib/log"
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/pubsub"
-import "github.com/duber000/town-builder/internal/services/auth"
-import "github.com/duber000/town-builder/internal/services/town_helpers"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/pubsub"
+import "github.com/Iribala/town-builder/internal/services/auth"
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func writeEvent(w: http.ResponseWriter, flusher: http.Flusher, payload: list of byte) bool
     _, err := w.Write("data: " as list of byte)

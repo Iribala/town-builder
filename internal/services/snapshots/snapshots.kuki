@@ -9,8 +9,8 @@ import "github.com/google/uuid"
 import "github.com/klauspost/compress/zstd"
 import "github.com/redis/go-redis/v9" as redis
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/storage"
 
 const snapshotsKey = "town_snapshots"
 const snapshotDataPrefix = "town_snapshot:"
@@ -72,7 +72,7 @@ func CreateSnapshot(townData: map of string to any, name: string, description: s
         if len(memSnapshots) equals maxSnapshots()
             oldest := memSnapshots[0]
             if oid, ok := oldest["id"].(string); ok
-                delete(memSnapshotData, oid)
+                delete memSnapshotData[oid]
             memSnapshots = memSnapshots[1:]
         memSnapshots = append(memSnapshots, metadata)
         memSnapshotData[snapshotID] = townData
@@ -174,7 +174,7 @@ func DeleteSnapshot(snapshotID: string) bool
                 continue
             kept = append(kept, s)
         memSnapshots = kept
-        delete(memSnapshotData, snapshotID)
+        delete memSnapshotData[snapshotID]
         return len(memSnapshots) < before
 
     h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)

@@ -1,6 +1,5 @@
 petiole main
 
-import "fmt"
 import "math"
 import "slices"
 import "syscall/js"
@@ -100,7 +99,7 @@ func gridRemove(g: reference SpatialGrid, id: int, bbox: BoundingBox)
         if i >= 0
             updated := slices.Delete(objects, i, i + 1)
             if len(updated) equals 0
-                delete(g.cells, cell)
+                delete g.cells[cell]
             else
                 g.cells[cell] = updated
 
@@ -490,5 +489,5 @@ func registerCallbacks()
 
 func main()
     registerCallbacks()
-    fmt.Println("Physics WASM module loaded")
+    print("Physics WASM module loaded")
     select{}

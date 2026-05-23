@@ -2,12 +2,13 @@ petiole query
 
 import "stdlib/log"
 import "stdlib/cast"
+import "stdlib/string" as strpkg
 import "math"
 import "sort"
-import "strings"
 
-import "github.com/duber000/town-builder/internal/storage"
-import "github.com/duber000/town-builder/internal/utils/geometry"
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/utils/geometry"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 func getAllCategories(townData: map of string to any) list of string
     keys := list of string{}
@@ -160,7 +161,7 @@ func SpatialQueryNearest(point: map of string to any, category: string, count: i
     return results
 
 func getNestedValue(obj: map of string to any, field: string) any
-    parts := strings.Split(field, ".")
+    parts := strpkg.Split(field, ".")
     var value any = obj
     for part in parts
         m, ok := value.(map of string to any)
@@ -181,11 +182,15 @@ func compareValues(a: any, b: any) int
     astr, aok := a.(string)
     bstr, bok := b.(string)
     if aok and bok
-        return strings.Compare(astr, bstr)
+        if astr < bstr
+            return -1
+        if astr > bstr
+            return 1
+        return 0
     return 0
 
 func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
-    if objValue equals empty
+    if nilcheck.IsNil(objValue)
         return false
     switch operator
         when "eq"
@@ -203,7 +208,7 @@ func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
         when "contains"
             objStr, _ := cast.SmartString(objValue)
             filterStr, _ := cast.SmartString(filterValue)
-            return strings.Contains(objStr, filterStr)
+            return strpkg.Contains(objStr, filterStr)
         when "in"
             items, ok := filterValue.(list of any)
             if not ok

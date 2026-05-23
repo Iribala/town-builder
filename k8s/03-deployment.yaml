@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: town-builder
-        image: duber000/town-builder:latest
+        image: Iribala/town-builder:latest
         imagePullPolicy: Always # Or IfNotPresent
         ports:
         - name: http

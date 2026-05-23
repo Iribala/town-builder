@@ -5,10 +5,10 @@ import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
-import "github.com/duber000/town-builder/internal/routes/common"
-import "github.com/duber000/town-builder/internal/services/snapshots" as snapsvc
-import "github.com/duber000/town-builder/internal/services/town_helpers"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/snapshots" as snapsvc
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func optString(m: map of string to any, key: string) string
     if v, ok := m[key]; ok

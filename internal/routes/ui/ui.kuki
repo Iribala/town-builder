@@ -4,21 +4,21 @@ import "html/template"
 import "net/http"
 import "os"
 import "strconv"
-import "strings"
 
 import "stdlib/http" as httphelper
 import "stdlib/log"
+import "stdlib/string" as strpkg
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/services/model_display_names"
-import "github.com/duber000/town-builder/internal/services/model_loader"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/services/model_display_names"
+import "github.com/Iribala/town-builder/internal/services/model_loader"
 
 var indexTmpl reference template.Template
 
 func titleCase(s: string) string
     if s equals ""
         return s
-    return strings.ToUpper(s[:1]) + s[1:]
+    return strpkg.ToUpper(s[:1]) + s[1:]
 
 func loadTemplate() error
     s := config.Current()
@@ -42,7 +42,7 @@ func basePath() string
     s := config.Current()
     if s equals empty
         return ""
-    return strings.TrimRight(s.RootPath, "/")
+    return strpkg.TrimRight(s.RootPath, "/")
 
 type indexData
     Models   map of string to list of string

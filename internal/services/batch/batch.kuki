@@ -2,15 +2,16 @@ petiole batch
 
 import "stdlib/json"
 import "stdlib/log"
+import "stdlib/string" as strpkg
 import "sync"
 import "math"
 import "github.com/google/uuid"
-import "strings"
 
-import "github.com/duber000/town-builder/internal/services/town_helpers"
-import "github.com/duber000/town-builder/internal/services/history"
-import "github.com/duber000/town-builder/internal/storage"
-import "github.com/duber000/town-builder/internal/utils/geometry"
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
+import "github.com/Iribala/town-builder/internal/services/history"
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/utils/geometry"
+import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 var batchLock sync.Mutex
 var dataVersion int
@@ -185,13 +186,13 @@ func editObject(townData: map of string to any, op: map of string to any, valida
             continue
         if getString(obj, "id") equals objectID
             changesMade := list of string{}
-            if hasPos and position isnt empty
+            if hasPos and not nilcheck.IsNil(position)
                 obj["position"] = position
                 changesMade = append(changesMade, "position")
-            if hasRot and rotation isnt empty
+            if hasRot and not nilcheck.IsNil(rotation)
                 obj["rotation"] = rotation
                 changesMade = append(changesMade, "rotation")
-            if hasScale and scale isnt empty
+            if hasScale and not nilcheck.IsNil(scale)
                 obj["scale"] = scale
                 changesMade = append(changesMade, "scale")
             items[i] = obj
@@ -200,7 +201,7 @@ func editObject(townData: map of string to any, op: map of string to any, valida
             result["id"] = objectID
             result["category"] = category
             result["changes"] = changesMade
-            joined := strings.Join(changesMade, ", ")
+            joined := strpkg.Join(changesMade, ", ")
             return opResult(true, "edit", "Edited object {objectID} in {category} ({joined} changed)", result)
     return opResult(false, "edit", "Object {objectID} not found", empty)
 
@@ -224,8 +225,9 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
     results := list of map of string to any{}
     successful := 0
     failed := 0
-    var townData map of string to any
-    townData, _ = storage.Get()
+    townData := storage.Get() onerr
+        log.Error("batch.ExecuteOperations: storage.Get failed: {error}")
+        fallback make(map of string to any)
     originalTownData := deepCopy(townData)
 
     for op in operations
@@ -241,7 +243,7 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
         dataVersion = dataVersion + 1
         broadcastData := make(map of string to any)
         for k, v in townData
-            if not strings.HasPrefix(k, "_")
+            if not strpkg.HasPrefix(k, "_")
                 broadcastData[k] = v
         event := make(map of string to any)
         event["type"] = "full"

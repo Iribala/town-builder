@@ -4,11 +4,11 @@ import "net/http"
 
 import "stdlib/log"
 
-import "github.com/duber000/town-builder/internal/config"
-import "github.com/duber000/town-builder/internal/middleware/bodylimit"
-import "github.com/duber000/town-builder/internal/middleware/cors"
-import "github.com/duber000/town-builder/internal/routes/router"
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/middleware/bodylimit"
+import "github.com/Iribala/town-builder/internal/middleware/cors"
+import "github.com/Iribala/town-builder/internal/routes/router"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func main()
     s, err := config.Load()

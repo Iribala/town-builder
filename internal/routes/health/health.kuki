@@ -5,7 +5,7 @@ import "stdlib/ctx" as ctxpkg
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
-import "github.com/duber000/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/storage"
 
 func livez(w: http.ResponseWriter, r: reference http.Request)
     httphelper.JSON(w, map of string to any{"status": "ok"})

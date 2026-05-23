@@ -2,7 +2,7 @@ petiole normalization_test
 
 import "testing"
 import "stdlib/test"
-import "github.com/duber000/town-builder/internal/normalization"
+import "github.com/Iribala/town-builder/internal/normalization"
 
 func sampleDict() map of string to any
     return map of string to any{
