@@ -1001,6 +1001,14 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 - **`as` reserved-keyword diagnostic** — using `as` as an identifier now emits `"as" is a reserved keyword (the type-cast operator (\`x as T\`))…` instead of the old `unexpected token in expression: AS`.
 - **Two-var map iteration (`for k, v in m`) after a type-assertion** — now brews to correct Go and runs.
 
+### Fixed in v0.19.9
+
+- **`cast.IsNil(v: any) bool`** (#153) — canonical nil check for `any`-typed values. Use it instead of `v equals empty`, which silently misses typed-nil pointers wrapped in an interface. Drove deletion of this repo's old `internal/utils/nilcheck` helper.
+- **`stdlib/string.Compare`** (#152) — returns -1/0/1, mirrors Go's `strings.Compare`. Use for sort comparators instead of inline `<`/`>`.
+- **`kukicha check ./...` recursive expander** (#151) — sibling files with the same `petiole main` in different directories are now treated as independent packages. No more enumerating targets to dodge `function 'main' already declared`.
+- **`stdlib/test.AssertNil`/`AssertNotNil`** (#149) — now correctly handle typed-nil pointers wrapped in `any`. The `test.AssertTrue(t, x equals empty)` workaround is no longer needed.
+- **`json.Parse` typed form is now mandatory** (#150) — call as `json.Parse of T from data`. For decoding into an existing variable, `json.ParseInto(data, reference of target)` is unchanged.
+
 ### Still active
 
 1. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
@@ -1010,7 +1018,3 @@ These are tripwires confirmed by hand in this codebase. See also https://github.
 3. **`onerr` on external (non-stdlib) calls** still errors with `cannot use onerr on call to X: return signature is unknown`. Annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly.
 
 4. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `... as redis`.
-
-5. **Typed nil vs interface nil.** `test.AssertNil(t, somePtrReturningFunc())` can fail when the returned typed pointer is nil — the `any` interface that wraps it isn't. Use `test.AssertTrue(t, x equals empty)` instead.
-
-6. **`json.Parse` is generic.** Use `json.ParseInto(data, reference of target)` for the "decode into existing var" pattern; `json.Parse[T]` returns a fresh value.
