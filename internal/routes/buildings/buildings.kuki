@@ -10,10 +10,10 @@ import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
-import "github.com/Iribala/town-builder/internal/utils/nilcheck"
+import "stdlib/cast"
 
 func optMap(m: map of string to any, key: string) (map of string to any, bool)
-    if v, ok := m[key]; ok and not nilcheck.IsNil(v)
+    if v, ok := m[key]; ok and not cast.IsNil(v)
         if mm, mok := v.(map of string to any); mok
             return mm, true
     return empty, false

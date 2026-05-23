@@ -7,7 +7,6 @@ import "fmt"
 
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
-import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 func getModelNameFriendly(modelFilename: string) string
     return model_display_names.GetModelDisplayName(modelFilename)
@@ -41,7 +40,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
             if ms, mss := mv.(string); mss
                 model = ms
         modelCounts[model] = modelCounts[model] + 1
-        if d, ok := obj["driver"]; ok and not nilcheck.IsNil(d)
+        if d, ok := obj["driver"]; ok and not cast.IsNil(d)
             driverCount = driverCount + 1
         pos, pok := toMap(obj["position"])
         if pok

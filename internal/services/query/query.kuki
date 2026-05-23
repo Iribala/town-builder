@@ -8,7 +8,6 @@ import "sort"
 
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
-import "github.com/Iribala/town-builder/internal/utils/nilcheck"
 
 func getAllCategories(townData: map of string to any) list of string
     keys := list of string{}
@@ -182,15 +181,11 @@ func compareValues(a: any, b: any) int
     astr, aok := a.(string)
     bstr, bok := b.(string)
     if aok and bok
-        if astr < bstr
-            return -1
-        if astr > bstr
-            return 1
-        return 0
+        return strpkg.Compare(astr, bstr)
     return 0
 
 func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
-    if nilcheck.IsNil(objValue)
+    if cast.IsNil(objValue)
         return false
     switch operator
         when "eq"

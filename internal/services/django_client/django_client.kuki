@@ -12,7 +12,7 @@ import "time"
 import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/config"
-import "github.com/Iribala/town-builder/internal/utils/nilcheck"
+import "stdlib/cast"
 import "github.com/Iribala/town-builder/internal/utils/security"
 
 type ProxyResponse
@@ -81,9 +81,9 @@ func PrepareDjangoPayload(requestPayload: map of string to any, normalizedTownDa
 
     for key in fieldsToPropagate
         value, ok := requestPayload[key]
-        if not ok or nilcheck.IsNil(value)
+        if not ok or cast.IsNil(value)
             value, ok = currentLayoutData[key]
-        if ok and not nilcheck.IsNil(value)
+        if ok and not cast.IsNil(value)
             payload[key] = value
     return payload
 

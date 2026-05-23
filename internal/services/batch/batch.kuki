@@ -11,7 +11,7 @@ import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/services/history"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
-import "github.com/Iribala/town-builder/internal/utils/nilcheck"
+import "stdlib/cast"
 
 var batchLock sync.Mutex
 var dataVersion int
@@ -186,13 +186,13 @@ func editObject(townData: map of string to any, op: map of string to any, valida
             continue
         if getString(obj, "id") equals objectID
             changesMade := list of string{}
-            if hasPos and not nilcheck.IsNil(position)
+            if hasPos and not cast.IsNil(position)
                 obj["position"] = position
                 changesMade = append(changesMade, "position")
-            if hasRot and not nilcheck.IsNil(rotation)
+            if hasRot and not cast.IsNil(rotation)
                 obj["rotation"] = rotation
                 changesMade = append(changesMade, "rotation")
-            if hasScale and not nilcheck.IsNil(scale)
+            if hasScale and not cast.IsNil(scale)
                 obj["scale"] = scale
                 changesMade = append(changesMade, "scale")
             items[i] = obj

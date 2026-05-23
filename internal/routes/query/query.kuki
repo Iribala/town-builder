@@ -6,7 +6,7 @@ import "stdlib/http" as httphelper
 
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/query" as querysvc
-import "github.com/Iribala/town-builder/internal/utils/nilcheck"
+import "stdlib/cast"
 
 func readBody(r: reference http.Request) (map of string to any, bool)
     body := make(map of string to any)
@@ -88,7 +88,7 @@ func nearest(w: http.ResponseWriter, r: reference http.Request)
         return
     hasMaxDist := false
     maxDist := 0.0
-    if v, vok := body["max_distance"]; vok and not nilcheck.IsNil(v)
+    if v, vok := body["max_distance"]; vok and not cast.IsNil(v)
         if f, fok := v.(float64); fok
             hasMaxDist = true
             maxDist = f
