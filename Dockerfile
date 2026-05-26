@@ -6,7 +6,7 @@ WORKDIR /src
 # `replace` directive. We don't compile any .kuki sources here — the brewed
 # .go files are committed alongside — but go.mod requires the stdlib path to
 # resolve.
-RUN go install github.com/kukichalang/kukicha/cmd/kukicha@v0.19.5
+RUN go install github.com/kukichalang/kukicha/cmd/kukicha@v0.22.0
 
 # Copy module files first for better layer caching, then materialize the
 # stdlib replacement target before `go mod download`.
@@ -18,14 +18,14 @@ RUN go mod download
 # Brewed .go files are committed, so a plain `go build` works.
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /town-server ./cmd/server
 
-# Runtime stage — minimal image with the binary + static assets
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+# Runtime stage — distroless (no shell; ca-certificates included)
+FROM gcr.io/distroless/static-debian12
 WORKDIR /app
 
-COPY --from=builder /town-server /app/town-server
-COPY --from=builder /src/static    /app/static
-COPY --from=builder /src/templates /app/templates
+COPY --from=builder --chown=65532:65532 /town-server /app/town-server
+COPY --from=builder --chown=65532:65532 /src/static    /app/static
+COPY --from=builder --chown=65532:65532 /src/templates /app/templates
 
 EXPOSE 5001
+USER 65532
 ENTRYPOINT ["/app/town-server"]
