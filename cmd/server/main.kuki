@@ -1,6 +1,8 @@
 petiole main
 
 import "net/http"
+
+import "stdlib/http" as httppkg
 import "stdlib/log"
 
 import "github.com/Iribala/town-builder/internal/config"
@@ -23,7 +25,7 @@ func main()
     cors.Init()
 
     mux := router.NewMux()
-    handler := bodylimit.Wrap(cors.Wrap(mux))
+    handler := httppkg.TrustedHosts(bodylimit.Wrap(cors.Wrap(mux)), s.AllowedHosts...)
 
     addr := ":5001"
     log.Info("Listening on {addr}")

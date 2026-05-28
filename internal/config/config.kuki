@@ -30,6 +30,7 @@ type Settings
     AllowedOrigins string
     AllowedDomains string
     AllowedApiDomains list of string
+    AllowedHosts      list of string
 
 var current reference Settings
 
@@ -71,6 +72,7 @@ func Load() (reference Settings, error)
     }
 
     s.AllowedApiDomains = env.SplitAndTrim(s.AllowedDomains, ",")
+    s.AllowedHosts = env.SplitAndTrim(env.GetOr("ALLOWED_HOSTS", "localhost,127.0.0.1"), ",")
 
     if not s.DisableJwtAuth and s.JwtSecretKey equals ""
         return empty, error "JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development."

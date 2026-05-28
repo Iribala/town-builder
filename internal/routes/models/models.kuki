@@ -4,6 +4,7 @@ import "net/http"
 import "os"
 import "path/filepath"
 import "stdlib/http" as httphelper
+import "stdlib/url" as urlpkg
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/routes/common"
@@ -31,6 +32,9 @@ func getModel(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONError(w, "config not loaded", 500)
         return
     modelPath := filepath.Join(s.ModelsPath, vc, vn)
+    if not urlpkg.IsSubpath(s.ModelsPath, modelPath)
+        httphelper.JSONBadRequest(w, "Invalid model path")
+        return
     _, statErr := os.Stat(modelPath)
     if statErr isnt empty
         httphelper.JSONNotFound(w, "Model not found")
