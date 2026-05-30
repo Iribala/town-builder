@@ -2,6 +2,7 @@ petiole history
 
 import "stdlib/json"
 import "stdlib/log"
+import "stdlib/slice"
 import "stdlib/ctx" as ctxpkg
 import "sync"
 import "time"
@@ -79,23 +80,19 @@ func GetHistory(limit: int) list of map of string to any
         entries, err := client.LRange(h.Ctx, historyKey, -(limit as int64), -1).Result()
         if err equals empty
             out := list of map of string to any{}
-            for i from len(entries)-1 through 0
+            for entry in entries
                 obj := make(map of string to any)
-                perr := json.ParseInto(entries[i] as list of byte, reference of obj)
+                perr := json.ParseInto(entry as list of byte, reference of obj)
                 if perr equals empty
                     out = append(out, obj)
-            return out
+            return slice.Reverse(out)
         log.Warn("Redis history get failed, using in-memory storage: {err}")
     lock.Lock()
     defer lock.Unlock()
     start := len(historyStack) - limit
     if start < 0
         start = 0
-    src := historyStack[start:]
-    out := list of map of string to any{}
-    for i from len(src)-1 through 0
-        out = append(out, src[i])
-    return out
+    return slice.Reverse(historyStack[start:])
 
 func CanUndo() bool
     client := storage.Client()

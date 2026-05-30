@@ -25,14 +25,14 @@ func toFloat(v: any, def: float64) float64
 func vecFromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
     if cast.IsNil(values)
         return Vec3{"x": dx, "y": dy, "z": dz}
-    arr, okArr := values.([]any)
+    arr, okArr := values.(list of any)
     if okArr and len(arr) >= 3
         return Vec3{
             "x": toFloat(arr[0], dx),
             "y": toFloat(arr[1], dy),
             "z": toFloat(arr[2], dz),
         }
-    m, okMap := values.(map[string]any)
+    m, okMap := values.(map of string to any)
     if okMap
         return Vec3{
             "x": toFloat(m["x"], dx),
@@ -58,11 +58,11 @@ func normalizeObject(item: map of string to any, category: string) map of string
 
 func normalizeList(items: any, category: string) list of map of string to any
     out := list of map of string to any{}
-    arr, ok := items.([]any)
+    arr, ok := items.(list of any)
     if not ok
         return out
     for raw in arr
-        item, isMap := raw.(map[string]any)
+        item, isMap := raw.(map of string to any)
         if not isMap
             continue
         out = append(out, normalizeObject(item, category))
@@ -71,7 +71,7 @@ func normalizeList(items: any, category: string) list of map of string to any
 func Normalize(layoutData: any) map of string to any
     out := make(map of string to any)
 
-    inMap, isMap := layoutData.(map[string]any)
+    inMap, isMap := layoutData.(map of string to any)
     if isMap
         for category in Categories
             out[category] = normalizeList(inMap[category], category)
@@ -82,12 +82,12 @@ func Normalize(layoutData: any) map of string to any
                 out[name] = inMap[name]
         return out
 
-    arr, isList := layoutData.([]any)
+    arr, isList := layoutData.(list of any)
     if isList
         for category in Categories
             out[category] = list of map of string to any{}
         for raw in arr
-            item, okItem := raw.(map[string]any)
+            item, okItem := raw.(map of string to any)
             if not okItem
                 continue
             catAny, hasCat := item["category"]

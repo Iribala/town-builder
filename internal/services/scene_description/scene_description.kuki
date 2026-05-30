@@ -2,6 +2,8 @@ petiole scene_description
 
 import "stdlib/log"
 import "stdlib/cast"
+import "stdlib/maps" as mapspkg
+import "stdlib/sort"
 import "stdlib/string" as strpkg
 import "fmt"
 
@@ -101,17 +103,14 @@ func calculateSceneBounds(allPositions: list of list of float64) map of string t
     return out
 
 func formatModels(catData: map of string to any) string
-    modelsVal, _ := catData["models"]
-    models, ok := modelsVal.(map of string to int)
+    models, ok := catData["models"].(map of string to int)
     if not ok
         return ""
+    keys := sort.Strings(mapspkg.Keys(models))
     parts := list of string{}
-    keys := list of string{}
-    for k, _ in models
-        keys = append(keys, k)
     for k in keys
         cnt := models[k]
-        parts = append(parts, fmt.Sprintf("%d %s", cnt, getModelNameFriendly(k)))
+        parts = append(parts, "{cnt} {getModelNameFriendly(k)}")
     return strpkg.Join(parts, ", ")
 
 func appendCategory(parts: list of string, categories: map of string to any, name: string, label: string, suffix: string, showModels: bool, extra: string) list of string
@@ -127,9 +126,9 @@ func appendCategory(parts: list of string, categories: map of string to any, nam
     if count <= 0
         return parts
     if showModels
-        parts = append(parts, fmt.Sprintf("%s (%d): %s%s", label, count, formatModels(cat), extra))
+        parts = append(parts, "{label} ({count}): {formatModels(cat)}{extra}")
     else
-        parts = append(parts, fmt.Sprintf("%s: %d %s", label, count, suffix))
+        parts = append(parts, "{label}: {count} {suffix}")
     return parts
 
 func generateNaturalDescription(analysis: map of string to any) string
@@ -143,7 +142,7 @@ func generateNaturalDescription(analysis: map of string to any) string
         total = t
     if total equals 0
         return townName + " is currently empty with no objects placed."
-    parts = append(parts, fmt.Sprintf("Total objects: %d", total))
+    parts = append(parts, "Total objects: {total}")
 
     categories, _ := mapx.AsMap(analysis["categories"])
 
@@ -162,8 +161,8 @@ func generateNaturalDescription(analysis: map of string to any) string
                     dc := 0
                     if dcv, dcok := vehicles["driver_count"].(int); dcok
                         dc = dcv
-                    driverInfo = fmt.Sprintf(", %d in use", dc)
-                parts = append(parts, fmt.Sprintf("Vehicles (%d): %s%s", count, modelDesc, driverInfo))
+                    driverInfo = ", {dc} in use"
+                parts = append(parts, "Vehicles ({count}): {modelDesc}{driverInfo}")
 
     parts = appendCategory(parts, categories, "trees", "Trees", "objects", true, "")
     parts = appendCategory(parts, categories, "props", "Props", "objects", false, "")

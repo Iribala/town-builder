@@ -15,17 +15,11 @@ var skipRequestHeaders = list of string{"host", "content-length"}
 var skipResponseHeaders = list of string{"content-length", "transfer-encoding", "connection", "content-encoding"}
 
 func shouldSkip(skip: list of string, name: string) bool
-    lower := strpkg.ToLower(name)
-    for s in skip
-        if s equals lower
-            return true
-    return false
+    return strpkg.ToLower(name) in skip
 
 func collectHeaders(src: map of string to list of string) map of string to string
     out := make(map of string to string)
-    keys := mapspkg.Keys(src)
-    for i from 0 to len(keys)
-        k := keys[i]
+    for k in mapspkg.Keys(src)
         if shouldSkip(skipRequestHeaders, k)
             continue
         vs := src[k]
@@ -35,9 +29,7 @@ func collectHeaders(src: map of string to list of string) map of string to strin
 
 func collectParams(values: map of string to list of string) map of string to string
     out := make(map of string to string)
-    keys := mapspkg.Keys(values)
-    for i from 0 to len(keys)
-        k := keys[i]
+    for k in mapspkg.Keys(values)
         vs := values[k]
         if len(vs) > 0
             out[k] = vs[0]
@@ -72,9 +64,7 @@ func handle(w: http.ResponseWriter, r: reference http.Request, method: string)
         httphelper.JSONError(w, msg, 502)
         return
 
-    respKeys := mapspkg.Keys(resp.Headers)
-    for i from 0 to len(respKeys)
-        k := respKeys[i]
+    for k in mapspkg.Keys(resp.Headers)
         if shouldSkip(skipResponseHeaders, k)
             continue
         for v in resp.Headers[k]

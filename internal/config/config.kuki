@@ -77,7 +77,7 @@ func Load() (reference Settings, error)
         MaxHistorySize: env.GetIntOrDefault("MAX_HISTORY_SIZE", 100),
         MaxSnapshots:   env.GetIntOrDefault("MAX_SNAPSHOTS", 50),
 
-        MaxRequestBodyBytes:      int64(env.GetIntOrDefault("MAX_REQUEST_BODY_BYTES", 10 * 1024 * 1024)),
+        MaxRequestBodyBytes:      (env.GetIntOrDefault("MAX_REQUEST_BODY_BYTES", 10 * 1024 * 1024)) as int64,
         MaxBatchOperations:       env.GetIntOrDefault("MAX_BATCH_OPERATIONS", 100),
         MaxSseConnectionsPerUser: env.GetIntOrDefault("MAX_SSE_CONNECTIONS_PER_USER", 3),
 

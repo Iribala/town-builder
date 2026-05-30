@@ -14,7 +14,6 @@ func main()
     s, err := config.Load()
     if err isnt empty
         log.Fatal("Failed to load config: {err}")
-        return
     log.Info("Starting {s.AppTitle} v{s.AppVersion} ({s.Environment})")
 
     serr := storage.Initialize(s.RedisURL)

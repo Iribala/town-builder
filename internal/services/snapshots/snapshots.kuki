@@ -2,6 +2,7 @@ petiole snapshots
 
 import "stdlib/json"
 import "stdlib/log"
+import "stdlib/slice"
 import "stdlib/ctx" as ctxpkg
 import "sync"
 import "time"
@@ -117,10 +118,7 @@ func ListSnapshots() list of map of string to any
     if client equals empty
         memLock.Lock()
         defer memLock.Unlock()
-        out := list of map of string to any{}
-        for i from len(memSnapshots)-1 through 0
-            out = append(out, memSnapshots[i])
-        return out
+        return slice.Reverse(memSnapshots)
 
     h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
     defer h.Cancel()
@@ -129,12 +127,12 @@ func ListSnapshots() list of map of string to any
         log.Error("Failed to list snapshots: {err}")
         return list of map of string to any{}
     out := list of map of string to any{}
-    for i from len(entries)-1 through 0
+    for entry in entries
         obj := make(map of string to any)
-        perr := json.ParseInto(entries[i] as list of byte, reference of obj)
+        perr := json.ParseInto(entry as list of byte, reference of obj)
         if perr equals empty
             out = append(out, obj)
-    return out
+    return slice.Reverse(out)
 
 func GetSnapshot(snapshotID: string) (map of string to any, bool)
     client := storage.Client()
@@ -198,7 +196,7 @@ func DeleteSnapshot(snapshotID: string) bool
     foundInList := len(newEntries) < len(entries)
     client.Del(h.Ctx, snapshotsKey)
     if len(newEntries) > 0
-        client.RPush(h.Ctx, snapshotsKey, newEntries...)
+        client.RPush(h.Ctx, snapshotsKey, many newEntries)
     if deletedCount > 0 or foundInList
         log.Info("Deleted snapshot: {snapshotID}")
         return true

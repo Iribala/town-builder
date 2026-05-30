@@ -97,7 +97,7 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
     keepaliveInterval := 10.0
     if s isnt empty
         keepaliveInterval = s.SseKeepaliveInterval
-    ticker := time.NewTicker(time.Duration(int64(keepaliveInterval * 1_000_000_000.0)))
+    ticker := time.NewTicker(time.Duration((keepaliveInterval * 1_000_000_000.0) as int64))
     defer ticker.Stop()
 
     ctxDone := r.Context().Done()

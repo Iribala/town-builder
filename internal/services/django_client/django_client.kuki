@@ -3,7 +3,6 @@ petiole django_client
 import "stdlib/json"
 import "stdlib/log"
 import "bytes"
-import "fmt"
 import "io"
 import "net/http"
 import "net/url"
@@ -115,7 +114,7 @@ func GetTownByID(townID: int) (map of string to any, error)
     baseURL, err := GetBaseURL()
     if err isnt empty
         return empty, err
-    fullURL := fmt.Sprintf("%s%d/", baseURL, townID)
+    fullURL := "{baseURL}{townID}/"
     log.Info("Fetching town {townID} from Django: {fullURL}")
     resp, herr := doJSON("GET", fullURL, empty)
     if herr isnt empty
@@ -204,7 +203,7 @@ func UpdateTown(townID: int, requestPayload: map of string to any, normalizedTow
     baseURL, err := GetBaseURL()
     if err isnt empty
         return empty, err
-    fullURL := fmt.Sprintf("%s%d/", baseURL, townID)
+    fullURL := "{baseURL}{townID}/"
     payload := PrepareDjangoPayload(requestPayload, normalizedTownData, townName, true)
     resp, herr := doJSON("PATCH", fullURL, payload)
     if herr isnt empty
@@ -232,12 +231,7 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
 
     methodLower := strpkg.ToLower(method)
     allowed := list of string{"get", "post", "put", "patch", "delete"}
-    valid := false
-    for m in allowed
-        if m equals methodLower
-            valid = true
-            break
-    if not valid
+    if methodLower not in allowed
         return empty, error "Unsupported HTTP method: {method}"
 
     if len(params) > 0
