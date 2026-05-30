@@ -1,7 +1,7 @@
 petiole town
 
 import "net/http"
-
+import "stdlib/cast"
 import "stdlib/http" as httphelper
 import "stdlib/json"
 import "stdlib/log"
@@ -18,7 +18,6 @@ import "github.com/Iribala/town-builder/internal/services/django_client"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
-import "stdlib/cast"
 import "github.com/Iribala/town-builder/internal/utils/security"
 
 func getTown(w: http.ResponseWriter, r: reference http.Request)
@@ -47,7 +46,10 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
     if mapx.Has(data, "townName") and len(data) equals 1
         name := mapx.Str(data, "townName")
         townData["townName"] = name
-        town_helpers.SaveAndBroadcast(townData, map of string to any{"type": "name", "townName": name})
+        town_helpers.SaveAndBroadcast(
+            townData,
+            map of string to any{"type": "name", "townName": name},
+        )
         log.Info("Updated town name to: {name}")
         httphelper.JSON(w, map of string to any{"status": "success"})
         return
@@ -70,10 +72,10 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
                         townData[category] = arr
                         updated = true
                         town_helpers.SaveAndBroadcast(townData, map of string to any{
-                            "type":     "driver",
+                            "type": "driver",
                             "category": category,
-                            "id":       modelID,
-                            "driver":   driver,
+                            "id": modelID,
+                            "driver": driver,
                         })
                         log.Info("Updated driver for {category} id={modelID} to {driver}")
                         break
@@ -184,7 +186,7 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
                     townID = v
                 djangoMsg = " Town created in Django backend."
     httphelper.JSON(w, map of string to any{
-        "status":  "success",
+        "status": "success",
         "message": "{localMsg}{djangoMsg}",
         "town_id": townID,
     })
@@ -227,9 +229,9 @@ func loadTown(w: http.ResponseWriter, r: reference http.Request)
     town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     log.Info("Town loaded from {fn}")
     httphelper.JSON(w, map of string to any{
-        "status":  "success",
+        "status": "success",
         "message": "Town loaded from {fn}",
-        "data":    canonical,
+        "data": canonical,
     })
 
 func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
@@ -250,24 +252,24 @@ func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
     if v, vok := townData["layout_data"]; vok
         layoutData = v
     else
-        layoutData = list of any{}
+        layoutData = empty list of any
     canonical := normalization.Normalize(layoutData)
     town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     info := map of string to any{
-        "id":          townData["id"],
-        "name":        townData["name"],
+        "id": townData["id"],
+        "name": townData["name"],
         "description": townData["description"],
-        "latitude":    townData["latitude"],
-        "longitude":   townData["longitude"],
+        "latitude": townData["latitude"],
+        "longitude": townData["longitude"],
     }
     if cs, csok := townData["category_statuses"]; csok
         info["category_statuses"] = cs
     else
-        info["category_statuses"] = list of any{}
+        info["category_statuses"] = empty list of any
     httphelper.JSON(w, map of string to any{
-        "status":    "success",
-        "message":   "Town '{mapx.Str(townData, "name")}' loaded from Django",
-        "data":      canonical,
+        "status": "success",
+        "message": "Town '{mapx.Str(townData, "name")}' loaded from Django",
+        "data": canonical,
         "town_info": info,
     })
 
@@ -289,7 +291,7 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
     category := mapx.Str(body, "category")
     modelID := mapx.Str(body, "id")
     pos, hasPos := mapx.MapAt(body, "position")
-    if category equals "" or (modelID equals "" and not hasPos)
+    if category equals "" or modelID equals "" and not hasPos
         httphelper.JSONBadRequest(w, "Missing required parameters")
         return
     townData, gerr := storage.Get()
@@ -310,18 +312,18 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
             if not eok
                 continue
             if mapx.Str(entry, "id") equals modelID
-                newArr := list of any{}
+                newArr := empty list of any
                 for j from 0 to len(arr)
                     if j isnt i
                         newArr = append(newArr, arr[j])
                 townData[category] = newArr
                 town_helpers.SaveAndBroadcast(townData, map of string to any{
-                    "type":     "delete",
+                    "type": "delete",
                     "category": category,
-                    "id":       modelID,
+                    "id": modelID,
                 })
                 httphelper.JSON(w, map of string to any{
-                    "status":  "success",
+                    "status": "success",
                     "message": "Deleted model with ID {modelID}",
                 })
                 return
@@ -340,22 +342,22 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
             closestIdx = i
     if closestIdx >= 0 and closestDist < geometry.DeleteProximityThreshold
         deleted, _ := arr[closestIdx].(map of string to any)
-        newArr := list of any{}
+        newArr := empty list of any
         for j from 0 to len(arr)
             if j isnt closestIdx
                 newArr = append(newArr, arr[j])
         townData[category] = newArr
         town_helpers.SaveAndBroadcast(townData, map of string to any{
-            "type":       "delete",
-            "category":   category,
-            "position":   pos,
+            "type": "delete",
+            "category": category,
+            "position": pos,
             "deleted_id": deleted["id"],
         })
         px := pos["x"]
         py := pos["y"]
         pz := pos["z"]
         httphelper.JSON(w, map of string to any{
-            "status":  "success",
+            "status": "success",
             "message": "Deleted model at position ({px}, {py}, {pz})",
         })
         return
@@ -401,13 +403,13 @@ func editModel(w: http.ResponseWriter, r: reference http.Request)
             arr[i] = entry
             townData[category] = arr
             town_helpers.SaveAndBroadcast(townData, map of string to any{
-                "type":     "edit",
+                "type": "edit",
                 "category": category,
-                "id":       modelID,
-                "data":     entry,
+                "id": modelID,
+                "data": entry,
             })
             httphelper.JSON(w, map of string to any{
-                "status":  "success",
+                "status": "success",
                 "message": "Updated model with ID {modelID}",
             })
             return
@@ -418,9 +420,9 @@ func getConfig(w: http.ResponseWriter, r: reference http.Request)
     if not ok
         return
     httphelper.JSON(w, map of string to any{
-        "apiUrl":        "/api/proxy/towns",
+        "apiUrl": "/api/proxy/towns",
         "authenticated": true,
-        "user":          u.Username,
+        "user": u.Username,
     })
 
 func Register(mux: reference http.ServeMux)

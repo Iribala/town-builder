@@ -1,17 +1,17 @@
 petiole query
 
-import "stdlib/log"
-import "stdlib/cast"
-import "stdlib/string" as strpkg
 import "math"
 import "sort"
+import "stdlib/cast"
+import "stdlib/log"
+import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
 
 func getAllCategories(townData: map of string to any) list of string
-    keys := list of string{}
+    keys := empty list of string
     for k, v in townData
         if k equals "snapshots" or k equals "history"
             continue
@@ -45,8 +45,8 @@ func cloneWithCat(obj: map of string to any, cat: string) map of string to any
 
 func SpatialQueryRadius(center: map of string to any, radius: float64, category: string, limit: int) list of map of string to any
     townData, _ := storage.Get()
-    results := list of map of string to any{}
-    cats := list of string{}
+    results := empty list of map of string to any
+    cats := empty list of string
     if category isnt ""
         cats = list of string{category}
     else
@@ -89,8 +89,8 @@ func isWithinBounds(point: map of string to any, minPoint: map of string to any,
 
 func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string to any, category: string, limit: int) list of map of string to any
     townData, _ := storage.Get()
-    results := list of map of string to any{}
-    cats := list of string{}
+    results := empty list of map of string to any
+    cats := empty list of string
     if category isnt ""
         cats = list of string{category}
     else
@@ -116,8 +116,8 @@ func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string 
 
 func SpatialQueryNearest(point: map of string to any, category: string, count: int, maxDistance: float64, hasMaxDistance: bool) list of map of string to any
     townData, _ := storage.Get()
-    results := list of map of string to any{}
-    cats := list of string{}
+    results := empty list of map of string to any
+    cats := empty list of string
     if category isnt ""
         cats = list of string{category}
     else
@@ -214,8 +214,8 @@ func matchesFilters(obj: map of string to any, filters: list of map of string to
 
 func AdvancedQuery(category: string, filters: list of map of string to any, sortBy: string, sortOrder: string, limit: int, offset: int) list of map of string to any
     townData, _ := storage.Get()
-    results := list of map of string to any{}
-    cats := list of string{}
+    results := empty list of map of string to any
+    cats := empty list of string
     if category isnt ""
         cats = list of string{category}
     else
@@ -246,7 +246,7 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
     if offset > 0 and offset < len(results)
         results = results[offset:]
     else if offset >= len(results)
-        results = list of map of string to any{}
+        results = empty list of map of string to any
     if limit > 0 and len(results) > limit
         results = results[:limit]
     log.Info("Advanced query: found {total} objects, returning {len(results)}")

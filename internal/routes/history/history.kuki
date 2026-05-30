@@ -1,7 +1,7 @@
 petiole history
 
 import "net/http"
-
+import "stdlib/cast"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
@@ -11,7 +11,6 @@ import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/history" as histsvc
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
-import "stdlib/cast"
 
 func getHistory(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -20,8 +19,8 @@ func getHistory(w: http.ResponseWriter, r: reference http.Request)
     limit := httphelper.GetQueryIntOr(r, "limit", 50)
     entries := histsvc.GetHistory(limit)
     httphelper.JSON(w, map of string to any{
-        "status":   "success",
-        "history":  entries,
+        "status": "success",
+        "history": entries,
         "can_undo": histsvc.CanUndo(),
         "can_redo": histsvc.CanRedo(),
     })
@@ -44,8 +43,8 @@ func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey:
     op := mapx.Str(entry, "operation")
     log.Info("{action} operation: {op}")
     httphelper.JSON(w, map of string to any{
-        "status":   "success",
-        "message":  "{pastTense} {op} operation",
+        "status": "success",
+        "message": "{pastTense} {op} operation",
         "can_undo": histsvc.CanUndo(),
         "can_redo": histsvc.CanRedo(),
     })

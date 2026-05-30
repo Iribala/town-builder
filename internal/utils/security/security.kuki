@@ -1,14 +1,15 @@
 petiole security
 
+import "net/url"
+import "path/filepath"
 import "stdlib/files"
 import "stdlib/regex"
 import "stdlib/string" as strpkg
-import "net/url"
-import "path/filepath"
 
 import "github.com/Iribala/town-builder/internal/config"
 
 var safeNameRe = regex.MustCompile("^[a-zA-Z0-9._-]+$")
+
 var safePathRe = regex.MustCompile("^[a-zA-Z0-9_.~:/?#\\[\\]=&+,;%-]*$")
 
 func ValidateFilename(filename: string, allowedExtensions: list of string) (string, error)

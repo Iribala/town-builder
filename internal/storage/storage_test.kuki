@@ -1,7 +1,8 @@
 petiole storage_test
 
-import "testing"
 import "stdlib/test"
+import "testing"
+
 import "github.com/Iribala/town-builder/internal/storage"
 
 func resetForTest()
@@ -12,7 +13,7 @@ func TestSetAndGetRoundtrip(t: reference testing.T)
     resetForTest()
     data := map of string to any{
         "buildings": list of any{map of string to any{"id": "1", "model": "house.glb"}},
-        "vehicles":  list of any{},
+        "vehicles": empty list of any,
     }
     setErr := storage.Set(data)
     test.AssertNoError(t, setErr)

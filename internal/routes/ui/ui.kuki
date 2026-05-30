@@ -3,11 +3,10 @@ petiole ui
 import "html/template"
 import "net/http"
 import "os"
-import "strconv"
-
 import "stdlib/http" as httphelper
 import "stdlib/log"
 import "stdlib/string" as strpkg
+import "strconv"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
@@ -29,7 +28,7 @@ func loadTemplate() error
     if err isnt empty
         return err
     funcs := template.FuncMap{
-        "title":       titleCase,
+        "title": titleCase,
         "displayName": model_display_names.GetModelDisplayName,
     }
     t, perr := template.New("index.html").Funcs(funcs).Parse(string(raw))
@@ -45,9 +44,9 @@ func basePath() string
     return strpkg.TrimRight(s.RootPath, "/")
 
 type indexData
-    Models   map of string to list of string
-    TownID   int
-    Token    string
+    Models map of string to list of string
+    TownID int
+    Token string
     BasePath string
 
 func index(w: http.ResponseWriter, r: reference http.Request)
@@ -63,9 +62,9 @@ func index(w: http.ResponseWriter, r: reference http.Request)
             townID = n
 
     data := indexData{
-        Models:   model_loader.GetAvailableModels(),
-        TownID:   townID,
-        Token:    r.URL.Query().Get("token"),
+        Models: model_loader.GetAvailableModels(),
+        TownID: townID,
+        Token: r.URL.Query().Get("token"),
         BasePath: basePath(),
     }
     w.Header().Set("Content-Type", "text/html; charset=utf-8")

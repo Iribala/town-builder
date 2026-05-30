@@ -1,16 +1,18 @@
 petiole security_test
 
-import "testing"
 import "stdlib/string" as strpkg
 import "stdlib/test"
+import "testing"
+
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/utils/security"
 
 func setup()
     s := reference of config.Settings{
-        AllowedDomains:    "localhost,127.0.0.1",
+        AllowedDomains: "localhost,127.0.0.1",
         AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
     }
+
     config.SetForTest(s)
 
 # ── ValidateApiURL ────────────────────────────────────────────────
@@ -117,37 +119,37 @@ func TestProxyCombinedTraversalEncoded(t: reference testing.T)
 # ── ValidateFilename ──────────────────────────────────────────────
 
 func TestFilenameClean(t: reference testing.T)
-    out, err := security.ValidateFilename("town_data.json", list of string{})
+    out, err := security.ValidateFilename("town_data.json", empty list of string)
     test.AssertNoError(t, err)
     test.AssertEqual(t, out, "town_data.json")
 
 func TestFilenameAlphanumericDotsDashes(t: reference testing.T)
-    out, err := security.ValidateFilename("my-town_v2.json", list of string{})
+    out, err := security.ValidateFilename("my-town_v2.json", empty list of string)
     test.AssertNoError(t, err)
     test.AssertEqual(t, out, "my-town_v2.json")
 
 func TestFilenameTraversalRejected(t: reference testing.T)
-    _, err := security.ValidateFilename("../etc/passwd", list of string{})
+    _, err := security.ValidateFilename("../etc/passwd", empty list of string)
     test.AssertError(t, err)
 
 func TestFilenameForwardSlashRejected(t: reference testing.T)
-    _, err := security.ValidateFilename("path/file.json", list of string{})
+    _, err := security.ValidateFilename("path/file.json", empty list of string)
     test.AssertError(t, err)
 
 func TestFilenameBackslashRejected(t: reference testing.T)
-    _, err := security.ValidateFilename("path\\file.json", list of string{})
+    _, err := security.ValidateFilename("path\\file.json", empty list of string)
     test.AssertError(t, err)
 
 func TestFilenameNullBytesRejected(t: reference testing.T)
-    _, err := security.ValidateFilename("file\x00.json", list of string{})
+    _, err := security.ValidateFilename("file\x00.json", empty list of string)
     test.AssertError(t, err)
 
 func TestFilenameEmptyRejected(t: reference testing.T)
-    _, err := security.ValidateFilename("", list of string{})
+    _, err := security.ValidateFilename("", empty list of string)
     test.AssertError(t, err)
 
 func TestFilenameSpecialCharsRejected(t: reference testing.T)
-    _, err := security.ValidateFilename("file name.json", list of string{})
+    _, err := security.ValidateFilename("file name.json", empty list of string)
     test.AssertError(t, err)
 
 func TestFilenameExtensionAllowed(t: reference testing.T)

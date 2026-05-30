@@ -1,12 +1,12 @@
 petiole proxy_test
 
-import "testing"
-import "stdlib/json"
-import "stdlib/test"
 import "bytes"
 import "io"
 import "net/http"
 import "net/http/httptest"
+import "stdlib/json"
+import "stdlib/test"
+import "testing"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/routes/router"
@@ -14,19 +14,20 @@ import "github.com/Iribala/town-builder/internal/storage"
 
 func setup(djangoURL: string)
     s := reference of config.Settings{
-        ApiURL:                   djangoURL,
-        ApiToken:                 "test-token",
-        DisableJwtAuth:           true,
-        Environment:              "development",
-        AllowedDomains:           "localhost,127.0.0.1",
-        AllowedApiDomains:        list of string{"localhost", "127.0.0.1"},
-        DataPath:                 "./data",
-        StaticPath:               "./static",
-        TemplatesPath:            "./templates",
-        ModelsPath:               "./static/models",
-        MaxRequestBodyBytes:      10 * 1024 * 1024,
+        ApiURL: djangoURL,
+        ApiToken: "test-token",
+        DisableJwtAuth: true,
+        Environment: "development",
+        AllowedDomains: "localhost,127.0.0.1",
+        AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
+        DataPath: "./data",
+        StaticPath: "./static",
+        TemplatesPath: "./templates",
+        ModelsPath: "./static/models",
+        MaxRequestBodyBytes: 10 * 1024 * 1024,
         MaxSseConnectionsPerUser: 3,
     }
+
     config.SetForTest(s)
     storage.SetClient(empty)
     storage.ResetMemory()
@@ -53,6 +54,7 @@ func TestProxyGetForwards(t: reference testing.T)
         w.WriteHeader(200)
         w.Write(`[{"id": 1, "name": "Springfield"}]` as list of byte) onerr discard
     )
+
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
@@ -67,6 +69,7 @@ func TestProxyGetWithPath(t: reference testing.T)
         w.WriteHeader(200)
         w.Write(`{"id": 42}` as list of byte) onerr discard
     )
+
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
@@ -81,6 +84,7 @@ func TestProxyPostForwardsBody(t: reference testing.T)
         w.WriteHeader(201)
         w.Write(`{"id": 1}` as list of byte) onerr discard
     )
+
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
@@ -95,11 +99,12 @@ func TestProxyPatchWithPath(t: reference testing.T)
         w.WriteHeader(200)
         w.Write(`{"id": 42}` as list of byte) onerr discard
     )
+
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()
     status, _ := do(mux, "PATCH", "/api/proxy/towns/42/", map of string to any{
-        "layout_data": map of string to any{"buildings": list of any{}},
+        "layout_data": map of string to any{"buildings": empty list of any},
     })
     test.AssertEqual(t, status, 200)
     test.AssertEqual(t, seenMethod, "PATCH")
@@ -109,6 +114,7 @@ func TestProxyPreservesStatusCode(t: reference testing.T)
         w.WriteHeader(404)
         w.Write(`{"detail": "Not found."}` as list of byte) onerr discard
     )
+
     defer srv.Close()
     setup(srv.URL + "/")
     mux := router.NewMux()

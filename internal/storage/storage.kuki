@@ -1,27 +1,32 @@
 petiole storage
 
+import "stdlib/ctx" as ctxpkg
 import "stdlib/json"
 import "stdlib/log"
-import "stdlib/ctx" as ctxpkg
 import "sync"
+
+import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/klauspost/compress/zstd"
 import "github.com/redis/go-redis/v9" as redis
 
-import "github.com/Iribala/town-builder/internal/normalization"
-
 const townKey = "town_data"
+
 const redisTimeoutNanos = 2_000_000_000
 
 var client reference redis.Client
+
 var lock sync.RWMutex
+
 var memory map of string to any
+
 var encoder reference zstd.Encoder
+
 var decoder reference zstd.Decoder
 
 func defaultTownData() map of string to any
     out := make(map of string to any)
     for cat in normalization.Categories
-        out[cat] = list of map of string to any{}
+        out[cat] = empty list of map of string to any
     return out
 
 func init()

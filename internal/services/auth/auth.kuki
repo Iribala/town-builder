@@ -2,19 +2,19 @@ petiole auth
 
 import "stdlib/log"
 import "time"
-import "github.com/golang-jwt/jwt/v5" as jwtpkg
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/golang-jwt/jwt/v5" as jwtpkg
 
 type UserInfo
     Username string
-    Payload  map of string to any
+    Payload map of string to any
 
 type TokenResponse
     AccessToken string as "access_token"
-    TokenType   string as "token_type"
-    ExpiresIn   int    as "expires_in"
-    Username    string as "username"
+    TokenType string as "token_type"
+    ExpiresIn int as "expires_in"
+    Username string as "username"
 
 func keyFunc(token: reference jwtpkg.Token) (any, error)
     s := config.Current()
@@ -78,7 +78,7 @@ func CreateAccessToken(username: string, expiresHours: int) (reference TokenResp
         return empty, err
     return reference of TokenResponse{
         AccessToken: signed,
-        TokenType:   "bearer",
-        ExpiresIn:   expiresHours * 3600,
-        Username:    username,
+        TokenType: "bearer",
+        ExpiresIn: expiresHours * 3600,
+        Username: username,
     }, empty

@@ -1,12 +1,12 @@
 petiole buildings_test
 
-import "testing"
-import "stdlib/json"
-import "stdlib/test"
 import "bytes"
 import "io"
 import "net/http"
 import "net/http/httptest"
+import "stdlib/json"
+import "stdlib/test"
+import "testing"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/routes/router"
@@ -14,14 +14,15 @@ import "github.com/Iribala/town-builder/internal/storage"
 
 func setup()
     s := reference of config.Settings{
-        DisableJwtAuth:           true,
-        Environment:              "development",
-        MaxRequestBodyBytes:      10485760,
+        DisableJwtAuth: true,
+        Environment: "development",
+        MaxRequestBodyBytes: 10485760,
         MaxSseConnectionsPerUser: 3,
-        DataPath:                 "./data",
-        AllowedDomains:           "localhost,127.0.0.1",
-        AllowedApiDomains:        list of string{"localhost", "127.0.0.1"},
+        DataPath: "./data",
+        AllowedDomains: "localhost,127.0.0.1",
+        AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
     }
+
     config.SetForTest(s)
     storage.SetClient(empty)
     storage.ResetMemory()
@@ -48,7 +49,7 @@ func TestCreateBuildingTypedShape(t: reference testing.T)
     setup()
     mux := router.NewMux()
     body := map of string to any{
-        "model":    "house.glb",
+        "model": "house.glb",
         "category": "buildings",
         "position": map of string to any{"x": 1.0, "y": 2.0, "z": 3.0},
     }
@@ -71,7 +72,7 @@ func TestBuildingLifecycle(t: reference testing.T)
     setup()
     mux := router.NewMux()
     body := map of string to any{
-        "model":    "car.glb",
+        "model": "car.glb",
         "category": "vehicles",
         "position": map of string to any{"x": 9.0, "y": 0.0, "z": 0.0},
     }

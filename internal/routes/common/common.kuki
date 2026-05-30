@@ -1,7 +1,6 @@
 petiole common
 
 import "net/http"
-
 import "stdlib/http" as httphelper
 import "stdlib/string" as strpkg
 

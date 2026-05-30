@@ -2,7 +2,6 @@ petiole proxy
 
 import "io"
 import "net/http"
-
 import "stdlib/http" as httphelper
 import "stdlib/log"
 import "stdlib/maps" as mapspkg
@@ -12,6 +11,7 @@ import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/django_client"
 
 var skipRequestHeaders = list of string{"host", "content-length"}
+
 var skipResponseHeaders = list of string{"content-length", "transfer-encoding", "connection", "content-encoding"}
 
 func shouldSkip(skip: list of string, name: string) bool

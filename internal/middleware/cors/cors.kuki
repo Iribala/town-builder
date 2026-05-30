@@ -11,11 +11,11 @@ var allowedOrigins list of string
 func Init()
     s := config.Current()
     if s equals empty
-        allowedOrigins = list of string{}
+        allowedOrigins = empty list of string
         return
     raw := s.AllowedOrigins
     parts := strpkg.Split(raw, ",")
-    cleaned := list of string{}
+    cleaned := empty list of string
     for p in parts
         trimmed := strpkg.TrimSpace(p)
         if trimmed isnt ""

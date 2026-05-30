@@ -1,21 +1,22 @@
 petiole batch
 
+import "math"
+import "stdlib/cast"
 import "stdlib/json"
 import "stdlib/log"
 import "stdlib/string" as strpkg
 import "sync"
-import "math"
-import "github.com/google/uuid"
 
 import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
-import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/services/history"
+import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
-import "stdlib/cast"
+import "github.com/google/uuid"
 
 var batchLock sync.Mutex
+
 var dataVersion int
 
 func deepCopy(src: map of string to any) map of string to any
@@ -57,7 +58,7 @@ func createObject(townData: map of string to any, op: map of string to any, vali
         return opResult(false, "create", "Missing category", empty)
     _, ok := townData[category]
     if not ok
-        townData[category] = list of any{}
+        townData[category] = empty list of any
     if _, idOk := data["id"]; not idOk
         data["id"] = uuid.NewString()
     if validate and not validateObject(data)
@@ -120,7 +121,7 @@ func deleteObject(townData: map of string to any, op: map of string to any, vali
             if not mok
                 continue
             if mapx.Str(obj, "id") equals objectID
-                items = append(items[:i], many items[i+1:])
+                items = append(items[:i], many items[i + 1:])
                 townData[category] = items
                 result := make(map of string to any)
                 result["id"] = objectID
@@ -142,7 +143,7 @@ func deleteObject(townData: map of string to any, op: map of string to any, vali
             closestIndex = i
             closestID = mapx.Str(obj, "id")
     if closestIndex >= 0 and closestDistance < geometry.DeleteProximityThreshold
-        items = append(items[:closestIndex], many items[closestIndex+1:])
+        items = append(items[:closestIndex], many items[closestIndex + 1:])
         townData[category] = items
         result := make(map of string to any)
         result["id"] = closestID
@@ -170,7 +171,7 @@ func editObject(townData: map of string to any, op: map of string to any, valida
         if not mok
             continue
         if mapx.Str(obj, "id") equals objectID
-            changesMade := list of string{}
+            changesMade := empty list of string
             if hasPos and not cast.IsNil(position)
                 obj["position"] = position
                 changesMade = append(changesMade, "position")
@@ -187,7 +188,12 @@ func editObject(townData: map of string to any, op: map of string to any, valida
             result["category"] = category
             result["changes"] = changesMade
             joined := strpkg.Join(changesMade, ", ")
-            return opResult(true, "edit", "Edited object {objectID} in {category} ({joined} changed)", result)
+            return opResult(
+                true,
+                "edit",
+                "Edited object {objectID} in {category} ({joined} changed)",
+                result,
+            )
     return opResult(false, "edit", "Object {objectID} not found", empty)
 
 func executeSingle(townData: map of string to any, op: map of string to any, validate: bool) map of string to any
@@ -207,12 +213,13 @@ func executeSingle(townData: map of string to any, op: map of string to any, val
 func ExecuteOperations(operations: list of map of string to any, validate: bool) (list of map of string to any, int, int)
     batchLock.Lock()
     defer batchLock.Unlock()
-    results := list of map of string to any{}
+    results := empty list of map of string to any
     successful := 0
     failed := 0
     townData := storage.Get() onerr
         log.Error("batch.ExecuteOperations: storage.Get failed: {error}")
         fallback make(map of string to any)
+
     originalTownData := deepCopy(townData)
 
     for op in operations
@@ -238,6 +245,8 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
             log.Warn("Batch history add failed: {herr}")
         log.Info("Batch operations completed: {successful} successful, {failed} failed")
     else
-        log.Warn("Batch operations had failures, rolling back. {successful} successful, {failed} failed")
+        log.Warn(
+            "Batch operations had failures, rolling back. {successful} successful, {failed} failed",
+        )
 
     return results, successful, failed

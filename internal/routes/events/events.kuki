@@ -1,11 +1,10 @@
 petiole events
 
 import "net/http"
-import "time"
-
 import "stdlib/http" as httphelper
 import "stdlib/json"
 import "stdlib/log"
+import "time"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/events" as evt
@@ -43,7 +42,7 @@ func writeEventMap(w: http.ResponseWriter, flusher: http.Flusher, event: map of 
 
 func broadcastUsers()
     town_helpers.BroadcastSSE(map of string to any{
-        "type":  "users",
+        "type": "users",
         "users": pubsub.OnlineUsers(),
     })
 
@@ -71,7 +70,7 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
 
     if playerName isnt "" and not pubsub.CanConnect(playerName)
         writeEventMap(w, flusher, map of string to any{
-            "type":    "error",
+            "type": "error",
             "message": "Connection limit reached",
         })
         return
@@ -84,7 +83,7 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
     if terr equals empty
         writeEventMap(w, flusher, evt.Full(townData))
     writeEventMap(w, flusher, map of string to any{
-        "type":  "users",
+        "type": "users",
         "users": pubsub.OnlineUsers(),
     })
 
@@ -103,7 +102,7 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
 
     ctxDone := r.Context().Done()
 
-    for
+    for true
         select
             when receive from ctxDone
                 log.Info("SSE client disconnected: {playerName}")

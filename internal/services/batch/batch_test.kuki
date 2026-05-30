@@ -1,7 +1,7 @@
 petiole batch_test
 
-import "testing"
 import "stdlib/test"
+import "testing"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/services/batch"
@@ -9,38 +9,40 @@ import "github.com/Iribala/town-builder/internal/storage"
 
 func setupBatch()
     s := reference of config.Settings{
-        DisableJwtAuth:           true,
-        Environment:              "development",
-        MaxRequestBodyBytes:      10 * 1024 * 1024,
+        DisableJwtAuth: true,
+        Environment: "development",
+        MaxRequestBodyBytes: 10 * 1024 * 1024,
         MaxSseConnectionsPerUser: 3,
-        MaxBatchOperations:       100,
+        MaxBatchOperations: 100,
     }
+
     config.SetForTest(s)
     storage.SetClient(empty)
     storage.ResetMemory()
     initial := map of string to any{
         "buildings": list of any{
             map of string to any{
-                "id":       "bld-1",
-                "model":    "house.glb",
+                "id": "bld-1",
+                "model": "house.glb",
                 "category": "buildings",
                 "position": map of string to any{"x": 0.0, "y": 0.0, "z": 0.0},
             },
             map of string to any{
-                "id":       "bld-2",
-                "model":    "shop.glb",
+                "id": "bld-2",
+                "model": "shop.glb",
                 "category": "buildings",
                 "position": map of string to any{"x": 10.0, "y": 0.0, "z": 10.0},
             },
         },
-        "vehicles": list of any{},
-        "trees":    list of any{},
-        "props":    list of any{},
-        "street":   list of any{},
-        "park":     list of any{},
-        "terrain":  list of any{},
-        "roads":    list of any{},
+        "vehicles": empty list of any,
+        "trees": empty list of any,
+        "props": empty list of any,
+        "street": empty list of any,
+        "park": empty list of any,
+        "terrain": empty list of any,
+        "roads": empty list of any,
     }
+
     # kuki:returns 1
     storage.Set(initial) onerr discard
 
@@ -48,10 +50,10 @@ func TestBatchCreateAddsObject(t: reference testing.T)
     setupBatch()
     ops := list of map of string to any{
         map of string to any{
-            "op":       "create",
+            "op": "create",
             "category": "vehicles",
             "data": map of string to any{
-                "model":    "car.glb",
+                "model": "car.glb",
                 "category": "vehicles",
                 "position": map of string to any{"x": 0.0, "y": 0.0, "z": 0.0},
             },
@@ -81,9 +83,9 @@ func TestBatchDeleteById(t: reference testing.T)
     setupBatch()
     ops := list of map of string to any{
         map of string to any{
-            "op":       "delete",
+            "op": "delete",
             "category": "buildings",
-            "id":       "bld-1",
+            "id": "bld-1",
         },
     }
     _, ok, _ := batch.ExecuteOperations(ops, true)
@@ -98,9 +100,9 @@ func TestBatchDeleteNonexistentFails(t: reference testing.T)
     setupBatch()
     ops := list of map of string to any{
         map of string to any{
-            "op":       "delete",
+            "op": "delete",
             "category": "buildings",
-            "id":       "nonexistent",
+            "id": "nonexistent",
         },
     }
     _, _, failed := batch.ExecuteOperations(ops, true)
@@ -110,9 +112,9 @@ func TestBatchEditPosition(t: reference testing.T)
     setupBatch()
     ops := list of map of string to any{
         map of string to any{
-            "op":       "edit",
+            "op": "edit",
             "category": "buildings",
-            "id":       "bld-1",
+            "id": "bld-1",
             "position": map of string to any{"x": 99.0, "y": 0.0, "z": 99.0},
         },
     }
@@ -128,9 +130,9 @@ func TestBatchUnknownOpFails(t: reference testing.T)
     setupBatch()
     ops := list of map of string to any{
         map of string to any{
-            "op":       "teleport",
+            "op": "teleport",
             "category": "buildings",
-            "id":       "bld-1",
+            "id": "bld-1",
         },
     }
     _, _, failed := batch.ExecuteOperations(ops, true)

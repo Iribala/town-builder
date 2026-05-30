@@ -37,7 +37,7 @@ func ListOr(m: map of string to any, key: string) list of any
     if v, ok := m[key]; ok
         if arr, aok := v.(list of any); aok
             return arr
-    return list of any{}
+    return empty list of any
 
 # FloatAt returns m[key] coerced to float64, or def when absent/uncoercible.
 func FloatAt(m: map of string to any, key: string, def: float64) float64
