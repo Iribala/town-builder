@@ -6,6 +6,7 @@ import "stdlib/string" as strpkg
 import "math"
 import "sort"
 
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
 
@@ -18,10 +19,6 @@ func getAllCategories(townData: map of string to any) list of string
         if ok
             keys = append(keys, k)
     return keys
-
-func toMap(v: any) (map of string to any, bool)
-    m, ok := v.(map of string to any)
-    return m, ok
 
 func sortLess(items: list of map of string to any, field: string, reverse: bool, i: int, j: int) bool
     a := getNestedValue(items[i], field)
@@ -62,10 +59,10 @@ func SpatialQueryRadius(center: map of string to any, radius: float64, category:
         if not lok
             continue
         for item in items
-            obj, mok := toMap(item)
+            obj, mok := mapx.AsMap(item)
             if not mok
                 continue
-            pos, _ := toMap(obj["position"])
+            pos, _ := mapx.AsMap(obj["position"])
             distance := geometry.CalculateDistance(center, pos)
             if distance <= radius
                 entry := cloneWithCat(obj, cat)
@@ -78,27 +75,16 @@ func SpatialQueryRadius(center: map of string to any, radius: float64, category:
     return results
 
 func isWithinBounds(point: map of string to any, minPoint: map of string to any, maxPoint: map of string to any) bool
-    px, _ := cast.SmartFloat64(point["x"])
-    py, _ := cast.SmartFloat64(point["y"])
-    pz, _ := cast.SmartFloat64(point["z"])
-    mnx, mnxOk := cast.SmartFloat64(minPoint["x"])
-    if not (mnxOk equals empty)
-        mnx = math.Inf(-1)
-    mny, mnyOk := cast.SmartFloat64(minPoint["y"])
-    if not (mnyOk equals empty)
-        mny = math.Inf(-1)
-    mnz, mnzOk := cast.SmartFloat64(minPoint["z"])
-    if not (mnzOk equals empty)
-        mnz = math.Inf(-1)
-    mxx, mxxOk := cast.SmartFloat64(maxPoint["x"])
-    if not (mxxOk equals empty)
-        mxx = math.Inf(1)
-    mxy, mxyOk := cast.SmartFloat64(maxPoint["y"])
-    if not (mxyOk equals empty)
-        mxy = math.Inf(1)
-    mxz, mxzOk := cast.SmartFloat64(maxPoint["z"])
-    if not (mxzOk equals empty)
-        mxz = math.Inf(1)
+    # Missing/unparseable bounds default to ±Inf, leaving that axis unbounded.
+    px := mapx.FloatAt(point, "x", 0.0)
+    py := mapx.FloatAt(point, "y", 0.0)
+    pz := mapx.FloatAt(point, "z", 0.0)
+    mnx := mapx.FloatAt(minPoint, "x", math.Inf(-1))
+    mny := mapx.FloatAt(minPoint, "y", math.Inf(-1))
+    mnz := mapx.FloatAt(minPoint, "z", math.Inf(-1))
+    mxx := mapx.FloatAt(maxPoint, "x", math.Inf(1))
+    mxy := mapx.FloatAt(maxPoint, "y", math.Inf(1))
+    mxz := mapx.FloatAt(maxPoint, "z", math.Inf(1))
     return mnx <= px and px <= mxx and mny <= py and py <= mxy and mnz <= pz and pz <= mxz
 
 func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string to any, category: string, limit: int) list of map of string to any
@@ -117,10 +103,10 @@ func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string 
         if not lok
             continue
         for item in items
-            obj, mok := toMap(item)
+            obj, mok := mapx.AsMap(item)
             if not mok
                 continue
-            pos, _ := toMap(obj["position"])
+            pos, _ := mapx.AsMap(obj["position"])
             if isWithinBounds(pos, minPoint, maxPoint)
                 results = append(results, cloneWithCat(obj, cat))
     if limit > 0 and len(results) > limit
@@ -144,10 +130,10 @@ func SpatialQueryNearest(point: map of string to any, category: string, count: i
         if not lok
             continue
         for item in items
-            obj, mok := toMap(item)
+            obj, mok := mapx.AsMap(item)
             if not mok
                 continue
-            pos, _ := toMap(obj["position"])
+            pos, _ := mapx.AsMap(obj["position"])
             distance := geometry.CalculateDistance(point, pos)
             if not hasMaxDistance or distance <= maxDistance
                 entry := cloneWithCat(obj, cat)
@@ -242,11 +228,11 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
         if not lok
             continue
         for item in items
-            obj, mok := toMap(item)
+            obj, mok := mapx.AsMap(item)
             if not mok
                 continue
             entry := cloneWithCat(obj, cat)
-            if filters isnt empty and len(filters) > 0
+            if len(filters) > 0
                 if matchesFilters(entry, filters)
                     results = append(results, entry)
             else

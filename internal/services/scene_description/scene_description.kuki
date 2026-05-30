@@ -5,19 +5,12 @@ import "stdlib/cast"
 import "stdlib/string" as strpkg
 import "fmt"
 
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
 
 func getModelNameFriendly(modelFilename: string) string
     return model_display_names.GetModelDisplayName(modelFilename)
-
-func toMap(v: any) (map of string to any, bool)
-    m, ok := v.(map of string to any)
-    return m, ok
-
-func toList(v: any) (list of any, bool)
-    l, ok := v.(list of any)
-    return l, ok
 
 func analyzeCategory(categoryData: list of any, categoryName: string) map of string to any
     out := make(map of string to any)
@@ -32,7 +25,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
     driverCount := 0
     positions := list of list of float64{}
     for raw in categoryData
-        obj, ok := toMap(raw)
+        obj, ok := mapx.AsMap(raw)
         if not ok
             continue
         model := "unknown"
@@ -42,7 +35,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
         modelCounts[model] = modelCounts[model] + 1
         if d, ok := obj["driver"]; ok and not cast.IsNil(d)
             driverCount = driverCount + 1
-        pos, pok := toMap(obj["position"])
+        pos, pok := mapx.AsMap(obj["position"])
         if pok
             x, _ := cast.SmartFloat64(pos["x"])
             y, _ := cast.SmartFloat64(pos["y"])
@@ -125,7 +118,7 @@ func appendCategory(parts: list of string, categories: map of string to any, nam
     catRaw, ok := categories[name]
     if not ok
         return parts
-    cat, mok := toMap(catRaw)
+    cat, mok := mapx.AsMap(catRaw)
     if not mok
         return parts
     count := 0
@@ -152,12 +145,12 @@ func generateNaturalDescription(analysis: map of string to any) string
         return townName + " is currently empty with no objects placed."
     parts = append(parts, fmt.Sprintf("Total objects: %d", total))
 
-    categories, _ := toMap(analysis["categories"])
+    categories, _ := mapx.AsMap(analysis["categories"])
 
     parts = appendCategory(parts, categories, "buildings", "Buildings", "objects", true, "")
 
     if vehRaw, ok := categories["vehicles"]; ok
-        vehicles, mok := toMap(vehRaw)
+        vehicles, mok := mapx.AsMap(vehRaw)
         if mok
             count := 0
             if c, cok := vehicles["count"].(int); cok
@@ -179,8 +172,8 @@ func generateNaturalDescription(analysis: map of string to any) string
     parts = appendCategory(parts, categories, "terrain", "Terrain", "objects", false, "")
     parts = appendCategory(parts, categories, "roads", "Roads", "segments", false, "")
 
-    bounds, _ := toMap(analysis["bounds"])
-    dims, _ := toMap(bounds["dimensions"])
+    bounds, _ := mapx.AsMap(analysis["bounds"])
+    dims, _ := mapx.AsMap(bounds["dimensions"])
     width, _ := cast.SmartFloat64(dims["width"])
     depth, _ := cast.SmartFloat64(dims["depth"])
     if width > 0.0 or depth > 0.0
@@ -194,7 +187,7 @@ func GenerateSceneDescription(townData: map of string to any) map of string to a
     totalObjects := 0
     for category in normalization.Categories
         catRaw, _ := townData[category]
-        catList, _ := toList(catRaw)
+        catList, _ := mapx.AsList(catRaw)
         analysis := analyzeCategory(catList, category)
         categoryAnalysis[category] = analysis
         if c, ok := analysis["count"].(int); ok

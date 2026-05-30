@@ -4,19 +4,17 @@ import "net/http"
 
 import "stdlib/http" as httphelper
 
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 
 func readPosition(raw: any) map of string to any
-    out := map of string to any{"x": 0.0, "y": 0.0, "z": 0.0}
-    m, ok := raw.(map of string to any)
-    if not ok
-        return out
-    for key in list of string{"x", "y", "z"}
-        if v, vok := m[key]; vok
-            if f, fok := v.(float64); fok
-                out[key] = f
-    return out
+    m, _ := mapx.AsMap(raw)
+    return map of string to any{
+        "x": mapx.FloatAt(m, "x", 0.0),
+        "y": mapx.FloatAt(m, "y", 0.0),
+        "z": mapx.FloatAt(m, "z", 0.0),
+    }
 
 func update(w: http.ResponseWriter, r: reference http.Request)
     u, ok := common.CurrentUser(w, r)

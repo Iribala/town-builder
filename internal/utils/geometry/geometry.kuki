@@ -1,21 +1,13 @@
 petiole geometry
 
 import "math"
-import "stdlib/cast"
+
+import "github.com/Iribala/town-builder/internal/mapx"
 
 const DeleteProximityThreshold = 2.0
 
-func coord(p: map of string to any, key: string) float64
-    v, ok := p[key]
-    if not ok
-        return 0.0
-    f, err := cast.SmartFloat64(v)
-    if err isnt empty
-        return 0.0
-    return f
-
 func CalculateDistance(p1: map of string to any, p2: map of string to any) float64
-    dx := coord(p1, "x") - coord(p2, "x")
-    dy := coord(p1, "y") - coord(p2, "y")
-    dz := coord(p1, "z") - coord(p2, "z")
+    dx := mapx.FloatAt(p1, "x", 0.0) - mapx.FloatAt(p2, "x", 0.0)
+    dy := mapx.FloatAt(p1, "y", 0.0) - mapx.FloatAt(p2, "y", 0.0)
+    dz := mapx.FloatAt(p1, "z", 0.0) - mapx.FloatAt(p2, "z", 0.0)
     return math.Sqrt(dx * dx + dy * dy + dz * dz)

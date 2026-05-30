@@ -5,17 +5,12 @@ import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/history" as histsvc
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
 import "stdlib/cast"
-
-func optString(m: map of string to any, key: string) string
-    if v, ok := m[key]; ok
-        if s, sok := v.(string); sok
-            return s
-    return ""
 
 func getHistory(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -45,7 +40,7 @@ func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey:
         return false
     pushBack(entry)
     town_helpers.BroadcastSSE(map of string to any{"type": "full", "town": state})
-    op := optString(entry, "operation")
+    op := mapx.Str(entry, "operation")
     log.Info("{action} operation: {op}")
     httphelper.JSON(w, map of string to any{
         "status":   "success",
@@ -70,18 +65,12 @@ func undo(w: http.ResponseWriter, r: reference http.Request)
 
 func redoPushBack(entry: map of string to any)
     histsvc.AddEntry(
-        optString(entry, "operation"),
-        optString(entry, "category"),
-        optString(entry, "object_id"),
-        mapOrEmpty(entry, "before_state"),
-        mapOrEmpty(entry, "after_state"),
+        mapx.Str(entry, "operation"),
+        mapx.Str(entry, "category"),
+        mapx.Str(entry, "object_id"),
+        mapx.MapOr(entry, "before_state"),
+        mapx.MapOr(entry, "after_state"),
     )
-
-func mapOrEmpty(m: map of string to any, key: string) map of string to any
-    if v, ok := m[key]; ok
-        if mm, mok := v.(map of string to any); mok
-            return mm
-    return empty
 
 func redo(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)

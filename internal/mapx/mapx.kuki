@@ -1,0 +1,70 @@
+petiole mapx
+
+# Shared accessors for the untyped `map of string to any` values that flow
+# through the town layout (a holdover from the Python/dict port). Centralises
+# the optString/optMap/toMap/toList/coord helpers that were previously copy
+# pasted across routes and services.
+
+import "stdlib/cast"
+
+# Str returns m[key] as a string, or "" when absent or not a string.
+func Str(m: map of string to any, key: string) string
+    if v, ok := m[key]; ok
+        if s, sok := v.(string); sok
+            return s
+    return ""
+
+# Has reports whether key is present in m.
+func Has(m: map of string to any, key: string) bool
+    _, ok := m[key]
+    return ok
+
+# MapAt returns m[key] as a nested map. The bool is false when the key is
+# absent, nil, or not a map.
+func MapAt(m: map of string to any, key: string) (map of string to any, bool)
+    if v, ok := m[key]; ok and not cast.IsNil(v)
+        if mm, mok := v.(map of string to any); mok
+            return mm, true
+    return empty, false
+
+# MapOr returns m[key] as a nested map, or empty when absent/not a map.
+func MapOr(m: map of string to any, key: string) map of string to any
+    mm, _ := MapAt(m, key)
+    return mm
+
+# ListOr returns m[key] as a list, or an empty list when absent/not a list.
+func ListOr(m: map of string to any, key: string) list of any
+    if v, ok := m[key]; ok
+        if arr, aok := v.(list of any); aok
+            return arr
+    return list of any{}
+
+# FloatAt returns m[key] coerced to float64, or def when absent/uncoercible.
+func FloatAt(m: map of string to any, key: string, def: float64) float64
+    v, ok := m[key]
+    if not ok
+        return def
+    f, err := cast.SmartFloat64(v)
+    if err isnt empty
+        return def
+    return f
+
+# IntAt returns m[key] coerced to int, or def when absent/uncoercible.
+func IntAt(m: map of string to any, key: string, def: int) int
+    v, ok := m[key]
+    if not ok
+        return def
+    f, err := cast.SmartFloat64(v)
+    if err isnt empty
+        return def
+    return f as int
+
+# AsMap type-asserts an any value to a map.
+func AsMap(v: any) (map of string to any, bool)
+    m, ok := v.(map of string to any)
+    return m, ok
+
+# AsList type-asserts an any value to a list.
+func AsList(v: any) (list of any, bool)
+    arr, ok := v.(list of any)
+    return arr, ok

@@ -5,16 +5,11 @@ import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/snapshots" as snapsvc
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
-
-func optString(m: map of string to any, key: string) string
-    if v, ok := m[key]; ok
-        if s, sok := v.(string); sok
-            return s
-    return ""
 
 func create(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -26,7 +21,7 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     if err isnt empty
         httphelper.JSONError(w, "Failed to load town data", 500)
         return
-    snapID, serr := snapsvc.CreateSnapshot(townData, optString(body, "name"), optString(body, "description"))
+    snapID, serr := snapsvc.CreateSnapshot(townData, mapx.Str(body, "name"), mapx.Str(body, "description"))
     if serr isnt empty
         httphelper.JSONError(w, "Failed to create snapshot", 500)
         return
@@ -81,7 +76,7 @@ func restore(w: http.ResponseWriter, r: reference http.Request)
     log.Info("Restored snapshot: {id}")
     name := ""
     if meta isnt empty
-        name = optString(meta, "name")
+        name = mapx.Str(meta, "name")
     httphelper.JSON(w, map of string to any{
         "status":   "success",
         "message":  "Restored to snapshot: {name}",
