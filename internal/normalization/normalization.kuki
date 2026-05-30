@@ -3,6 +3,8 @@ petiole normalization
 import "stdlib/cast"
 import "stdlib/maps"
 
+import "github.com/Iribala/town-builder/internal/object"
+
 var Categories = list of string{
     "buildings",
     "vehicles",
@@ -14,35 +16,9 @@ var Categories = list of string{
     "roads",
 }
 
-type Vec3
-    X float64 as "x"
-    Y float64 as "y"
-    Z float64 as "z"
-
-func toFloat(v: any, def: float64) float64
-    out, err := cast.SmartFloat64(v)
-    if err isnt empty
-        return def
-    return out
-
-func vecFromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
-    if cast.IsNil(values)
-        return Vec3{X: dx, Y: dy, Z: dz}
-    arr, okArr := values.(list of any)
-    if okArr and len(arr) >= 3
-        return Vec3{
-            X: toFloat(arr[0], dx),
-            Y: toFloat(arr[1], dy),
-            Z: toFloat(arr[2], dz),
-        }
-    m, okMap := values.(map of string to any)
-    if okMap
-        return Vec3{
-            X: toFloat(m["x"], dx),
-            Y: toFloat(m["y"], dy),
-            Z: toFloat(m["z"], dz),
-        }
-    return Vec3{X: dx, Y: dy, Z: dz}
+# Vec3 is the shared object.Vec3; aliased here for the existing call sites
+# (and tests) that reference normalization.Vec3.
+type Vec3 = object.Vec3
 
 func normalizeObject(item: map of string to any, category: string) map of string to any
     out := make(map of string to any)
@@ -54,9 +30,9 @@ func normalizeObject(item: map of string to any, category: string) map of string
         if alt, ok := item["modelName"]; ok
             model = alt
     out["model"] = model
-    out["position"] = vecFromAny(item["position"], 0.0, 0.0, 0.0)
-    out["rotation"] = vecFromAny(item["rotation"], 0.0, 0.0, 0.0)
-    out["scale"]    = vecFromAny(item["scale"], 1.0, 1.0, 1.0)
+    out["position"] = object.Vec3FromAny(item["position"], 0.0, 0.0, 0.0)
+    out["rotation"] = object.Vec3FromAny(item["rotation"], 0.0, 0.0, 0.0)
+    out["scale"]    = object.Vec3FromAny(item["scale"], 1.0, 1.0, 1.0)
     return out
 
 func normalizeList(items: any, category: string) list of map of string to any

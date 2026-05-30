@@ -2,6 +2,7 @@ petiole buildings
 
 import "net/http"
 
+import "stdlib/cast"
 import "stdlib/crypto"
 import "stdlib/http" as httphelper
 import "stdlib/log"
@@ -9,39 +10,23 @@ import "stdlib/log"
 import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
+import "github.com/Iribala/town-builder/internal/object"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
 
-func vec3(x: float64, y: float64, z: float64) map of string to any
-    return map of string to any{"x": x, "y": y, "z": z}
-
-func defaultRotation() map of string to any
-    return vec3(0.0, 0.0, 0.0)
-
-func defaultScale() map of string to any
-    return vec3(1.0, 1.0, 1.0)
-
 func response(building: map of string to any, category: string) map of string to any
-    pos, _ := mapx.MapAt(building, "position")
-    if pos equals empty
-        pos = defaultRotation()
-    rot, _ := mapx.MapAt(building, "rotation")
-    if rot equals empty
-        rot = defaultRotation()
-    scl, _ := mapx.MapAt(building, "scale")
-    if scl equals empty
-        scl = defaultScale()
+    o := object.FromMap(building)
     out := map of string to any{
-        "id":       mapx.Str(building, "id"),
-        "model":    mapx.Str(building, "model"),
+        "id":       o.ID,
+        "model":    o.Model,
         "category": category,
-        "position": pos,
-        "rotation": rot,
-        "scale":    scl,
+        "position": o.Position,
+        "rotation": o.Rotation,
+        "scale":    o.Scale,
     }
-    if drv, ok := building["driver"]; ok
-        out["driver"] = drv
+    if not cast.IsNil(o.Driver)
+        out["driver"] = o.Driver
     return out
 
 func findBuilding(townData: map of string to any, buildingID: string) (string, map of string to any, int)
@@ -88,24 +73,20 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     category := mapx.Str(body, "category")
     if category equals ""
         category = "buildings"
-    pos, pok := mapx.MapAt(body, "position")
-    if not pok
+    if _, pok := mapx.MapAt(body, "position"); not pok
         httphelper.JSONBadRequest(w, "position is required")
         return
-    rot, _ := mapx.MapAt(body, "rotation")
-    if rot equals empty
-        rot = defaultRotation()
-    scl, _ := mapx.MapAt(body, "scale")
-    if scl equals empty
-        scl = defaultScale()
     buildingID := newID()
-    building := map of string to any{
-        "id":       buildingID,
-        "model":    model,
-        "position": pos,
-        "rotation": rot,
-        "scale":    scl,
-    }
+    var posV object.Vec3 = object.Vec3FromAny(body["position"], 0.0, 0.0, 0.0)
+    var rotV object.Vec3 = object.Vec3FromAny(body["rotation"], 0.0, 0.0, 0.0)
+    var sclV object.Vec3 = object.Vec3FromAny(body["scale"], 1.0, 1.0, 1.0)
+    building := object.ToMap(object.PlacedObject{
+        ID:       buildingID,
+        Model:    model,
+        Position: posV,
+        Rotation: rotV,
+        Scale:    sclV,
+    })
     townData, gerr := storage.Get()
     if gerr isnt empty
         httphelper.JSONError(w, "Failed to load town data", 500)

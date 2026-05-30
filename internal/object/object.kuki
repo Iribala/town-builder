@@ -1,0 +1,86 @@
+petiole object
+
+# Typed domain model for a placed object. Objects flow through the layout as
+# open `map of string to any` (they round-trip through JSON storage and carry
+# arbitrary caller-supplied fields), so PlacedObject keeps an Extra catch-all
+# and is converted at the edges via FromMap/ToMap rather than marshaled
+# directly. The fixed-shape fields are typed.
+
+import "stdlib/cast"
+
+import "github.com/Iribala/town-builder/internal/mapx"
+
+type Vec3
+    X float64 as "x"
+    Y float64 as "y"
+    Z float64 as "z"
+
+type PlacedObject
+    ID       string as "id"
+    Model    string as "model"
+    Category string as "category"
+    Position Vec3   as "position"
+    Rotation Vec3   as "rotation"
+    Scale    Vec3   as "scale"
+    Driver   any    as "driver"
+    Extra    map of string to any
+
+var knownKeys = list of string{"id", "model", "category", "position", "rotation", "scale", "driver"}
+
+func toFloat(v: any, def: float64) float64
+    out, err := cast.SmartFloat64(v)
+    if err isnt empty
+        return def
+    return out
+
+# Vec3FromAny reads a vector from either a {x,y,z} map or a [x,y,z] list
+# (the legacy array layout format), falling back to the given defaults.
+func Vec3FromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
+    if cast.IsNil(values)
+        return Vec3{X: dx, Y: dy, Z: dz}
+    if v, okVec := values.(Vec3); okVec
+        return v
+    arr, okArr := values.(list of any)
+    if okArr and len(arr) >= 3
+        return Vec3{X: toFloat(arr[0], dx), Y: toFloat(arr[1], dy), Z: toFloat(arr[2], dz)}
+    m, okMap := values.(map of string to any)
+    if okMap
+        return Vec3{X: toFloat(m["x"], dx), Y: toFloat(m["y"], dy), Z: toFloat(m["z"], dz)}
+    return Vec3{X: dx, Y: dy, Z: dz}
+
+# FromMap converts a raw layout object into a typed PlacedObject. Missing
+# vectors default to 0/0/0 (1/1/1 for scale); every key that isn't a known
+# field is preserved in Extra so ToMap can round-trip it losslessly.
+func FromMap(m: map of string to any) PlacedObject
+    o := PlacedObject{
+        ID:       mapx.Str(m, "id"),
+        Model:    mapx.Str(m, "model"),
+        Category: mapx.Str(m, "category"),
+        Position: Vec3FromAny(m["position"], 0.0, 0.0, 0.0),
+        Rotation: Vec3FromAny(m["rotation"], 0.0, 0.0, 0.0),
+        Scale:    Vec3FromAny(m["scale"], 1.0, 1.0, 1.0),
+        Driver:   m["driver"],
+        Extra:    make(map of string to any),
+    }
+    for k, v in m
+        if k not in knownKeys
+            o.Extra[k] = v
+    return o
+
+# ToMap renders a PlacedObject back to the open map shape. Extra is written
+# first so explicit fields win on any key collision. Category and Driver are
+# omitted when empty, matching how handlers build these maps.
+func ToMap(o: PlacedObject) map of string to any
+    out := make(map of string to any)
+    for k, v in o.Extra
+        out[k] = v
+    out["id"] = o.ID
+    out["model"] = o.Model
+    if o.Category isnt ""
+        out["category"] = o.Category
+    out["position"] = o.Position
+    out["rotation"] = o.Rotation
+    out["scale"] = o.Scale
+    if not cast.IsNil(o.Driver)
+        out["driver"] = o.Driver
+    return out
