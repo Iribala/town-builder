@@ -3,7 +3,6 @@ petiole models
 import "net/http"
 import "os"
 import "path/filepath"
-
 import "stdlib/http" as httphelper
 
 import "github.com/Iribala/town-builder/internal/config"
@@ -40,9 +39,9 @@ func getModel(w: http.ResponseWriter, r: reference http.Request)
     if info equals "1"
         # Minimal metadata (GLTF parsing deferred; Python used pygltflib).
         body := map of string to any{
-            "name":     modelName,
+            "name": modelName,
             "category": category,
-            "has_bin":  fileExists(modelPath[:len(modelPath)-len(filepath.Ext(modelPath))] + ".bin"),
+            "has_bin": fileExists(modelPath[:len(modelPath) - len(filepath.Ext(modelPath))] + ".bin"),
         }
         httphelper.JSON(w, body)
         return

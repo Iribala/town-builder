@@ -1,18 +1,20 @@
 petiole pubsub
 
-import "stdlib/log"
 import "stdlib/ctx" as ctxpkg
+import "stdlib/log"
 import "sync"
 import "time"
-import "github.com/redis/go-redis/v9" as redis
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/redis/go-redis/v9" as redis
 
 const subscribeTimeoutNanos = 2_000_000_000
 
 var presLock sync.Mutex
+
 var connectedUsers map of string to int64
+
 var userCounts map of string to int
 
 func init()
@@ -30,7 +32,7 @@ func activityTimeoutNanos() int64
 
 func cleanupLocked()
     cutoff := nowNanos() - activityTimeoutNanos()
-    stale := list of string{}
+    stale := empty list of string
     for name, _ in connectedUsers
         if connectedUsers[name] < cutoff
             stale = append(stale, name)
@@ -39,7 +41,7 @@ func cleanupLocked()
         delete userCounts[name]
 
 func usersLocked() list of string
-    out := list of string{}
+    out := empty list of string
     for name, _ in connectedUsers
         out = append(out, name)
     return out
@@ -106,17 +108,17 @@ func Subscribe() (channel of string, func())
     stop := make(channel of bool)
     go pump(sub, out, stop)
     cancel := () =>
-        close(stop)
+        close stop
     return out, cancel
 
 func closeStringChan(ch: channel of string)
-    close(ch)
+    close ch
 
 func pump(sub: reference redis.PubSub, out: channel of string, stop: channel of bool)
     defer sub.Close()
     defer closeStringChan(out)
     msgs := sub.Channel()
-    for
+    for true
         select
             when receive from stop
                 return

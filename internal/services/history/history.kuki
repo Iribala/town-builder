@@ -1,28 +1,32 @@
 petiole history
 
+import "stdlib/ctx" as ctxpkg
 import "stdlib/json"
 import "stdlib/log"
 import "stdlib/slice"
-import "stdlib/ctx" as ctxpkg
 import "sync"
 import "time"
-import "github.com/google/uuid"
-import "github.com/redis/go-redis/v9" as redis
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/google/uuid"
+import "github.com/redis/go-redis/v9" as redis
 
 const historyKey = "town_history"
+
 const redoKey = "town_redo"
+
 const redisTimeoutNanos = 2_000_000_000
 
 var lock sync.Mutex
+
 var historyStack list of map of string to any
+
 var redoStack list of map of string to any
 
 func init()
-    historyStack = list of map of string to any{}
-    redoStack = list of map of string to any{}
+    historyStack = empty list of map of string to any
+    redoStack = empty list of map of string to any
 
 func maxSize() int
     s := config.Current()
@@ -36,14 +40,14 @@ func newCtx() ctxpkg.Handle
 func appendCapped(stack: list of map of string to any, entry: map of string to any, limit: int) list of map of string to any
     stack = append(stack, entry)
     if len(stack) > limit
-        stack = stack[len(stack)-limit:]
+        stack = stack[len(stack) - limit:]
     return stack
 
 func AddEntry(operation: string, category: string, objectID: string, before: map of string to any, after: map of string to any) (string, error)
     entryID := uuid.New().String()
     entry := make(map of string to any)
     entry["id"] = entryID
-    entry["timestamp"] = (time.Now().UnixNano() as float64) / 1000000000.0
+    entry["timestamp"] = time.Now().UnixNano() as float64 / 1000000000.0
     entry["operation"] = operation
     entry["category"] = category
     entry["object_id"] = objectID
@@ -67,7 +71,7 @@ func AddEntry(operation: string, category: string, objectID: string, before: map
             log.Warn("Redis history add failed, using in-memory storage: {rerr}")
     lock.Lock()
     historyStack = appendCapped(historyStack, entry, maxSize())
-    redoStack = list of map of string to any{}
+    redoStack = empty list of map of string to any
     lock.Unlock()
     log.Info("Added history entry: {operation} on {category}/{objectID}")
     return entryID, empty
@@ -77,9 +81,9 @@ func GetHistory(limit: int) list of map of string to any
     if client isnt empty
         h := newCtx()
         defer h.Cancel()
-        entries, err := client.LRange(h.Ctx, historyKey, -(limit as int64), -1).Result()
+        entries, err := client.LRange(h.Ctx, historyKey, -limit as int64, -1).Result()
         if err equals empty
-            out := list of map of string to any{}
+            out := empty list of map of string to any
             for entry in entries
                 obj := make(map of string to any)
                 perr := json.ParseInto(entry as list of byte, reference of obj)
@@ -135,7 +139,7 @@ func GetLastEntry() (map of string to any, bool)
     defer lock.Unlock()
     if len(historyStack) equals 0
         return empty, false
-    return historyStack[len(historyStack)-1], true
+    return historyStack[len(historyStack) - 1], true
 
 func PopLastEntry() (map of string to any, bool)
     client := storage.Client()
@@ -154,8 +158,8 @@ func PopLastEntry() (map of string to any, bool)
     defer lock.Unlock()
     if len(historyStack) equals 0
         return empty, false
-    entry := historyStack[len(historyStack)-1]
-    historyStack = historyStack[:len(historyStack)-1]
+    entry := historyStack[len(historyStack) - 1]
+    historyStack = historyStack[:len(historyStack) - 1]
     return entry, true
 
 func PushRedoEntry(entry: map of string to any)
@@ -193,8 +197,8 @@ func PopRedoEntry() (map of string to any, bool)
     defer lock.Unlock()
     if len(redoStack) equals 0
         return empty, false
-    entry := redoStack[len(redoStack)-1]
-    redoStack = redoStack[:len(redoStack)-1]
+    entry := redoStack[len(redoStack) - 1]
+    redoStack = redoStack[:len(redoStack) - 1]
     return entry, true
 
 func ClearHistory()
@@ -205,7 +209,7 @@ func ClearHistory()
         client.Del(h.Ctx, historyKey)
         client.Del(h.Ctx, redoKey)
     lock.Lock()
-    historyStack = list of map of string to any{}
-    redoStack = list of map of string to any{}
+    historyStack = empty list of map of string to any
+    redoStack = empty list of map of string to any
     lock.Unlock()
     log.Info("History cleared")

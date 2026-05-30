@@ -1,7 +1,6 @@
 petiole buildings
 
 import "net/http"
-
 import "stdlib/cast"
 import "stdlib/crypto"
 import "stdlib/http" as httphelper
@@ -18,12 +17,12 @@ import "github.com/Iribala/town-builder/internal/storage"
 func response(building: map of string to any, category: string) map of string to any
     o := object.FromMap(building)
     out := map of string to any{
-        "id":       o.ID,
-        "model":    o.Model,
+        "id": o.ID,
+        "model": o.Model,
         "category": category,
         "position": o.Position,
         "rotation": o.Rotation,
-        "scale":    o.Scale,
+        "scale": o.Scale,
     }
     if not cast.IsNil(o.Driver)
         out["driver"] = o.Driver
@@ -81,11 +80,11 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     var rotV object.Vec3 = object.Vec3FromAny(body["rotation"], 0.0, 0.0, 0.0)
     var sclV object.Vec3 = object.Vec3FromAny(body["scale"], 1.0, 1.0, 1.0)
     building := object.ToMap(object.PlacedObject{
-        ID:       buildingID,
-        Model:    model,
+        ID: buildingID,
+        Model: model,
         Position: posV,
         Rotation: rotV,
-        Scale:    sclV,
+        Scale: sclV,
     })
     townData, gerr := storage.Get()
     if gerr isnt empty
@@ -113,7 +112,7 @@ func list(w: http.ResponseWriter, r: reference http.Request)
     cats := normalization.Categories
     if cat isnt ""
         cats = list of string{cat}
-    out := list of map of string to any{}
+    out := empty list of map of string to any
     for c in cats
         v, vok := townData[c]
         if not vok
@@ -173,7 +172,7 @@ func update(w: http.ResponseWriter, r: reference http.Request)
     newCat := mapx.Str(body, "category")
     if newCat isnt "" and newCat isnt cat
         # Remove from current category
-        newArr := list of any{}
+        newArr := empty list of any
         for i from 0 to len(arr)
             if i isnt idx
                 newArr = append(newArr, arr[i])
@@ -187,10 +186,10 @@ func update(w: http.ResponseWriter, r: reference http.Request)
         arr[idx] = current
         setCategory(townData, cat, arr)
     err = town_helpers.SaveAndBroadcast(townData, map of string to any{
-        "type":     "edit",
+        "type": "edit",
         "category": cat,
-        "id":       id,
-        "data":     current,
+        "id": id,
+        "data": current,
     })
     if err isnt empty
         httphelper.JSONError(w, "Failed to save", 500)
@@ -212,22 +211,22 @@ func remove(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONNotFound(w, "Building with ID {id} not found")
         return
     arr := categoryList(townData, cat)
-    newArr := list of any{}
+    newArr := empty list of any
     for i from 0 to len(arr)
         if i isnt idx
             newArr = append(newArr, arr[i])
     setCategory(townData, cat, newArr)
     serr := town_helpers.SaveAndBroadcast(townData, map of string to any{
-        "type":     "delete",
+        "type": "delete",
         "category": cat,
-        "id":       id,
+        "id": id,
     })
     if serr isnt empty
         httphelper.JSONError(w, "Failed to save", 500)
         return
     log.Info("Deleted building: {id} from category {cat}")
     httphelper.JSON(w, map of string to any{
-        "status":  "success",
+        "status": "success",
         "message": "Building {id} deleted successfully",
     })
 

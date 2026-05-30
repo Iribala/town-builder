@@ -1,13 +1,13 @@
 petiole batch_test
 
-import "testing"
-import "stdlib/json"
-import "stdlib/test"
 import "bytes"
 import "io"
-import "strconv"
 import "net/http"
 import "net/http/httptest"
+import "stdlib/json"
+import "stdlib/test"
+import "strconv"
+import "testing"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/middleware/bodylimit"
@@ -16,25 +16,26 @@ import "github.com/Iribala/town-builder/internal/storage"
 
 func setupLimits(maxBody: int64, maxOps: int)
     s := reference of config.Settings{
-        DisableJwtAuth:           true,
-        Environment:              "development",
-        MaxRequestBodyBytes:      maxBody,
+        DisableJwtAuth: true,
+        Environment: "development",
+        MaxRequestBodyBytes: maxBody,
         MaxSseConnectionsPerUser: 3,
-        MaxBatchOperations:       maxOps,
-        DataPath:                 "./data",
-        StaticPath:               "./static",
-        TemplatesPath:            "./templates",
-        ModelsPath:               "./static/models",
-        AllowedDomains:           "localhost,127.0.0.1",
-        AllowedApiDomains:        list of string{"localhost", "127.0.0.1"},
+        MaxBatchOperations: maxOps,
+        DataPath: "./data",
+        StaticPath: "./static",
+        TemplatesPath: "./templates",
+        ModelsPath: "./static/models",
+        AllowedDomains: "localhost,127.0.0.1",
+        AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
     }
+
     config.SetForTest(s)
     storage.SetClient(empty)
     storage.ResetMemory()
 
 func do(handler: http.Handler, method: string, path: string, body: map of string to any) (int, map of string to any)
     var reader io.Reader
-    bodyBytes := list of byte{}
+    bodyBytes := empty list of byte
     if body isnt empty
         data, err := json.Bytes(body)
         if err isnt empty
@@ -57,10 +58,10 @@ func do(handler: http.Handler, method: string, path: string, body: map of string
 
 func buildOp(i: int) map of string to any
     return map of string to any{
-        "op":       "create",
+        "op": "create",
         "category": "buildings",
         "data": map of string to any{
-            "model":    "house.glb",
+            "model": "house.glb",
             "category": "buildings",
             "position": map of string to any{"x": i as float64, "y": 0.0, "z": 0.0},
         },
@@ -88,7 +89,7 @@ func TestLargeRequestRejected(t: reference testing.T)
 func TestBatchWithinLimitAccepted(t: reference testing.T)
     setupLimits(10 * 1024 * 1024, 100)
     handler := bodylimit.Wrap(router.NewMux())
-    ops := list of any{}
+    ops := empty list of any
     for i from 0 to 5
         ops = append(ops, buildOp(i))
     status, _ := do(handler, "POST", "/api/batch/operations", map of string to any{
@@ -99,7 +100,7 @@ func TestBatchWithinLimitAccepted(t: reference testing.T)
 func TestBatchExceedsLimitRejected(t: reference testing.T)
     setupLimits(10 * 1024 * 1024, 100)
     handler := bodylimit.Wrap(router.NewMux())
-    ops := list of any{}
+    ops := empty list of any
     for i from 0 to 101
         ops = append(ops, buildOp(i))
     status, _ := do(handler, "POST", "/api/batch/operations", map of string to any{
@@ -110,7 +111,7 @@ func TestBatchExceedsLimitRejected(t: reference testing.T)
 func TestBatchAtLimitAccepted(t: reference testing.T)
     setupLimits(10 * 1024 * 1024, 100)
     handler := bodylimit.Wrap(router.NewMux())
-    ops := list of any{}
+    ops := empty list of any
     for i from 0 to 100
         ops = append(ops, buildOp(i))
     status, _ := do(handler, "POST", "/api/batch/operations", map of string to any{

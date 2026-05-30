@@ -1,11 +1,11 @@
 petiole scene_description
 
-import "stdlib/log"
+import "fmt"
 import "stdlib/cast"
+import "stdlib/log"
 import "stdlib/maps" as mapspkg
 import "stdlib/sort"
 import "stdlib/string" as strpkg
-import "fmt"
 
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
@@ -21,11 +21,11 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
         out["models"] = make(map of string to int)
         out["has_drivers"] = false
         out["driver_count"] = 0
-        out["positions"] = list of list of float64{}
+        out["positions"] = empty list of list of float64
         return out
     modelCounts := make(map of string to int)
     driverCount := 0
-    positions := list of list of float64{}
+    positions := empty list of list of float64
     for raw in categoryData
         obj, ok := mapx.AsMap(raw)
         if not ok
@@ -107,7 +107,7 @@ func formatModels(catData: map of string to any) string
     if not ok
         return ""
     keys := sort.Strings(mapspkg.Keys(models))
-    parts := list of string{}
+    parts := empty list of string
     for k in keys
         cnt := models[k]
         parts = append(parts, "{cnt} {getModelNameFriendly(k)}")
@@ -132,7 +132,7 @@ func appendCategory(parts: list of string, categories: map of string to any, nam
     return parts
 
 func generateNaturalDescription(analysis: map of string to any) string
-    parts := list of string{}
+    parts := empty list of string
     townName := "Unnamed Town"
     if tv, ok := analysis["town_name"].(string); ok and tv isnt ""
         townName = tv
@@ -182,7 +182,7 @@ func generateNaturalDescription(analysis: map of string to any) string
 func GenerateSceneDescription(townData: map of string to any) map of string to any
     log.Info("Generating scene description")
     categoryAnalysis := make(map of string to any)
-    allPositions := list of list of float64{}
+    allPositions := empty list of list of float64
     totalObjects := 0
     for category in normalization.Categories
         catRaw, _ := townData[category]

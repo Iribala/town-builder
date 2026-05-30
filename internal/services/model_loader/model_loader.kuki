@@ -1,9 +1,9 @@
 petiole model_loader
 
+import "path/filepath"
 import "stdlib/files"
 import "stdlib/log"
 import "stdlib/string" as strpkg
-import "path/filepath"
 
 import "github.com/Iribala/town-builder/internal/config"
 
@@ -24,7 +24,7 @@ func GetAvailableModels() map of string to list of string
         files_in_cat, ferr := files.List(categoryPath)
         if ferr isnt empty
             continue
-        models := list of string{}
+        models := empty list of string
         for filePath in files_in_cat
             name := filepath.Base(filePath)
             ext := strpkg.ToLower(filepath.Ext(name))

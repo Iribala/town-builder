@@ -1,11 +1,11 @@
 petiole django_client_test
 
-import "testing"
+import "net/http"
+import "net/http/httptest"
 import "stdlib/json"
 import "stdlib/string" as strpkg
 import "stdlib/test"
-import "net/http"
-import "net/http/httptest"
+import "testing"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/services/django_client"
@@ -18,11 +18,12 @@ var sampleLayout = map of string to any{
 
 func setupWithURL(apiURL: string)
     s := reference of config.Settings{
-        ApiURL:            apiURL,
-        ApiToken:          "test-token-123",
-        AllowedDomains:    "localhost,127.0.0.1",
+        ApiURL: apiURL,
+        ApiToken: "test-token-123",
+        AllowedDomains: "localhost,127.0.0.1",
         AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
     }
+
     config.SetForTest(s)
 
 func newServer(handler: http.HandlerFunc) reference httptest.Server
@@ -78,7 +79,9 @@ func TestSearchHttpErrorRaises(t: reference testing.T)
 func TestSearchMultipleReturnsFirst(t: reference testing.T)
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.Header().Set("Content-Type", "application/json")
-        w.Write(`[{"id": 10, "name": "Springfield"}, {"id": 20, "name": "Springfield"}]` as list of byte) onerr discard
+        w.Write(
+            `[{"id": 10, "name": "Springfield"}, {"id": 20, "name": "Springfield"}]` as list of byte,
+        ) onerr discard
     )
     defer srv.Close()
     setupWithURL(srv.URL + "/")
@@ -90,7 +93,7 @@ func TestSearchMultipleReturnsFirst(t: reference testing.T)
 # ── CreateTown ────────────────────────────────────────────────────
 
 func TestCreatePayloadShape(t: reference testing.T)
-    var lastBody []byte
+    var lastBody list of byte
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         buf := make(list of byte, r.ContentLength)
         r.Body.Read(buf) onerr discard
@@ -119,7 +122,7 @@ func TestCreateExtractsId(t: reference testing.T)
     )
     defer srv.Close()
     setupWithURL(srv.URL + "/")
-    result, err := django_client.CreateTown(map of string to any{}, sampleLayout, "Springfield")
+    result, err := django_client.CreateTown(empty map of string to any, sampleLayout, "Springfield")
     test.AssertNoError(t, err)
     townID, ok := result["town_id"].(float64)
     test.AssertTrue(t, ok)
@@ -132,7 +135,7 @@ func TestCreateHttpErrorRaises(t: reference testing.T)
     )
     defer srv.Close()
     setupWithURL(srv.URL + "/")
-    _, err := django_client.CreateTown(map of string to any{}, sampleLayout, "")
+    _, err := django_client.CreateTown(empty map of string to any, sampleLayout, "")
     test.AssertError(t, err)
 
 # ── UpdateTown ────────────────────────────────────────────────────
@@ -148,13 +151,13 @@ func TestUpdateUsesPatch(t: reference testing.T)
     )
     defer srv.Close()
     setupWithURL(srv.URL + "/")
-    _, err := django_client.UpdateTown(42, map of string to any{}, sampleLayout, "Springfield")
+    _, err := django_client.UpdateTown(42, empty map of string to any, sampleLayout, "Springfield")
     test.AssertNoError(t, err)
     test.AssertEqual(t, seenMethod, "PATCH")
     test.AssertTrue(t, strpkg.HasSuffix(seenPath, "/42/"))
 
 func TestUpdateOmitsName(t: reference testing.T)
-    var lastBody []byte
+    var lastBody list of byte
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         buf := make(list of byte, r.ContentLength)
         r.Body.Read(buf) onerr discard
@@ -164,7 +167,7 @@ func TestUpdateOmitsName(t: reference testing.T)
     )
     defer srv.Close()
     setupWithURL(srv.URL + "/")
-    _, err := django_client.UpdateTown(42, map of string to any{}, sampleLayout, "Springfield")
+    _, err := django_client.UpdateTown(42, empty map of string to any, sampleLayout, "Springfield")
     test.AssertNoError(t, err)
 
     body := make(map of string to any)
@@ -178,7 +181,7 @@ func TestUpdateOmitsName(t: reference testing.T)
 
 func TestPrepareCreateIncludesName(t: reference testing.T)
     payload := django_client.PrepareDjangoPayload(
-        map of string to any{},
+        empty map of string to any,
         sampleLayout,
         "Springfield",
         false,
@@ -187,7 +190,7 @@ func TestPrepareCreateIncludesName(t: reference testing.T)
 
 func TestPrepareUpdateOmitsName(t: reference testing.T)
     payload := django_client.PrepareDjangoPayload(
-        map of string to any{},
+        empty map of string to any,
         sampleLayout,
         "Springfield",
         true,
@@ -197,7 +200,7 @@ func TestPrepareUpdateOmitsName(t: reference testing.T)
 
 func TestPrepareNameFallbackToTownName(t: reference testing.T)
     payload := django_client.PrepareDjangoPayload(
-        map of string to any{},
+        empty map of string to any,
         map of string to any{"townName": "Shelbyville"},
         "",
         false,
@@ -206,7 +209,7 @@ func TestPrepareNameFallbackToTownName(t: reference testing.T)
 
 func TestPrepareNameFallbackToLayoutName(t: reference testing.T)
     payload := django_client.PrepareDjangoPayload(
-        map of string to any{},
+        empty map of string to any,
         map of string to any{"name": "Ogdenville"},
         "",
         false,
@@ -216,7 +219,7 @@ func TestPrepareNameFallbackToLayoutName(t: reference testing.T)
 func TestPrepareOptionalFieldsPropagated(t: reference testing.T)
     payload := django_client.PrepareDjangoPayload(
         map of string to any{"latitude": 42.1, "description": "Nice town"},
-        map of string to any{},
+        empty map of string to any,
         "X",
         false,
     )
@@ -253,13 +256,19 @@ func TestProxyGetForwards(t: reference testing.T)
     )
     defer srv.Close()
     setupWithURL(srv.URL + "/")
-    resp, err := django_client.ProxyRequest("GET", "42/", map of string to string{}, map of string to string{}, empty)
+    resp, err := django_client.ProxyRequest(
+        "GET",
+        "42/",
+        empty map of string to string,
+        empty map of string to string,
+        empty,
+    )
     test.AssertNoError(t, err)
     test.AssertEqual(t, resp.StatusCode, 200)
     test.AssertTrue(t, strpkg.HasSuffix(seenPath, "/42/"))
 
 func TestProxyPostForwardsBody(t: reference testing.T)
-    var lastBody []byte
+    var lastBody list of byte
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         buf := make(list of byte, r.ContentLength)
         r.Body.Read(buf) onerr discard
@@ -270,7 +279,13 @@ func TestProxyPostForwardsBody(t: reference testing.T)
     defer srv.Close()
     setupWithURL(srv.URL + "/")
     bodyBytes := `{"name": "Test"}` as list of byte
-    _, err := django_client.ProxyRequest("POST", "", map of string to string{}, map of string to string{}, bodyBytes)
+    _, err := django_client.ProxyRequest(
+        "POST",
+        "",
+        empty map of string to string,
+        empty map of string to string,
+        bodyBytes,
+    )
     test.AssertNoError(t, err)
     body := make(map of string to any)
     json.ParseInto(lastBody, reference of body) onerr discard
@@ -278,24 +293,48 @@ func TestProxyPostForwardsBody(t: reference testing.T)
 
 func TestProxyUnsupportedMethod(t: reference testing.T)
     setupWithURL("http://localhost:8000/api/towns/")
-    _, err := django_client.ProxyRequest("OPTIONS", "", map of string to string{}, map of string to string{}, empty)
+    _, err := django_client.ProxyRequest(
+        "OPTIONS",
+        "",
+        empty map of string to string,
+        empty map of string to string,
+        empty,
+    )
     test.AssertError(t, err)
     test.AssertTrue(t, strpkg.Contains(err.Error(), "Unsupported HTTP method"))
 
 func TestProxyTraversalRejected(t: reference testing.T)
     setupWithURL("http://localhost:8000/api/towns/")
-    _, err := django_client.ProxyRequest("GET", "../../other-api/", map of string to string{}, map of string to string{}, empty)
+    _, err := django_client.ProxyRequest(
+        "GET",
+        "../../other-api/",
+        empty map of string to string,
+        empty map of string to string,
+        empty,
+    )
     test.AssertError(t, err)
     test.AssertTrue(t, strpkg.Contains(err.Error(), ".."))
 
 func TestProxySchemeRejected(t: reference testing.T)
     setupWithURL("http://localhost:8000/api/towns/")
-    _, err := django_client.ProxyRequest("GET", "http://evil.com/", map of string to string{}, map of string to string{}, empty)
+    _, err := django_client.ProxyRequest(
+        "GET",
+        "http://evil.com/",
+        empty map of string to string,
+        empty map of string to string,
+        empty,
+    )
     test.AssertError(t, err)
     test.AssertTrue(t, strpkg.Contains(err.Error(), "scheme"))
 
 func TestProxyAuthorityRejected(t: reference testing.T)
     setupWithURL("http://localhost:8000/api/towns/")
-    _, err := django_client.ProxyRequest("GET", "user@evil.com/", map of string to string{}, map of string to string{}, empty)
+    _, err := django_client.ProxyRequest(
+        "GET",
+        "user@evil.com/",
+        empty map of string to string,
+        empty map of string to string,
+        empty,
+    )
     test.AssertError(t, err)
     test.AssertTrue(t, strpkg.Contains(err.Error(), "@"))

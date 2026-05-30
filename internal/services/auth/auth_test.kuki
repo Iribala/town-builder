@@ -1,40 +1,43 @@
 petiole auth_test
 
+import "stdlib/test"
 import "testing"
 import "time"
-import "stdlib/test"
-import "github.com/golang-jwt/jwt/v5" as jwtpkg
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/services/auth"
+import "github.com/golang-jwt/jwt/v5" as jwtpkg
 
 const TestJwtSecret = "test-secret-key-at-least-32-bytes-long!"
 
 func setupAuthEnabled()
     s := reference of config.Settings{
-        JwtSecretKey:   TestJwtSecret,
-        JwtAlgorithm:   "HS256",
+        JwtSecretKey: TestJwtSecret,
+        JwtAlgorithm: "HS256",
         DisableJwtAuth: false,
-        Environment:    "development",
+        Environment: "development",
     }
+
     config.SetForTest(s)
 
 func setupAuthDisabled()
     s := reference of config.Settings{
-        JwtSecretKey:   TestJwtSecret,
-        JwtAlgorithm:   "HS256",
+        JwtSecretKey: TestJwtSecret,
+        JwtAlgorithm: "HS256",
         DisableJwtAuth: true,
-        Environment:    "development",
+        Environment: "development",
     }
+
     config.SetForTest(s)
 
 func setupProd()
     s := reference of config.Settings{
-        JwtSecretKey:   TestJwtSecret,
-        JwtAlgorithm:   "HS256",
+        JwtSecretKey: TestJwtSecret,
+        JwtAlgorithm: "HS256",
         DisableJwtAuth: false,
-        Environment:    "production",
+        Environment: "production",
     }
+
     config.SetForTest(s)
 
 func signToken(claims: jwtpkg.MapClaims, secret: string) string
@@ -49,13 +52,13 @@ func signToken(claims: jwtpkg.MapClaims, secret: string) string
 func TestValidKibigiaTokenAccepted(t: reference testing.T)
     setupAuthEnabled()
     claims := jwtpkg.MapClaims{
-        "user_id":  1,
+        "user_id": 1,
         "username": "testuser",
-        "email":    "test@example.com",
-        "exp":      time.Now().Add(8 * time.Hour).Unix(),
-        "iat":      time.Now().Unix(),
-        "sub":      "1",
-        "town_id":  42,
+        "email": "test@example.com",
+        "exp": time.Now().Add(8 * time.Hour).Unix(),
+        "iat": time.Now().Unix(),
+        "sub": "1",
+        "town_id": 42,
     }
     tok := signToken(claims, TestJwtSecret)
     result, err := auth.VerifyTokenString(tok)
@@ -67,8 +70,8 @@ func TestUsernamePriorityOverSub(t: reference testing.T)
     setupAuthEnabled()
     claims := jwtpkg.MapClaims{
         "username": "alice",
-        "sub":      "99",
-        "exp":      time.Now().Add(time.Hour).Unix(),
+        "sub": "99",
+        "exp": time.Now().Add(time.Hour).Unix(),
     }
     tok := signToken(claims, TestJwtSecret)
     result, err := auth.VerifyTokenString(tok)
@@ -90,7 +93,7 @@ func TestExpiredTokenRejected(t: reference testing.T)
     setupAuthEnabled()
     claims := jwtpkg.MapClaims{
         "username": "x",
-        "exp":      time.Now().Add(-time.Hour).Unix(),
+        "exp": time.Now().Add(-time.Hour).Unix(),
     }
     tok := signToken(claims, TestJwtSecret)
     _, err := auth.VerifyTokenString(tok)
@@ -100,7 +103,7 @@ func TestWrongSecretRejected(t: reference testing.T)
     setupAuthEnabled()
     claims := jwtpkg.MapClaims{
         "username": "x",
-        "exp":      time.Now().Add(time.Hour).Unix(),
+        "exp": time.Now().Add(time.Hour).Unix(),
     }
     tok := signToken(claims, "completely-different-secret-key-here!!")
     _, err := auth.VerifyTokenString(tok)
@@ -110,7 +113,7 @@ func TestMissingUsernameAndSubRejected(t: reference testing.T)
     setupAuthEnabled()
     claims := jwtpkg.MapClaims{
         "email": "x@y.com",
-        "exp":   time.Now().Add(time.Hour).Unix(),
+        "exp": time.Now().Add(time.Hour).Unix(),
     }
     tok := signToken(claims, TestJwtSecret)
     _, err := auth.VerifyTokenString(tok)

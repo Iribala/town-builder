@@ -32,11 +32,11 @@ func normalizeObject(item: map of string to any, category: string) map of string
     out["model"] = model
     out["position"] = object.Vec3FromAny(item["position"], 0.0, 0.0, 0.0)
     out["rotation"] = object.Vec3FromAny(item["rotation"], 0.0, 0.0, 0.0)
-    out["scale"]    = object.Vec3FromAny(item["scale"], 1.0, 1.0, 1.0)
+    out["scale"] = object.Vec3FromAny(item["scale"], 1.0, 1.0, 1.0)
     return out
 
 func normalizeList(items: any, category: string) list of map of string to any
-    out := list of map of string to any{}
+    out := empty list of map of string to any
     arr, ok := items.(list of any)
     if not ok
         return out
@@ -64,7 +64,7 @@ func Normalize(layoutData: any) map of string to any
     arr, isList := layoutData.(list of any)
     if isList
         for category in Categories
-            out[category] = list of map of string to any{}
+            out[category] = empty list of map of string to any
         for raw in arr
             item, okItem := raw.(map of string to any)
             if not okItem
@@ -85,5 +85,5 @@ func Normalize(layoutData: any) map of string to any
         return out
 
     for category in Categories
-        out[category] = list of map of string to any{}
+        out[category] = empty list of map of string to any
     return out

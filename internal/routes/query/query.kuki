@@ -1,13 +1,12 @@
 petiole query
 
 import "net/http"
-
+import "stdlib/cast"
 import "stdlib/http" as httphelper
 
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/query" as querysvc
-import "stdlib/cast"
 
 func readBody(r: reference http.Request) (map of string to any, bool)
     body := make(map of string to any)
@@ -18,8 +17,8 @@ func readBody(r: reference http.Request) (map of string to any, bool)
 
 func writeResults(w: http.ResponseWriter, results: list of map of string to any)
     httphelper.JSON(w, map of string to any{
-        "status":  "success",
-        "count":   len(results),
+        "status": "success",
+        "count": len(results),
         "results": results,
     })
 
@@ -86,7 +85,7 @@ func advanced(w: http.ResponseWriter, r: reference http.Request)
     if not bok
         httphelper.JSONBadRequest(w, "Invalid JSON body")
         return
-    filters := list of map of string to any{}
+    filters := empty list of map of string to any
     if v, vok := body["filters"]; vok
         if arr, aok := v.(list of any); aok
             for item in arr

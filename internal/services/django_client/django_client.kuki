@@ -1,23 +1,22 @@
 petiole django_client
 
-import "stdlib/json"
-import "stdlib/log"
 import "bytes"
 import "io"
 import "net/http"
 import "net/url"
+import "stdlib/cast"
+import "stdlib/json"
+import "stdlib/log"
+import "stdlib/string" as strpkg
 import "time"
 
-import "stdlib/string" as strpkg
-
 import "github.com/Iribala/town-builder/internal/config"
-import "stdlib/cast"
 import "github.com/Iribala/town-builder/internal/utils/security"
 
 type ProxyResponse
     StatusCode int
-    Body       list of byte
-    Headers    map of string to list of string
+    Body list of byte
+    Headers map of string to list of string
 
 var fieldsToPropagate = list of string{
     "latitude",
@@ -173,8 +172,11 @@ func SearchTownByName(townName: string) (int, bool, error)
             townID = v
         default
             return 0, false, empty
+
     if len(results) > 1
-        log.Warn("Found {len(results)} towns named '{townName}'. Returning the first one (ID: {townID}).")
+        log.Warn(
+            "Found {len(results)} towns named '{townName}'. Returning the first one (ID: {townID}).",
+        )
     else
         log.Info("Found existing town by name '{townName}' with ID: {townID}")
     return townID, true, empty

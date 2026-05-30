@@ -16,14 +16,14 @@ type Vec3
     Z float64 as "z"
 
 type PlacedObject
-    ID       string as "id"
-    Model    string as "model"
+    ID string as "id"
+    Model string as "model"
     Category string as "category"
-    Position Vec3   as "position"
-    Rotation Vec3   as "rotation"
-    Scale    Vec3   as "scale"
-    Driver   any    as "driver"
-    Extra    map of string to any
+    Position Vec3 as "position"
+    Rotation Vec3 as "rotation"
+    Scale Vec3 as "scale"
+    Driver any as "driver"
+    Extra map of string to any
 
 var knownKeys = list of string{"id", "model", "category", "position", "rotation", "scale", "driver"}
 
@@ -53,14 +53,14 @@ func Vec3FromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
 # field is preserved in Extra so ToMap can round-trip it losslessly.
 func FromMap(m: map of string to any) PlacedObject
     o := PlacedObject{
-        ID:       mapx.Str(m, "id"),
-        Model:    mapx.Str(m, "model"),
+        ID: mapx.Str(m, "id"),
+        Model: mapx.Str(m, "model"),
         Category: mapx.Str(m, "category"),
         Position: Vec3FromAny(m["position"], 0.0, 0.0, 0.0),
         Rotation: Vec3FromAny(m["rotation"], 0.0, 0.0, 0.0),
-        Scale:    Vec3FromAny(m["scale"], 1.0, 1.0, 1.0),
-        Driver:   m["driver"],
-        Extra:    make(map of string to any),
+        Scale: Vec3FromAny(m["scale"], 1.0, 1.0, 1.0),
+        Driver: m["driver"],
+        Extra: make(map of string to any),
     }
     for k, v in m
         if k not in knownKeys

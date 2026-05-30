@@ -1,7 +1,6 @@
 petiole snapshots
 
 import "net/http"
-
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
@@ -28,8 +27,8 @@ func create(w: http.ResponseWriter, r: reference http.Request)
         return
     meta, _ := snapsvc.GetSnapshotMetadata(snapID)
     httphelper.JSON(w, map of string to any{
-        "status":   "success",
-        "message":  "Snapshot created",
+        "status": "success",
+        "message": "Snapshot created",
         "snapshot": meta,
     })
 
@@ -39,7 +38,7 @@ func list(w: http.ResponseWriter, r: reference http.Request)
         return
     items := snapsvc.ListSnapshots()
     httphelper.JSON(w, map of string to any{
-        "status":    "success",
+        "status": "success",
         "snapshots": items,
     })
 
@@ -54,9 +53,9 @@ func get(w: http.ResponseWriter, r: reference http.Request)
         return
     meta, _ := snapsvc.GetSnapshotMetadata(id)
     httphelper.JSON(w, map of string to any{
-        "status":   "success",
+        "status": "success",
         "snapshot": meta,
-        "data":     data,
+        "data": data,
     })
 
 func restore(w: http.ResponseWriter, r: reference http.Request)
@@ -79,8 +78,8 @@ func restore(w: http.ResponseWriter, r: reference http.Request)
     if meta isnt empty
         name = mapx.Str(meta, "name")
     httphelper.JSON(w, map of string to any{
-        "status":   "success",
-        "message":  "Restored to snapshot: {name}",
+        "status": "success",
+        "message": "Restored to snapshot: {name}",
         "snapshot": meta,
     })
 
@@ -93,7 +92,7 @@ func remove(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONNotFound(w, "Snapshot not found")
         return
     httphelper.JSON(w, map of string to any{
-        "status":  "success",
+        "status": "success",
         "message": "Snapshot deleted",
     })
 

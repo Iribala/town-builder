@@ -1,7 +1,6 @@
 petiole cursor
 
 import "net/http"
-
 import "stdlib/http" as httphelper
 
 import "github.com/Iribala/town-builder/internal/mapx"
@@ -34,7 +33,10 @@ func update(w: http.ResponseWriter, r: reference http.Request)
         "camera_position": cam,
     }
     town_helpers.BroadcastSSE(event)
-    httphelper.JSON(w, map of string to any{"status": "success", "message": "Cursor position updated"})
+    httphelper.JSON(
+        w,
+        map of string to any{"status": "success", "message": "Cursor position updated"},
+    )
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("POST /api/cursor/update", update)

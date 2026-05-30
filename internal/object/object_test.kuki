@@ -1,17 +1,18 @@
 petiole object_test
 
-import "testing"
 import "stdlib/test"
+import "testing"
+
 import "github.com/Iribala/town-builder/internal/object"
 
 func TestFromMapToMapRoundTrip(t: reference testing.T)
     m := map of string to any{
-        "id":       "b1",
-        "model":    "house.glb",
+        "id": "b1",
+        "model": "house.glb",
         "category": "buildings",
         "position": map of string to any{"x": 1.0, "y": 2.0, "z": 3.0},
-        "driver":   "alice",
-        "custom":   "keep-me",
+        "driver": "alice",
+        "custom": "keep-me",
     }
     o := object.FromMap(m)
     test.AssertEqual(t, o.ID, "b1")

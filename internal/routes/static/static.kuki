@@ -2,7 +2,6 @@ petiole static
 
 import "net/http"
 import "path/filepath"
-
 import "stdlib/string" as strpkg
 
 func mimeFor(p: string) string
@@ -36,7 +35,7 @@ func mimeFor(p: string) string
 type mimeHandler
     next http.Handler
 
-func ServeHTTP on h: reference mimeHandler, w: http.ResponseWriter, r: reference http.Request
+func ServeHTTP on h: reference mimeHandler(w: http.ResponseWriter, r: reference http.Request)
     if m := mimeFor(r.URL.Path); m isnt ""
         w.Header().Set("Content-Type", m)
     h.next.ServeHTTP(w, r)

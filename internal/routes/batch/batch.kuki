@@ -1,7 +1,6 @@
 petiole batch
 
 import "net/http"
-
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
@@ -33,7 +32,7 @@ func executeOps(w: http.ResponseWriter, r: reference http.Request)
     if len(opsList) > maxOps
         httphelper.JSONBadRequest(w, "operations exceeds limit")
         return
-    ops := list of map of string to any{}
+    ops := empty list of map of string to any
     for item in opsList
         m, mok := item.(map of string to any)
         if not mok
@@ -50,10 +49,10 @@ func executeOps(w: http.ResponseWriter, r: reference http.Request)
         status = "partial"
     log.Info("Batch operations: {successful} ok, {failed} failed")
     httphelper.JSON(w, map of string to any{
-        "status":     status,
-        "results":    results,
+        "status": status,
+        "results": results,
         "successful": successful,
-        "failed":     failed,
+        "failed": failed,
     })
 
 func Register(mux: reference http.ServeMux)

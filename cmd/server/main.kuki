@@ -1,7 +1,6 @@
 petiole main
 
 import "net/http"
-
 import "stdlib/log"
 
 import "github.com/Iribala/town-builder/internal/config"

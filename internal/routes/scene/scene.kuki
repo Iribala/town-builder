@@ -1,7 +1,6 @@
 petiole scene
 
 import "net/http"
-
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
