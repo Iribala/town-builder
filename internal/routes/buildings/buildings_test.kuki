@@ -1,0 +1,101 @@
+petiole buildings_test
+
+import "testing"
+import "stdlib/json"
+import "stdlib/test"
+import "bytes"
+import "io"
+import "net/http"
+import "net/http/httptest"
+
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/routes/router"
+import "github.com/Iribala/town-builder/internal/storage"
+
+func setup()
+    s := reference of config.Settings{
+        DisableJwtAuth:           true,
+        Environment:              "development",
+        MaxRequestBodyBytes:      10485760,
+        MaxSseConnectionsPerUser: 3,
+        DataPath:                 "./data",
+        AllowedDomains:           "localhost,127.0.0.1",
+        AllowedApiDomains:        list of string{"localhost", "127.0.0.1"},
+    }
+    config.SetForTest(s)
+    storage.SetClient(empty)
+    storage.ResetMemory()
+
+func do(handler: http.Handler, method: string, path: string, body: map of string to any) (int, map of string to any)
+    var reader io.Reader
+    if body isnt empty
+        data, err := json.Bytes(body)
+        if err isnt empty
+            return 0, empty
+        reader = bytes.NewReader(data)
+    req := httptest.NewRequest(method, path, reader)
+    req.Header.Set("Content-Type", "application/json")
+    rec := httptest.NewRecorder()
+    handler.ServeHTTP(rec, req)
+    resp := rec.Result()
+    raw, _ := io.ReadAll(resp.Body)
+    out := make(map of string to any)
+    if len(raw) > 0
+        json.ParseInto(raw, reference of out) onerr discard
+    return resp.StatusCode, out
+
+func TestCreateBuildingTypedShape(t: reference testing.T)
+    setup()
+    mux := router.NewMux()
+    body := map of string to any{
+        "model":    "house.glb",
+        "category": "buildings",
+        "position": map of string to any{"x": 1.0, "y": 2.0, "z": 3.0},
+    }
+    code, out := do(mux, "POST", "/api/buildings", body)
+    test.AssertEqual(t, code, 201)
+    test.AssertEqual(t, out["model"], "house.glb")
+    test.AssertEqual(t, out["category"], "buildings")
+    id, _ := out["id"].(string)
+    test.AssertNotEqual(t, id, "")
+    # Vec3 serializes to the {x,y,z} wire shape.
+    pos, ok := out["position"].(map of string to any)
+    test.AssertTrue(t, ok)
+    test.AssertEqual(t, pos["x"], 1.0)
+    test.AssertEqual(t, pos["z"], 3.0)
+    # Scale defaults to 1/1/1 when omitted.
+    scale, _ := out["scale"].(map of string to any)
+    test.AssertEqual(t, scale["x"], 1.0)
+
+func TestBuildingLifecycle(t: reference testing.T)
+    setup()
+    mux := router.NewMux()
+    body := map of string to any{
+        "model":    "car.glb",
+        "category": "vehicles",
+        "position": map of string to any{"x": 9.0, "y": 0.0, "z": 0.0},
+    }
+    code, created := do(mux, "POST", "/api/buildings", body)
+    test.AssertEqual(t, code, 201)
+    id, _ := created["id"].(string)
+    test.AssertNotEqual(t, id, "")
+
+    lcode, _ := do(mux, "GET", "/api/buildings", empty)
+    test.AssertEqual(t, lcode, 200)
+
+    gcode, got := do(mux, "GET", "/api/buildings/{id}", empty)
+    test.AssertEqual(t, gcode, 200)
+    test.AssertEqual(t, got["id"], id)
+    test.AssertEqual(t, got["model"], "car.glb")
+
+    dcode, _ := do(mux, "DELETE", "/api/buildings/{id}", empty)
+    test.AssertEqual(t, dcode, 200)
+
+    g2code, _ := do(mux, "GET", "/api/buildings/{id}", empty)
+    test.AssertEqual(t, g2code, 404)
+
+func TestCreateRequiresPosition(t: reference testing.T)
+    setup()
+    mux := router.NewMux()
+    code, _ := do(mux, "POST", "/api/buildings", map of string to any{"model": "house.glb"})
+    test.AssertEqual(t, code, 400)

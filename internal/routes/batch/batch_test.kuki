@@ -44,7 +44,7 @@ func do(handler: http.Handler, method: string, path: string, body: map of string
     req := httptest.NewRequest(method, path, reader)
     req.Header.Set("Content-Type", "application/json")
     if len(bodyBytes) > 0
-        req.ContentLength = int64(len(bodyBytes))
+        req.ContentLength = len(bodyBytes) as int64
         req.Header.Set("Content-Length", strconv.Itoa(len(bodyBytes)))
     rec := httptest.NewRecorder()
     handler.ServeHTTP(rec, req)
@@ -62,7 +62,7 @@ func buildOp(i: int) map of string to any
         "data": map of string to any{
             "model":    "house.glb",
             "category": "buildings",
-            "position": map of string to any{"x": float64(i), "y": 0.0, "z": 0.0},
+            "position": map of string to any{"x": i as float64, "y": 0.0, "z": 0.0},
         },
     }
 

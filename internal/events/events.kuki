@@ -1,0 +1,20 @@
+petiole events
+
+# EventType is the closed set of SSE event "type" values that the backend
+# publishes and the frontend consumes. String-backed so the wire value is
+# exactly the case's text.
+enum EventType: string
+    Full = "full"
+    Name = "name"
+    Driver = "driver"
+    Delete = "delete"
+    Edit = "edit"
+    Users = "users"
+    Cursor = "cursor"
+    Error = "error"
+
+# Full builds the canonical full-town broadcast payload. This shape was
+# duplicated across the town, buildings, batch, history, snapshots and
+# events handlers.
+func Full(town: any) map of string to any
+    return map of string to any{"type": EventType.Full.String(), "town": town}

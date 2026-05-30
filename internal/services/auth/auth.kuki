@@ -36,13 +36,11 @@ func VerifyTokenString(token: string) (reference UserInfo, error)
         return empty, error "Invalid authentication credentials"
     payload := claims as map of string to any
     username := ""
-    if v, vok := payload["username"]; vok
-        if str, sok := v.(string); sok
-            username = str
-    if username equals ""
-        if v, vok := payload["sub"]; vok
-            if str, sok := v.(string); sok
+    for key in list of string{"username", "sub"}
+        if v, vok := payload[key]; vok
+            if str, sok := v.(string); sok and str isnt ""
                 username = str
+                break
     if username equals ""
         return empty, error "Invalid authentication credentials"
     return reference of UserInfo{Username: username, Payload: payload}, empty

@@ -2,57 +2,31 @@ petiole buildings
 
 import "net/http"
 
+import "stdlib/cast"
 import "stdlib/crypto"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
+import "github.com/Iribala/town-builder/internal/events" as evt
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
+import "github.com/Iribala/town-builder/internal/object"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
-import "stdlib/cast"
-
-func optMap(m: map of string to any, key: string) (map of string to any, bool)
-    if v, ok := m[key]; ok and not cast.IsNil(v)
-        if mm, mok := v.(map of string to any); mok
-            return mm, true
-    return empty, false
-
-func optString(m: map of string to any, key: string) string
-    if v, ok := m[key]; ok
-        if s, sok := v.(string); sok
-            return s
-    return ""
-
-func vec3(x: float64, y: float64, z: float64) map of string to any
-    return map of string to any{"x": x, "y": y, "z": z}
-
-func defaultRotation() map of string to any
-    return vec3(0.0, 0.0, 0.0)
-
-func defaultScale() map of string to any
-    return vec3(1.0, 1.0, 1.0)
 
 func response(building: map of string to any, category: string) map of string to any
-    pos, _ := optMap(building, "position")
-    if pos equals empty
-        pos = defaultRotation()
-    rot, _ := optMap(building, "rotation")
-    if rot equals empty
-        rot = defaultRotation()
-    scl, _ := optMap(building, "scale")
-    if scl equals empty
-        scl = defaultScale()
+    o := object.FromMap(building)
     out := map of string to any{
-        "id":       optString(building, "id"),
-        "model":    optString(building, "model"),
+        "id":       o.ID,
+        "model":    o.Model,
         "category": category,
-        "position": pos,
-        "rotation": rot,
-        "scale":    scl,
+        "position": o.Position,
+        "rotation": o.Rotation,
+        "scale":    o.Scale,
     }
-    if drv, ok := building["driver"]; ok
-        out["driver"] = drv
+    if not cast.IsNil(o.Driver)
+        out["driver"] = o.Driver
     return out
 
 func findBuilding(townData: map of string to any, buildingID: string) (string, map of string to any, int)
@@ -67,7 +41,7 @@ func findBuilding(townData: map of string to any, buildingID: string) (string, m
             entry, eok := arr[i].(map of string to any)
             if not eok
                 continue
-            if optString(entry, "id") equals buildingID
+            if mapx.Str(entry, "id") equals buildingID
                 return category, entry, i
     return "", empty, -1
 
@@ -78,10 +52,7 @@ func newID() string
     return "obj_" + raw[:8]
 
 func categoryList(townData: map of string to any, category: string) list of any
-    if v, ok := townData[category]; ok
-        if arr, aok := v.(list of any); aok
-            return arr
-    return list of any{}
+    return mapx.ListOr(townData, category)
 
 func setCategory(townData: map of string to any, category: string, arr: list of any)
     townData[category] = arr
@@ -95,31 +66,27 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     if err isnt empty
         httphelper.JSONBadRequest(w, "Invalid JSON body")
         return
-    model := optString(body, "model")
+    model := mapx.Str(body, "model")
     if model equals ""
         httphelper.JSONBadRequest(w, "model is required")
         return
-    category := optString(body, "category")
+    category := mapx.Str(body, "category")
     if category equals ""
         category = "buildings"
-    pos, pok := optMap(body, "position")
-    if not pok
+    if _, pok := mapx.MapAt(body, "position"); not pok
         httphelper.JSONBadRequest(w, "position is required")
         return
-    rot, _ := optMap(body, "rotation")
-    if rot equals empty
-        rot = defaultRotation()
-    scl, _ := optMap(body, "scale")
-    if scl equals empty
-        scl = defaultScale()
     buildingID := newID()
-    building := map of string to any{
-        "id":       buildingID,
-        "model":    model,
-        "position": pos,
-        "rotation": rot,
-        "scale":    scl,
-    }
+    var posV object.Vec3 = object.Vec3FromAny(body["position"], 0.0, 0.0, 0.0)
+    var rotV object.Vec3 = object.Vec3FromAny(body["rotation"], 0.0, 0.0, 0.0)
+    var sclV object.Vec3 = object.Vec3FromAny(body["scale"], 1.0, 1.0, 1.0)
+    building := object.ToMap(object.PlacedObject{
+        ID:       buildingID,
+        Model:    model,
+        Position: posV,
+        Rotation: rotV,
+        Scale:    sclV,
+    })
     townData, gerr := storage.Get()
     if gerr isnt empty
         httphelper.JSONError(w, "Failed to load town data", 500)
@@ -127,7 +94,7 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     arr := categoryList(townData, category)
     arr = append(arr, building as any)
     setCategory(townData, category, arr)
-    err = town_helpers.SaveAndBroadcast(townData, map of string to any{"type": "full", "town": townData})
+    err = town_helpers.SaveAndBroadcast(townData, evt.Full(townData))
     if err isnt empty
         httphelper.JSONError(w, "Failed to save", 500)
         return
@@ -195,15 +162,15 @@ func update(w: http.ResponseWriter, r: reference http.Request)
         return
     arr := categoryList(townData, cat)
     current, _ := arr[idx].(map of string to any)
-    if pos, pok := optMap(body, "position"); pok
+    if pos, pok := mapx.MapAt(body, "position"); pok
         current["position"] = pos
-    if rot, rok := optMap(body, "rotation"); rok
+    if rot, rok := mapx.MapAt(body, "rotation"); rok
         current["rotation"] = rot
-    if scl, sok := optMap(body, "scale"); sok
+    if scl, sok := mapx.MapAt(body, "scale"); sok
         current["scale"] = scl
-    if m := optString(body, "model"); m isnt ""
+    if m := mapx.Str(body, "model"); m isnt ""
         current["model"] = m
-    newCat := optString(body, "category")
+    newCat := mapx.Str(body, "category")
     if newCat isnt "" and newCat isnt cat
         # Remove from current category
         newArr := list of any{}

@@ -1,0 +1,60 @@
+petiole object_test
+
+import "testing"
+import "stdlib/test"
+import "github.com/Iribala/town-builder/internal/object"
+
+func TestFromMapToMapRoundTrip(t: reference testing.T)
+    m := map of string to any{
+        "id":       "b1",
+        "model":    "house.glb",
+        "category": "buildings",
+        "position": map of string to any{"x": 1.0, "y": 2.0, "z": 3.0},
+        "driver":   "alice",
+        "custom":   "keep-me",
+    }
+    o := object.FromMap(m)
+    test.AssertEqual(t, o.ID, "b1")
+    test.AssertEqual(t, o.Model, "house.glb")
+    test.AssertEqual(t, o.Position.X, 1.0)
+    test.AssertEqual(t, o.Position.Z, 3.0)
+    test.AssertEqual(t, o.Extra["custom"], "keep-me")
+
+    out := object.ToMap(o)
+    test.AssertEqual(t, out["id"], "b1")
+    test.AssertEqual(t, out["model"], "house.glb")
+    test.AssertEqual(t, out["driver"], "alice")
+    # Extra keys survive the round trip.
+    test.AssertEqual(t, out["custom"], "keep-me")
+    pos, ok := out["position"].(object.Vec3)
+    test.AssertTrue(t, ok)
+    test.AssertEqual(t, pos.X, 1.0)
+    # Missing scale defaults to 1/1/1.
+    scale, _ := out["scale"].(object.Vec3)
+    test.AssertEqual(t, scale.X, 1.0)
+
+func TestArrayVectorForm(t: reference testing.T)
+    o := object.FromMap(map of string to any{"position": list of any{5, 6, 7}})
+    test.AssertEqual(t, o.Position.X, 5.0)
+    test.AssertEqual(t, o.Position.Y, 6.0)
+    test.AssertEqual(t, o.Position.Z, 7.0)
+
+func TestAlreadyTypedVectorPreserved(t: reference testing.T)
+    # A PlacedObject built in-memory (not yet JSON round-tripped) carries Vec3
+    # structs; FromMap must read them back, not reset to defaults.
+    m := object.ToMap(object.PlacedObject{ID: "p", Position: object.Vec3{X: 4.0, Y: 5.0, Z: 6.0}})
+    o := object.FromMap(m)
+    test.AssertEqual(t, o.Position.X, 4.0)
+    test.AssertEqual(t, o.Position.Z, 6.0)
+
+func TestDriverOmittedWhenAbsent(t: reference testing.T)
+    o := object.FromMap(map of string to any{"id": "x", "model": "m.glb"})
+    out := object.ToMap(o)
+    _, has := out["driver"]
+    test.AssertFalse(t, has)
+
+func TestCategoryOmittedWhenEmpty(t: reference testing.T)
+    o := object.FromMap(map of string to any{"id": "x"})
+    out := object.ToMap(o)
+    _, has := out["category"]
+    test.AssertFalse(t, has)

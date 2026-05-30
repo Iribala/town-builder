@@ -20,6 +20,11 @@ go test ./...
 # Run a single test
 go test ./internal/routes/town/... -run TestSaveTownPatches
 
+# Transpile every .kuki source to Go (required before go build/test —
+# the .go output is a gitignored build artifact, not committed). Run
+# after cloning or after editing any .kuki file.
+./scripts/brew.sh
+
 # Rebuild physics WASM (only after editing physics_wasm.kuki)
 kukicha brew --stdout physics_wasm.kuki > physics_wasm.go
 sed -i 's|^//go:build ignore$|//go:build js \&\& wasm|' physics_wasm.go
@@ -30,7 +35,7 @@ sed -i 's|^//go:build ignore$|//go:build js \&\& wasm|' physics_wasm.go
 
 Town Builder is a real-time multiplayer 3D town builder. Three layers communicate:
 
-- **Backend** – Kukicha (transpiled to Go, `net/http.ServeMux` + Go 1.22 method patterns) following a strict `Routes → Services → Storage` layering. Routes handle HTTP; services hold all business logic; `internal/storage/` abstracts Redis (primary) with an in-memory map fallback when Redis is unavailable. Sources live in `*.kuki` files; brewed `.go` files are committed alongside so `go test` / `go build` work without a build step.
+- **Backend** – Kukicha (transpiled to Go, `net/http.ServeMux` + Go 1.22 method patterns) following a strict `Routes → Services → Storage` layering. Routes handle HTTP; services hold all business logic; `internal/storage/` abstracts Redis (primary) with an in-memory map fallback when Redis is unavailable. Sources live in `*.kuki` files; the transpiled `.go` is a **gitignored build artifact** — run `./scripts/brew.sh` to regenerate it before `go build` / `go test`.
 - **Frontend** – Vanilla JavaScript + Three.js (no framework). `static/js/scene.js` is the central orchestrator; `static/js/ui.js` handles DOM events; `static/js/network.js` manages SSE reconnection.
 - **Physics WASM** – `physics_wasm.kuki` brews to `physics_wasm.go` and compiles to `static/wasm/physics_greentea.wasm`. Exposes a spatial-grid collision system and car physics as global JS functions (`wasmUpdateSpatialGrid`, `wasmCheckCollision`, `wasmBatchCheckCollisions`, `wasmUpdateCarPhysics`, etc.). WASM loading is non-critical; the app degrades gracefully if it fails.
 
@@ -39,15 +44,18 @@ Town Builder is a real-time multiplayer 3D town builder. Three layers communicat
 ## Key Conventions
 
 ### Layout data normalization
-Town data arrives in two shapes (map-of-categories or list-of-objects). Always pass it through `internal/normalization.NormalizeLayoutData()` before use. The canonical category list lives in `internal/normalization.Categories`.
+Town data arrives in two shapes (map-of-categories or list-of-objects). Always pass it through `internal/normalization.Normalize()` before use. The canonical category list lives in `internal/normalization.Categories`.
+
+### Domain types
+Placed objects flow as open `map of string to any` (they carry arbitrary caller fields and round-trip through JSON storage); read/write their fields via the shared accessors in `internal/mapx`. Fixed-shape domain types live in `internal/object` (`Vec3`, and `PlacedObject` with an `Extra` catch-all + `FromMap`/`ToMap`). SSE event payloads are built via `internal/events`.
 
 ### Adding a new API endpoint
-1. Define request/response types in `internal/models/schemas.kuki`.
+1. Add any shared domain types to `internal/object`; request/response shapes usually stay inline as `map of string to any`.
 2. Implement logic in a new `internal/services/<name>/<name>.kuki`.
 3. Create route handler in `internal/routes/<name>/<name>.kuki`.
 4. Register the route in `internal/routes/router/router.kuki`.
 
-After editing any `.kuki` file, brew the `.go` next to it (see `docs/plans/kukicha-port.md` "Build pipeline" section).
+After editing any `.kuki` file, run `./scripts/brew.sh` to regenerate the Go (see `docs/plans/kukicha-port.md` "Build pipeline" section).
 
 ### Configuration
 `internal/config/config.kuki` exposes settings loaded from `.env`. Key variables:

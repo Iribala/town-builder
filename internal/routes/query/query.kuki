@@ -4,6 +4,7 @@ import "net/http"
 
 import "stdlib/http" as httphelper
 
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/query" as querysvc
 import "stdlib/cast"
@@ -14,30 +15,6 @@ func readBody(r: reference http.Request) (map of string to any, bool)
     if err isnt empty
         return empty, false
     return body, true
-
-func optMap(m: map of string to any, key: string) map of string to any
-    if v, ok := m[key]; ok
-        if mm, mok := v.(map of string to any); mok
-            return mm
-    return empty
-
-func optFloat(m: map of string to any, key: string, def: float64) float64
-    if v, ok := m[key]; ok
-        if f, fok := v.(float64); fok
-            return f
-    return def
-
-func optString(m: map of string to any, key: string) string
-    if v, ok := m[key]; ok
-        if s, sok := v.(string); sok
-            return s
-    return ""
-
-func optInt(m: map of string to any, key: string, def: int) int
-    if v, ok := m[key]; ok
-        if f, fok := v.(float64); fok
-            return f as int
-    return def
 
 func writeResults(w: http.ResponseWriter, results: list of map of string to any)
     httphelper.JSON(w, map of string to any{
@@ -55,10 +32,10 @@ func radius(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONBadRequest(w, "Invalid JSON body")
         return
     results := querysvc.SpatialQueryRadius(
-        optMap(body, "center"),
-        optFloat(body, "radius", 0.0),
-        optString(body, "category"),
-        optInt(body, "limit", 0),
+        mapx.MapOr(body, "center"),
+        mapx.FloatAt(body, "radius", 0.0),
+        mapx.Str(body, "category"),
+        mapx.IntAt(body, "limit", 0),
     )
     writeResults(w, results)
 
@@ -71,10 +48,10 @@ func bounds(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONBadRequest(w, "Invalid JSON body")
         return
     results := querysvc.SpatialQueryBounds(
-        optMap(body, "min"),
-        optMap(body, "max"),
-        optString(body, "category"),
-        optInt(body, "limit", 0),
+        mapx.MapOr(body, "min"),
+        mapx.MapOr(body, "max"),
+        mapx.Str(body, "category"),
+        mapx.IntAt(body, "limit", 0),
     )
     writeResults(w, results)
 
@@ -93,9 +70,9 @@ func nearest(w: http.ResponseWriter, r: reference http.Request)
             hasMaxDist = true
             maxDist = f
     results := querysvc.SpatialQueryNearest(
-        optMap(body, "point"),
-        optString(body, "category"),
-        optInt(body, "count", 1),
+        mapx.MapOr(body, "point"),
+        mapx.Str(body, "category"),
+        mapx.IntAt(body, "count", 1),
         maxDist,
         hasMaxDist,
     )
@@ -115,16 +92,16 @@ func advanced(w: http.ResponseWriter, r: reference http.Request)
             for item in arr
                 if mm, mok := item.(map of string to any); mok
                     filters = append(filters, mm)
-    sortOrder := optString(body, "sort_order")
+    sortOrder := mapx.Str(body, "sort_order")
     if sortOrder equals ""
         sortOrder = "asc"
     results := querysvc.AdvancedQuery(
-        optString(body, "category"),
+        mapx.Str(body, "category"),
         filters,
-        optString(body, "sort_by"),
+        mapx.Str(body, "sort_by"),
         sortOrder,
-        optInt(body, "limit", 0),
-        optInt(body, "offset", 0),
+        mapx.IntAt(body, "limit", 0),
+        mapx.IntAt(body, "offset", 0),
     )
     writeResults(w, results)
 

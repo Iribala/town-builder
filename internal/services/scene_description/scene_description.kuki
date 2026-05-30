@@ -2,22 +2,17 @@ petiole scene_description
 
 import "stdlib/log"
 import "stdlib/cast"
+import "stdlib/maps" as mapspkg
+import "stdlib/sort"
 import "stdlib/string" as strpkg
 import "fmt"
 
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
 
 func getModelNameFriendly(modelFilename: string) string
     return model_display_names.GetModelDisplayName(modelFilename)
-
-func toMap(v: any) (map of string to any, bool)
-    m, ok := v.(map of string to any)
-    return m, ok
-
-func toList(v: any) (list of any, bool)
-    l, ok := v.(list of any)
-    return l, ok
 
 func analyzeCategory(categoryData: list of any, categoryName: string) map of string to any
     out := make(map of string to any)
@@ -32,7 +27,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
     driverCount := 0
     positions := list of list of float64{}
     for raw in categoryData
-        obj, ok := toMap(raw)
+        obj, ok := mapx.AsMap(raw)
         if not ok
             continue
         model := "unknown"
@@ -42,7 +37,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
         modelCounts[model] = modelCounts[model] + 1
         if d, ok := obj["driver"]; ok and not cast.IsNil(d)
             driverCount = driverCount + 1
-        pos, pok := toMap(obj["position"])
+        pos, pok := mapx.AsMap(obj["position"])
         if pok
             x, _ := cast.SmartFloat64(pos["x"])
             y, _ := cast.SmartFloat64(pos["y"])
@@ -108,24 +103,21 @@ func calculateSceneBounds(allPositions: list of list of float64) map of string t
     return out
 
 func formatModels(catData: map of string to any) string
-    modelsVal, _ := catData["models"]
-    models, ok := modelsVal.(map of string to int)
+    models, ok := catData["models"].(map of string to int)
     if not ok
         return ""
+    keys := sort.Strings(mapspkg.Keys(models))
     parts := list of string{}
-    keys := list of string{}
-    for k, _ in models
-        keys = append(keys, k)
     for k in keys
         cnt := models[k]
-        parts = append(parts, fmt.Sprintf("%d %s", cnt, getModelNameFriendly(k)))
+        parts = append(parts, "{cnt} {getModelNameFriendly(k)}")
     return strpkg.Join(parts, ", ")
 
 func appendCategory(parts: list of string, categories: map of string to any, name: string, label: string, suffix: string, showModels: bool, extra: string) list of string
     catRaw, ok := categories[name]
     if not ok
         return parts
-    cat, mok := toMap(catRaw)
+    cat, mok := mapx.AsMap(catRaw)
     if not mok
         return parts
     count := 0
@@ -134,9 +126,9 @@ func appendCategory(parts: list of string, categories: map of string to any, nam
     if count <= 0
         return parts
     if showModels
-        parts = append(parts, fmt.Sprintf("%s (%d): %s%s", label, count, formatModels(cat), extra))
+        parts = append(parts, "{label} ({count}): {formatModels(cat)}{extra}")
     else
-        parts = append(parts, fmt.Sprintf("%s: %d %s", label, count, suffix))
+        parts = append(parts, "{label}: {count} {suffix}")
     return parts
 
 func generateNaturalDescription(analysis: map of string to any) string
@@ -150,14 +142,14 @@ func generateNaturalDescription(analysis: map of string to any) string
         total = t
     if total equals 0
         return townName + " is currently empty with no objects placed."
-    parts = append(parts, fmt.Sprintf("Total objects: %d", total))
+    parts = append(parts, "Total objects: {total}")
 
-    categories, _ := toMap(analysis["categories"])
+    categories, _ := mapx.AsMap(analysis["categories"])
 
     parts = appendCategory(parts, categories, "buildings", "Buildings", "objects", true, "")
 
     if vehRaw, ok := categories["vehicles"]; ok
-        vehicles, mok := toMap(vehRaw)
+        vehicles, mok := mapx.AsMap(vehRaw)
         if mok
             count := 0
             if c, cok := vehicles["count"].(int); cok
@@ -169,8 +161,8 @@ func generateNaturalDescription(analysis: map of string to any) string
                     dc := 0
                     if dcv, dcok := vehicles["driver_count"].(int); dcok
                         dc = dcv
-                    driverInfo = fmt.Sprintf(", %d in use", dc)
-                parts = append(parts, fmt.Sprintf("Vehicles (%d): %s%s", count, modelDesc, driverInfo))
+                    driverInfo = ", {dc} in use"
+                parts = append(parts, "Vehicles ({count}): {modelDesc}{driverInfo}")
 
     parts = appendCategory(parts, categories, "trees", "Trees", "objects", true, "")
     parts = appendCategory(parts, categories, "props", "Props", "objects", false, "")
@@ -179,8 +171,8 @@ func generateNaturalDescription(analysis: map of string to any) string
     parts = appendCategory(parts, categories, "terrain", "Terrain", "objects", false, "")
     parts = appendCategory(parts, categories, "roads", "Roads", "segments", false, "")
 
-    bounds, _ := toMap(analysis["bounds"])
-    dims, _ := toMap(bounds["dimensions"])
+    bounds, _ := mapx.AsMap(analysis["bounds"])
+    dims, _ := mapx.AsMap(bounds["dimensions"])
     width, _ := cast.SmartFloat64(dims["width"])
     depth, _ := cast.SmartFloat64(dims["depth"])
     if width > 0.0 or depth > 0.0
@@ -194,7 +186,7 @@ func GenerateSceneDescription(townData: map of string to any) map of string to a
     totalObjects := 0
     for category in normalization.Categories
         catRaw, _ := townData[category]
-        catList, _ := toList(catRaw)
+        catList, _ := mapx.AsList(catRaw)
         analysis := analyzeCategory(catList, category)
         categoryAnalysis[category] = analysis
         if c, ok := analysis["count"].(int); ok

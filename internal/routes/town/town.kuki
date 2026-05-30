@@ -10,6 +10,8 @@ import "stdlib/string" as strpkg
 import "strconv"
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/events" as evt
+import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/django_client"
@@ -18,22 +20,6 @@ import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
 import "stdlib/cast"
 import "github.com/Iribala/town-builder/internal/utils/security"
-
-func optString(m: map of string to any, key: string) string
-    if v, ok := m[key]; ok
-        if s, sok := v.(string); sok
-            return s
-    return ""
-
-func optMap(m: map of string to any, key: string) (map of string to any, bool)
-    if v, ok := m[key]; ok and not cast.IsNil(v)
-        if mm, mok := v.(map of string to any); mok
-            return mm, true
-    return empty, false
-
-func hasKey(m: map of string to any, key: string) bool
-    _, ok := m[key]
-    return ok
 
 func getTown(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -58,17 +44,17 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
     if gerr isnt empty
         httphelper.JSONError(w, "Failed to load town data", 500)
         return
-    if hasKey(data, "townName") and len(data) equals 1
-        name := optString(data, "townName")
+    if mapx.Has(data, "townName") and len(data) equals 1
+        name := mapx.Str(data, "townName")
         townData["townName"] = name
         town_helpers.SaveAndBroadcast(townData, map of string to any{"type": "name", "townName": name})
         log.Info("Updated town name to: {name}")
         httphelper.JSON(w, map of string to any{"status": "success"})
         return
-    if hasKey(data, "driver") and hasKey(data, "id") and hasKey(data, "category")
-        category := optString(data, "category")
-        modelID := optString(data, "id")
-        driver := optString(data, "driver")
+    if mapx.Has(data, "driver") and mapx.Has(data, "id") and mapx.Has(data, "category")
+        category := mapx.Str(data, "category")
+        modelID := mapx.Str(data, "id")
+        driver := mapx.Str(data, "driver")
         updated := false
         v, vok := townData[category]
         if vok
@@ -78,7 +64,7 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
                     entry, eok := arr[i].(map of string to any)
                     if not eok
                         continue
-                    if optString(entry, "id") equals modelID
+                    if mapx.Str(entry, "id") equals modelID
                         entry["driver"] = driver
                         arr[i] = entry
                         townData[category] = arr
@@ -97,7 +83,7 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSON(w, map of string to any{"status": "success"})
         return
     canonical := normalization.Normalize(data)
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     httphelper.JSON(w, map of string to any{"status": "success"})
 
 func normalizeFilename(name: string) string
@@ -117,10 +103,10 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
     if not hasData
         httphelper.JSONBadRequest(w, "data is required")
         return
-    filename := optString(payload, "filename")
-    if filename equals "" and not hasKey(payload, "filename")
+    filename := mapx.Str(payload, "filename")
+    if filename equals "" and not mapx.Has(payload, "filename")
         filename = "town_data.json"
-    townName := optString(payload, "townName")
+    townName := mapx.Str(payload, "townName")
     canonical := normalization.Normalize(rawData)
     localMsg := ""
     if filename isnt ""
@@ -150,7 +136,7 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
         localMsg = "Town saved locally to {fn}."
     else
         localMsg = "Local save skipped (no filename)."
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     djangoMsg := ""
     var townID any = empty
     if v, vok := payload["town_id"]; vok and not cast.IsNil(v)
@@ -169,9 +155,9 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
         searchName := townName
         if searchName equals ""
             if m, mok := rawData.(map of string to any); mok
-                searchName = optString(m, "townName")
+                searchName = mapx.Str(m, "townName")
                 if searchName equals ""
-                    searchName = optString(m, "name")
+                    searchName = mapx.Str(m, "name")
         if searchName isnt ""
             existingID, found, serr := django_client.SearchTownByName(searchName)
             if serr equals empty and found
@@ -209,7 +195,7 @@ func loadTown(w: http.ResponseWriter, r: reference http.Request)
         return
     body := make(map of string to any)
     httphelper.ReadJSON(r, reference of body)
-    filename := optString(body, "filename")
+    filename := mapx.Str(body, "filename")
     if filename equals ""
         filename = "town_data.json"
     fn := normalizeFilename(filename)
@@ -238,7 +224,7 @@ func loadTown(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONError(w, "Failed to parse town data", 500)
         return
     canonical := normalization.Normalize(townData)
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     log.Info("Town loaded from {fn}")
     httphelper.JSON(w, map of string to any{
         "status":  "success",
@@ -259,14 +245,14 @@ func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
     if derr isnt empty
         httphelper.JSONError(w, "Failed to load town from Django: {derr}", 500)
         return
-    log.Info("Loaded town {idInt} from Django: {optString(townData, "name")}")
+    log.Info("Loaded town {idInt} from Django: {mapx.Str(townData, "name")}")
     var layoutData any
     if v, vok := townData["layout_data"]; vok
         layoutData = v
     else
         layoutData = list of any{}
     canonical := normalization.Normalize(layoutData)
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     info := map of string to any{
         "id":          townData["id"],
         "name":        townData["name"],
@@ -280,7 +266,7 @@ func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
         info["category_statuses"] = list of any{}
     httphelper.JSON(w, map of string to any{
         "status":    "success",
-        "message":   "Town '{optString(townData, "name")}' loaded from Django",
+        "message":   "Town '{mapx.Str(townData, "name")}' loaded from Django",
         "data":      canonical,
         "town_info": info,
     })
@@ -300,9 +286,9 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
     if err isnt empty
         httphelper.JSONBadRequest(w, "Invalid JSON body")
         return
-    category := optString(body, "category")
-    modelID := optString(body, "id")
-    pos, hasPos := optMap(body, "position")
+    category := mapx.Str(body, "category")
+    modelID := mapx.Str(body, "id")
+    pos, hasPos := mapx.MapAt(body, "position")
     if category equals "" or (modelID equals "" and not hasPos)
         httphelper.JSONBadRequest(w, "Missing required parameters")
         return
@@ -323,7 +309,7 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
             entry, eok := arr[i].(map of string to any)
             if not eok
                 continue
-            if optString(entry, "id") equals modelID
+            if mapx.Str(entry, "id") equals modelID
                 newArr := list of any{}
                 for j from 0 to len(arr)
                     if j isnt i
@@ -347,7 +333,7 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
         entry, eok := arr[i].(map of string to any)
         if not eok
             continue
-        mp, _ := optMap(entry, "position")
+        mp, _ := mapx.MapAt(entry, "position")
         d := geometry.CalculateDistance(pos, mp)
         if d < closestDist
             closestDist = d
@@ -384,8 +370,8 @@ func editModel(w: http.ResponseWriter, r: reference http.Request)
     if err isnt empty
         httphelper.JSONBadRequest(w, "Invalid JSON body")
         return
-    category := optString(body, "category")
-    modelID := optString(body, "id")
+    category := mapx.Str(body, "category")
+    modelID := mapx.Str(body, "id")
     if category equals "" or modelID equals ""
         httphelper.JSONBadRequest(w, "Missing required parameters")
         return
@@ -405,12 +391,12 @@ func editModel(w: http.ResponseWriter, r: reference http.Request)
         entry, eok := arr[i].(map of string to any)
         if not eok
             continue
-        if optString(entry, "id") equals modelID
-            if pos, pok := optMap(body, "position"); pok
+        if mapx.Str(entry, "id") equals modelID
+            if pos, pok := mapx.MapAt(body, "position"); pok
                 entry["position"] = pos
-            if rot, rok := optMap(body, "rotation"); rok
+            if rot, rok := mapx.MapAt(body, "rotation"); rok
                 entry["rotation"] = rot
-            if scl, sok := optMap(body, "scale"); sok
+            if scl, sok := mapx.MapAt(body, "scale"); sok
                 entry["scale"] = scl
             arr[i] = entry
             townData[category] = arr
