@@ -14,7 +14,10 @@ var Categories = list of string{
     "roads",
 }
 
-type Vec3 = map of string to float64
+type Vec3
+    X float64 as "x"
+    Y float64 as "y"
+    Z float64 as "z"
 
 func toFloat(v: any, def: float64) float64
     out, err := cast.SmartFloat64(v)
@@ -24,22 +27,22 @@ func toFloat(v: any, def: float64) float64
 
 func vecFromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
     if cast.IsNil(values)
-        return Vec3{"x": dx, "y": dy, "z": dz}
+        return Vec3{X: dx, Y: dy, Z: dz}
     arr, okArr := values.(list of any)
     if okArr and len(arr) >= 3
         return Vec3{
-            "x": toFloat(arr[0], dx),
-            "y": toFloat(arr[1], dy),
-            "z": toFloat(arr[2], dz),
+            X: toFloat(arr[0], dx),
+            Y: toFloat(arr[1], dy),
+            Z: toFloat(arr[2], dz),
         }
     m, okMap := values.(map of string to any)
     if okMap
         return Vec3{
-            "x": toFloat(m["x"], dx),
-            "y": toFloat(m["y"], dy),
-            "z": toFloat(m["z"], dz),
+            X: toFloat(m["x"], dx),
+            Y: toFloat(m["y"], dy),
+            Z: toFloat(m["z"], dz),
         }
-    return Vec3{"x": dx, "y": dy, "z": dz}
+    return Vec3{X: dx, Y: dy, Z: dz}
 
 func normalizeObject(item: map of string to any, category: string) map of string to any
     out := make(map of string to any)
