@@ -5,6 +5,7 @@ import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/snapshots" as snapsvc
@@ -71,7 +72,7 @@ func restore(w: http.ResponseWriter, r: reference http.Request)
     if err isnt empty
         httphelper.JSONError(w, "Failed to restore", 500)
         return
-    town_helpers.BroadcastSSE(map of string to any{"type": "full", "town": data})
+    town_helpers.BroadcastSSE(evt.Full(data))
     meta, _ := snapsvc.GetSnapshotMetadata(id)
     log.Info("Restored snapshot: {id}")
     name := ""

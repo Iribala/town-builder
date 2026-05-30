@@ -7,6 +7,7 @@ import "sync"
 import "math"
 import "github.com/google/uuid"
 
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/services/history"
@@ -229,10 +230,7 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
         for k, v in townData
             if not strpkg.HasPrefix(k, "_")
                 broadcastData[k] = v
-        event := make(map of string to any)
-        event["type"] = "full"
-        event["town"] = broadcastData
-        serr := town_helpers.SaveAndBroadcast(broadcastData, event)
+        serr := town_helpers.SaveAndBroadcast(broadcastData, evt.Full(broadcastData))
         if serr isnt empty
             log.Warn("Batch save failed: {serr}")
         _, herr := history.AddEntry("batch", "", "", originalTownData, townData)

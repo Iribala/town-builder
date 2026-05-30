@@ -8,6 +8,7 @@ import "stdlib/json"
 import "stdlib/log"
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/pubsub"
 import "github.com/Iribala/town-builder/internal/services/auth"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
@@ -81,7 +82,7 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
 
     townData, terr := storage.Get()
     if terr equals empty
-        writeEventMap(w, flusher, map of string to any{"type": "full", "town": townData})
+        writeEventMap(w, flusher, evt.Full(townData))
     writeEventMap(w, flusher, map of string to any{
         "type":  "users",
         "users": pubsub.OnlineUsers(),

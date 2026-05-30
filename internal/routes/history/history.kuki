@@ -5,6 +5,7 @@ import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/history" as histsvc
@@ -39,7 +40,7 @@ func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey:
         httphelper.JSONError(w, "Failed to save state", 500)
         return false
     pushBack(entry)
-    town_helpers.BroadcastSSE(map of string to any{"type": "full", "town": state})
+    town_helpers.BroadcastSSE(evt.Full(state))
     op := mapx.Str(entry, "operation")
     log.Info("{action} operation: {op}")
     httphelper.JSON(w, map of string to any{

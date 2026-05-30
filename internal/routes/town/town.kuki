@@ -10,6 +10,7 @@ import "stdlib/string" as strpkg
 import "strconv"
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/routes/common"
@@ -82,7 +83,7 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSON(w, map of string to any{"status": "success"})
         return
     canonical := normalization.Normalize(data)
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     httphelper.JSON(w, map of string to any{"status": "success"})
 
 func normalizeFilename(name: string) string
@@ -135,7 +136,7 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
         localMsg = "Town saved locally to {fn}."
     else
         localMsg = "Local save skipped (no filename)."
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     djangoMsg := ""
     var townID any = empty
     if v, vok := payload["town_id"]; vok and not cast.IsNil(v)
@@ -223,7 +224,7 @@ func loadTown(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONError(w, "Failed to parse town data", 500)
         return
     canonical := normalization.Normalize(townData)
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     log.Info("Town loaded from {fn}")
     httphelper.JSON(w, map of string to any{
         "status":  "success",
@@ -251,7 +252,7 @@ func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
     else
         layoutData = list of any{}
     canonical := normalization.Normalize(layoutData)
-    town_helpers.SaveAndBroadcast(canonical, map of string to any{"type": "full", "town": canonical})
+    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     info := map of string to any{
         "id":          townData["id"],
         "name":        townData["name"],

@@ -6,6 +6,7 @@ import "stdlib/crypto"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/routes/common"
@@ -112,7 +113,7 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     arr := categoryList(townData, category)
     arr = append(arr, building as any)
     setCategory(townData, category, arr)
-    err = town_helpers.SaveAndBroadcast(townData, map of string to any{"type": "full", "town": townData})
+    err = town_helpers.SaveAndBroadcast(townData, evt.Full(townData))
     if err isnt empty
         httphelper.JSONError(w, "Failed to save", 500)
         return
