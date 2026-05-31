@@ -16,14 +16,21 @@ type BoundingBox
 
 type CategoryMask = uint32
 
-const CategoryUnknown  CategoryMask = 1
-const CategoryVehicle  CategoryMask = 2
+const CategoryUnknown CategoryMask = 1
+
+const CategoryVehicle CategoryMask = 2
+
 const CategoryBuilding CategoryMask = 4
-const CategoryTerrain  CategoryMask = 8
-const CategoryProp     CategoryMask = 16
-const CategoryRoad     CategoryMask = 32
-const CategoryTree     CategoryMask = 64
-const CategoryPark     CategoryMask = 128
+
+const CategoryTerrain CategoryMask = 8
+
+const CategoryProp CategoryMask = 16
+
+const CategoryRoad CategoryMask = 32
+
+const CategoryTree CategoryMask = 64
+
+const CategoryPark CategoryMask = 128
 
 func categoryFromString(category: string) CategoryMask
     switch category
@@ -44,10 +51,10 @@ func categoryFromString(category: string) CategoryMask
     return CategoryUnknown
 
 type GameObject
-    ID           int
-    X            float64
-    Y            float64
-    BBox         BoundingBox
+    ID int
+    X float64
+    Y float64
+    BBox BoundingBox
     CategoryMask CategoryMask
 
 type GridKey
@@ -60,12 +67,12 @@ type GridKey
 
 type SpatialGrid
     cellSize float64
-    cells    map of GridKey to list of int
+    cells map of GridKey to list of int
 
 func newSpatialGrid(cellSize: float64) reference SpatialGrid
     return reference of SpatialGrid{
         cellSize: cellSize,
-        cells:    make(map of GridKey to list of int, 256),
+        cells: make(map of GridKey to list of int, 256),
     }
 
 func getCellKey(g: reference SpatialGrid, x: float64, y: float64) GridKey
@@ -129,6 +136,7 @@ func checkAABBCollision(a: BoundingBox, b: BoundingBox) bool
     return a.MinX <= b.MaxX and a.MaxX >= b.MinX and a.MinY <= b.MaxY and a.MaxY >= b.MinY
 
 var spatialGrid = newSpatialGrid(10.0)
+
 var objectCache = make(map of int to GameObject, 256)
 
 # ============================================================================
@@ -162,10 +170,10 @@ func updateSpatialGrid(this: js.Value, args: list of js.Value) any
         }
 
         gameObj := GameObject{
-            ID:           id,
-            X:            x,
-            Y:            y,
-            BBox:         bbox,
+            ID: id,
+            X: x,
+            Y: y,
+            BBox: bbox,
             CategoryMask: categoryFromString(category),
         }
 
@@ -179,7 +187,7 @@ func updateSpatialGrid(this: js.Value, args: list of js.Value) any
 
 func checkCollision(this: js.Value, args: list of js.Value) any
     if len(args) < 2
-        return js.ValueOf(list of any{})
+        return js.ValueOf(empty list of any)
 
     objID := args[0].Int()
     bboxJS := args[1]
@@ -205,7 +213,7 @@ func checkCollision(this: js.Value, args: list of js.Value) any
 
 func batchCheckCollisions(this: js.Value, args: list of js.Value) any
     if len(args) < 1
-        return js.ValueOf(list of any{})
+        return js.ValueOf(empty list of any)
 
     checksArray := args[0]
     length := checksArray.Length()
@@ -235,7 +243,7 @@ func batchCheckCollisions(this: js.Value, args: list of js.Value) any
                 collisions = append(collisions, candidateID)
 
         result := map of string to any{
-            "id":         objID,
+            "id": objID,
             "collisions": collisions,
         }
         results[i] = result
@@ -316,14 +324,14 @@ func findNearestObject(this: js.Value, args: list of js.Value) any
         return js.ValueOf(empty)
 
     result := map of string to any{
-        "id":       nearestID,
+        "id": nearestID,
         "distance": math.Sqrt(nearestDistSq),
     }
     return js.ValueOf(result)
 
 func findObjectsInRadius(this: js.Value, args: list of js.Value) any
     if len(args) < 3
-        return js.ValueOf(list of any{})
+        return js.ValueOf(empty list of any)
 
     x := args[0].Float()
     y := args[1].Float()
@@ -360,7 +368,7 @@ func findObjectsInRadius(this: js.Value, args: list of js.Value) any
 
         if distSq <= radiusSq
             result := map of string to any{
-                "id":       id,
+                "id": id,
                 "distance": math.Sqrt(distSq),
             }
             results = append(results, result)
@@ -379,8 +387,8 @@ func getGridStats(this: js.Value, args: list of js.Value) any
         avgObjectsPerCell = float64(totalObjects) / float64(cellCount)
 
     result := map of string to any{
-        "cellCount":         cellCount,
-        "objectCount":       totalObjects,
+        "cellCount": cellCount,
+        "objectCount": totalObjects,
         "avgObjectsPerCell": avgObjectsPerCell,
     }
     return js.ValueOf(result)
@@ -390,8 +398,8 @@ func getGridStats(this: js.Value, args: list of js.Value) any
 # ============================================================================
 
 type CarState
-    X         float64
-    Z         float64
+    X float64
+    Z float64
     RotationY float64
     VelocityX float64
     VelocityZ float64
@@ -401,15 +409,15 @@ func updateCarPhysics(this: js.Value, args: list of js.Value) any
         return js.ValueOf(empty)
 
     ACCELERATION := 5.0
-    MAX_SPEED    := 20.0
-    FRICTION     := 0.02
-    BRAKE_POWER  := 10.0
+    MAX_SPEED := 20.0
+    FRICTION := 0.02
+    BRAKE_POWER := 10.0
     ROTATE_SPEED := 4.0
 
     carJS := args[0]
     car := CarState{
-        X:         carJS.Get("x").Float(),
-        Z:         carJS.Get("z").Float(),
+        X: carJS.Get("x").Float(),
+        Z: carJS.Get("z").Float(),
         RotationY: carJS.Get("rotation_y").Float(),
         VelocityX: carJS.Get("velocity_x").Float(),
         VelocityZ: carJS.Get("velocity_z").Float(),
@@ -443,8 +451,8 @@ func updateCarPhysics(this: js.Value, args: list of js.Value) any
         dot := car.VelocityX * forwardX + car.VelocityZ * forwardZ
 
         if dot > 0.0 and speed > 0.0
-            car.VelocityX = car.VelocityX - (car.VelocityX / speed) * BRAKE_POWER * dt
-            car.VelocityZ = car.VelocityZ - (car.VelocityZ / speed) * BRAKE_POWER * dt
+            car.VelocityX = car.VelocityX - car.VelocityX / speed * BRAKE_POWER * dt
+            car.VelocityZ = car.VelocityZ - car.VelocityZ / speed * BRAKE_POWER * dt
         else
             car.VelocityX = car.VelocityX - forwardX * ACCELERATION * dt
             car.VelocityZ = car.VelocityZ - forwardZ * ACCELERATION * dt
@@ -455,8 +463,8 @@ func updateCarPhysics(this: js.Value, args: list of js.Value) any
 
     speed := math.Sqrt(car.VelocityX * car.VelocityX + car.VelocityZ * car.VelocityZ)
     if speed > MAX_SPEED
-        car.VelocityX = (car.VelocityX / speed) * MAX_SPEED
-        car.VelocityZ = (car.VelocityZ / speed) * MAX_SPEED
+        car.VelocityX = car.VelocityX / speed * MAX_SPEED
+        car.VelocityZ = car.VelocityZ / speed * MAX_SPEED
 
     if speed < 0.01
         car.VelocityX = 0.0
@@ -466,8 +474,8 @@ func updateCarPhysics(this: js.Value, args: list of js.Value) any
     car.Z = car.Z + car.VelocityZ * dt
 
     result := map of string to any{
-        "x":          car.X,
-        "z":          car.Z,
+        "x": car.X,
+        "z": car.Z,
         "rotation_y": car.RotationY,
         "velocity_x": car.VelocityX,
         "velocity_z": car.VelocityZ,
