@@ -17,9 +17,11 @@ import {
  * @returns {boolean} True if collision detected
  */
 export function checkCollision(boundingBox, placedObjects, excludeObject = null) {
-    // Try WASM-accelerated collision detection first
+    // Try WASM-accelerated collision detection first.
+    // Pass boundingBox explicitly so the WASM path tests the projected
+    // future position rather than the object's current registered location.
     if (isPhysicsWasmReady() && excludeObject) {
-        const collisions = wasmCheckCollision(excludeObject);
+        const collisions = wasmCheckCollision(excludeObject, boundingBox);
         if (collisions && collisions.length > 0) {
             // Filter out road segments
             for (const id of collisions) {

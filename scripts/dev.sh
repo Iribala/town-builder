@@ -24,5 +24,8 @@ if ! redis-cli ping > /dev/null 2>&1; then
     echo ""
 fi
 
+# Transpile .kuki sources to Go (required before go run)
+"$(dirname "$0")/brew.sh"
+
 # Start the development server
 exec go run ./cmd/server

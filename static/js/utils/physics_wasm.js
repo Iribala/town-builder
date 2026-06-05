@@ -162,9 +162,11 @@ export function updateSpatialGrid(objects) {
  * Uses spatial grid for O(k) complexity where k = nearby objects
  *
  * @param {THREE.Object3D} object - Object to check collisions for
+ * @param {THREE.Box3} [explicitBBox] - World-space box to test (e.g. projected future position).
+ *   When omitted the object's own userData.boundingBox is used.
  * @returns {Array<number>} Array of colliding object IDs, or null if WASM unavailable
  */
-export function checkCollision(object) {
+export function checkCollision(object, explicitBBox = null) {
     if (!physicsWasmEnabled) {
         return null; // Caller should fall back to JavaScript implementation
     }
@@ -177,17 +179,19 @@ export function checkCollision(object) {
     }
 
     try {
-        const bbox = object.userData.boundingBox;
+        // explicitBBox (e.g. a projected future position) takes priority.
+        // Both paths are already in world space — Box3.setFromObject returns
+        // world-space coords, so do NOT add object.position again.
+        const bbox = explicitBBox || object.userData.boundingBox;
         if (!bbox) {
             return [];
         }
 
-        const position = object.position;
         const bboxData = {
-            minX: position.x + bbox.min.x,
-            minY: position.z + bbox.min.z,
-            maxX: position.x + bbox.max.x,
-            maxY: position.z + bbox.max.z,
+            minX: bbox.min.x,
+            minY: bbox.min.z,
+            maxX: bbox.max.x,
+            maxY: bbox.max.z,
         };
 
         const collisions = window.wasmCheckCollision(object.id, bboxData);
@@ -227,17 +231,16 @@ export function batchCheckCollisions(objects) {
     }
 
     try {
+        // Box3.setFromObject returns world-space coords — do NOT add position.
         const checks = objects.map(obj => {
             const bbox = obj.userData.boundingBox;
-            const position = obj.position;
-
             return {
                 id: obj.id,
                 bbox: {
-                    minX: position.x + bbox.min.x,
-                    minY: position.z + bbox.min.z,
-                    maxX: position.x + bbox.max.x,
-                    maxY: position.z + bbox.max.z,
+                    minX: bbox.min.x,
+                    minY: bbox.min.z,
+                    maxX: bbox.max.x,
+                    maxY: bbox.max.z,
                 }
             };
         });

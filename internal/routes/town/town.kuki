@@ -88,11 +88,27 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
     town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical))
     httphelper.JSON(w, map of string to any{"status": "success"})
 
+type townRouter
+    root sandbox.Root
+    dataPath string
+    initErr error
+
+func newTownRouter() townRouter
+    s := config.Current()
+    dataPath := "./data"
+    if s isnt empty
+        dataPath = s.DataPath
+    root, err := sandbox.New(dataPath)
+    return townRouter{root: root, dataPath: dataPath, initErr: err}
+
 func normalizeFilename(name: string) string
     base := strpkg.TrimSuffix(name, ".json")
     return base + ".json"
 
-func saveTown(w: http.ResponseWriter, r: reference http.Request)
+func saveTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request)
+    if h.initErr isnt empty
+        httphelper.JSONError(w, "Data directory unavailable", 500)
+        return
     _, ok := common.CurrentUser(w, r)
     if not ok
         return
@@ -113,24 +129,15 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
     localMsg := ""
     if filename isnt ""
         fn := normalizeFilename(filename)
-        s := config.Current()
-        dataPath := "./data"
-        if s isnt empty
-            dataPath = s.DataPath
-        # Validate filename for path traversal; sandbox enforces the root
-        _, perr := security.SafeFilepath(fn, dataPath, list of string{".json"})
+        _, perr := security.SafeFilepath(fn, h.dataPath, list of string{".json"})
         if perr isnt empty
             httphelper.JSONBadRequest(w, "Invalid filename")
-            return
-        box, berr := sandbox.New(dataPath)
-        if berr isnt empty
-            httphelper.JSONError(w, "Failed to open data dir", 500)
             return
         bytes, jerr := json.PrettyBytes(canonical)
         if jerr isnt empty
             httphelper.JSONError(w, "Failed to encode town data", 500)
             return
-        werr := sandbox.Write(box, bytes, fn)
+        werr := sandbox.Write(h.root, bytes, fn)
         if werr isnt empty
             httphelper.JSONError(w, "Failed to write file", 500)
             return
@@ -191,7 +198,10 @@ func saveTown(w: http.ResponseWriter, r: reference http.Request)
         "town_id": townID,
     })
 
-func loadTown(w: http.ResponseWriter, r: reference http.Request)
+func loadTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request)
+    if h.initErr isnt empty
+        httphelper.JSONError(w, "Data directory unavailable", 500)
+        return
     _, ok := common.CurrentUser(w, r)
     if not ok
         return
@@ -201,22 +211,14 @@ func loadTown(w: http.ResponseWriter, r: reference http.Request)
     if filename equals ""
         filename = "town_data.json"
     fn := normalizeFilename(filename)
-    s := config.Current()
-    dataPath := "./data"
-    if s isnt empty
-        dataPath = s.DataPath
-    _, perr := security.SafeFilepath(fn, dataPath, list of string{".json"})
+    _, perr := security.SafeFilepath(fn, h.dataPath, list of string{".json"})
     if perr isnt empty
         httphelper.JSONBadRequest(w, "Invalid filename")
         return
-    box, berr := sandbox.New(dataPath)
-    if berr isnt empty
-        httphelper.JSONError(w, "Failed to open data dir", 500)
-        return
-    if not sandbox.Exists(box, fn)
+    if not sandbox.Exists(h.root, fn)
         httphelper.JSONNotFound(w, "File {fn} not found")
         return
-    raw, rerr := sandbox.Read(box, fn)
+    raw, rerr := sandbox.Read(h.root, fn)
     if rerr isnt empty
         httphelper.JSONError(w, "Failed to read file", 500)
         return
@@ -426,10 +428,13 @@ func getConfig(w: http.ResponseWriter, r: reference http.Request)
     })
 
 func Register(mux: reference http.ServeMux)
+    h := newTownRouter()
+    if h.initErr isnt empty
+        log.Error("Failed to open data directory: {h.initErr}")
     mux.HandleFunc("GET /api/town", getTown)
     mux.HandleFunc("POST /api/town", updateTown)
-    mux.HandleFunc("POST /api/town/save", saveTown)
-    mux.HandleFunc("POST /api/town/load", loadTown)
+    mux.HandleFunc("POST /api/town/save", h.saveTown)
+    mux.HandleFunc("POST /api/town/load", h.loadTown)
     mux.HandleFunc(`GET /api/town/load-from-django/{id}`, loadFromDjango)
     mux.HandleFunc("DELETE /api/town/model", deleteModel)
     mux.HandleFunc("PUT /api/town/model", editModel)
