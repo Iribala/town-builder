@@ -1,20 +1,198 @@
 ---
 name: kukicha
-description: Reference and gotchas for writing Kukicha (.kuki) — a readable language that transpiles to Go. Use when authoring or editing .kuki files, working with the Kukicha stdlib (stdlib/*), or running kukicha build/check/brew/fmt. Trigger on file edits to *.kuki, on `petiole` declarations, or when the user mentions Kukicha, kuki, brew, onerr, or the `.kukicha/stdlib/` directory.
+description: Reference, anti-patterns, and Python-porting guide for writing Kukicha (.kuki) — a readable near-superset of Go. Use when authoring or editing .kuki files, porting Python to Kukicha, working with the Kukicha stdlib (stdlib/*), or running kukicha build/check/brew/fmt. Trigger on edits to *.kuki, on `petiole` declarations, or when the user mentions Kukicha, kuki, brew, onerr, pipes, enums, or porting from Python.
 ---
 
-## Writing Kukicha
+# Kukicha — reference + Python-porting guide
 
-Kukicha is a near-superset of Go: most Go compiles as-is, with a few exceptions (`range`, `case`/`default`, `struct {}`, `chan T`, `goto`, parenthesized `const ( ... )`) that have Kukicha replacements. **Always
-write Kukicha syntax** (`and`/`or`/`not`, `list of T`, `onerr`, pipes, enums)
-and use Kukicha's stdlib (`stdlib/*`) over raw Go packages. Fall back to Go
-only when Kukicha has no equivalent.
+Kukicha is a near-superset of Go that reads more like Python/Swift/Rust: most
+Go compiles unchanged, but a handful of constructs (`range`, `case`/`default`,
+`struct {}`, `chan T`, `goto`, parenthesized `const ( ... )`) have Kukicha
+replacements and won't parse in their Go form. **Always write Kukicha syntax**
+(`and`/`or`/`not`, `equals`/`isnt`, `list of T`, `empty`, `onerr`, pipes, enums,
+`name: Type` params) and use Kukicha's stdlib (`stdlib/*`) over raw Go packages.
+Fall back to Go only when Kukicha has no equivalent. Reviewers reject PRs that
+leave `&&`, `==`, `[]T`, `*T`, `nil`, or bare `name Type` params in `.kuki`
+source when a Kukicha form exists.
 
-When `kukicha init` is run, this file is created and the stdlib is extracted
-into `.kukicha/stdlib/`. Browse the source files there for full API details
-beyond what this reference covers.
+> **This skill is shared by two Python-port projects** — `town-builder` and
+> `race-to-the-crystal`. Examples drawn from a specific project are labeled
+> *(illustrative, from <project>)*; the lesson is general even when the names
+> are not. Where the two repos genuinely differ (notably the **edit loop**),
+> both variants are documented and labeled.
 
-### Getting Started
+---
+
+## Porting from Python — read this first
+
+Both of these codebases are ports of Python projects. The most damaging
+mistakes aren't syntax — they're Python *concepts* carried over intact. The
+transpiler accepts them, so nothing complains, but they throw away everything
+Kukicha gives you over Python. **Translate the idea, not just the line.**
+
+> **Rule of spirit:** if a piece of ported code still "thinks in dicts and
+> strings," it isn't finished. The destination is named types — structs, enums,
+> typed fields — checked by the compiler instead of re-validated by hand.
+
+### 1. Python `dict` is not `map of string to any` — it's a struct (or enum)
+
+This is the big one. In Python a `dict[str, Any]` is the universal container for
+records, payloads, and kwargs. In Kukicha that role belongs to **structs** and
+**variant enums**. A `map of string to any` should be rare — reserved for
+genuinely dynamic, schema-less data (e.g. arbitrary decoded JSON you immediately
+re-shape).
+
+```kukicha
+# WRONG — Python dict carried straight over  (illustrative, from race-to-the-crystal)
+func best_attack(attacks: list of map of string to any) ChosenAction
+    att_id, _ := chosen["attacker_id"]               # stringly-typed key
+    dmg := cast.SmartInt(chosen["damage"]) onerr 0   # re-asserting type at use
+
+# CORRECT — the schema already exists; use it
+func best_attack(attacks: list of AttackActionResponse) ChosenAction
+    att_id := chosen.attacker_id                     # typed field, no key lookup
+    dmg := chosen.damage                             # already int, no cast
+```
+
+**Tell-tale symptom:** a cloud of `cast.SmartInt` / `cast.SmartString` /
+`cast.SmartBool` and `x["key"]` lookups. Each one is a type you *threw away* at
+the boundary and are now paying to recover. Decode `any` into a struct **once,
+at the boundary** (JSON in, request in), then pass the struct everywhere
+downstream.
+
+### 2. Stringly-typed dispatch → variant or string-backed enum
+
+```kukicha
+# WRONG — Python string-tag dispatch
+if action["type"] == "MOVE"
+    ...
+else if action["type"] == "ATTACK"
+    ...
+
+# CORRECT — string-backed enum (parse at the boundary), switch + when
+switch action.type
+    when ActionType.MOVE
+        ...
+    when ActionType.ATTACK
+        ...
+```
+
+Extend this instinct to action types, phases, and any other "magic string" set.
+
+### 3. Python `None` → `nullable reference T`, and prefer non-null by default
+
+Python lets every value be `None`, so you guard defensively everywhere. Kukicha
+makes nullability part of the type. A plain `reference T` is *statically
+guaranteed* non-empty — no guard needed. Reach for `nullable reference T` only
+when absence is real, and narrow once (`if x equals empty: return`) before
+`dereference`. Don't reflexively make everything nullable "to be safe" — that's
+the Python habit, and it forces guards the type system would otherwise spare you.
+
+```kukicha
+# Always narrow before dereference
+cell := brd.get_cell(nx, ny)
+if cell equals empty
+    continue
+dc := dereference cell   # safe: narrowed above
+```
+
+The compiler rejects `dereference x` unless `x` is narrowed in the current
+branch by `if x isnt empty` or `if x equals empty: return/continue/break`.
+
+### 4. `raise` / `try`/`except` → `onerr` + error returns
+
+Python signals failure by raising. Kukicha returns errors and handles them at
+the call site with `onerr`. A bare `panic` is the carried-over `raise` — replace
+it with `return ..., error "..."` (or `onerr` at the call site). Reserve panic
+for truly unrecoverable startup in `main`/`init`.
+
+### 5. Python truthiness → explicit checks
+
+`if mylist:` and `if not s:` have no Kukicha equivalent. Write the predicate:
+`if len(mylist) > 0`, `if s equals ""`, `if ptr isnt empty`.
+
+### 6. List comprehensions → `slice.Map` / `slice.Filter` + pipes
+
+`[f(x) for x in xs if p(x)]` becomes a pipe of `slice.Filter` then `slice.Map`
+with lambdas — readable, and idiomatic Kukicha:
+
+```kukicha
+names := effects
+    |> slice.Filter(e => e.active)
+    |> slice.Map(e => e.name)
+```
+
+---
+
+## Anti-patterns observed in these ports
+
+Recurring mistakes found in the generated `.kuki` files of both projects. Fix
+them proactively; don't wait for a lint warning.
+
+### 1. `==` and `!=` — the most common mistake
+
+`equals` and `isnt` replace **every** `==` and `!=`, not just nil/empty checks.
+
+```kukicha
+# WRONG — Go operators leak into non-empty comparisons
+if gs.phase == enums.PLAYING
+if len(parts) != 3
+if m == dest
+
+# CORRECT
+if gs.phase equals enums.PLAYING
+if len(parts) isnt 3
+if m equals dest
+```
+
+`equals`/`isnt` with `empty` is the one context this code usually gets right —
+apply the same keyword to **all** comparisons.
+
+### 2. Explicit type in list-literal elements
+
+When the element type is inferrable from the outer literal, omit it. Same rule
+for `append` calls and function arguments where the type is fixed by the
+signature.
+
+```kukicha
+# WRONG
+var DIRECTIONS = list of DirOffset{
+    DirOffset{dx: -1, dy: -1},
+    DirOffset{dx: 0,  dy: -1},
+}
+
+# CORRECT — inner type inferred from the outer `list of DirOffset`
+var DIRECTIONS = list of DirOffset{
+    {dx: -1, dy: -1},
+    {dx: 0,  dy: -1},
+}
+```
+
+### 3. `panic` — use errors instead
+
+```kukicha
+# WRONG — triggers the Kukicha lint warning
+panic "health must be >= 0"
+
+# CORRECT — return an error
+func NewToken(...) (Token, error)
+    if health < 0
+        return Token{}, error "health must be >= 0"
+```
+
+### 4. Slice-typed fallback returns
+
+```kukicha
+# WRONG — string-to-slice cast is a Go-ism
+result := decode(s) onerr return "" as list of byte
+
+# CORRECT
+result := decode(s) onerr return empty list of byte
+```
+
+---
+
+## Getting Started
 
 ```kukicha
 # hello.kuki — minimal program
@@ -27,9 +205,13 @@ func main()
 
 Run: `kukicha run hello.kuki` · Build: `kukicha build hello.kuki`
 
-**Multi-file packages:** `kukicha build myapp/` merges all `.kuki` files. One file defines `func main()`, others use `func init()`. All files need the same `petiole` declaration (Go's `package`).
+**Multi-file packages:** `kukicha build myapp/` merges all `.kuki` files directly
+in a directory into a single `main.go`. One file defines `func main()`; others
+use `func init()`. All files need the same `petiole` declaration (Go's
+`package`). Directory targets are shallow — subdirectories are their own
+packages (`myapp/...` sweeps recursively).
 
-### Syntax Reference
+## Syntax Reference
 
 | Kukicha (write this) | Go equivalent (avoid in `.kuki` files) |
 |----------------------|----------------------------------------|
@@ -39,9 +221,10 @@ Run: `kukicha run hello.kuki` · Build: `kukicha build hello.kuki`
 | `list of string` | `[]string` |
 | `map of string to int` | `map[string]int` |
 | `reference User` / `reference of x` | `*User` / `&x` |
+| `nullable reference User` | `*User` (may hold `empty`; guard before `dereference`) |
 | `dereference ptr` | `*ptr` |
-| `name: Type` (params, receivers, lambdas) | `name Type` (bare; parses but warns as deprecated) |
-| `func Method on t: T` | `func (t T) Method()` (accepted as Go-compat input but not idiomatic) |
+| `name: Type` (params, receivers, lambdas) | `name Type` (bare; parses but warns deprecated) |
+| `func Method on t: T` | `func (t T) Method()` (Go-compat input, not idiomatic) |
 | `many args: T` | `args ...T` |
 | `make channel of T` | `make(chan T)` |
 | `send val to ch` / `receive from ch` | `ch <- val` / `<-ch` |
@@ -49,34 +232,24 @@ Run: `kukicha run hello.kuki` · Build: `kukicha build hello.kuki`
 | `for item in items` | `for _, item := range items` |
 | `for i from 0 to 10` | `for i := 0; i < 10; i++` |
 | `for i from 0 through 10` | `for i := 0; i <= 10; i++` |
+| `empty list of T` | `nil` / `[]T(nil)` |
+| `{field: val}` (type inferrable) | `T{field: val}` |
 | 4-space indentation | `{ }` braces |
 
-`func`/`var`/`const`/`enum` have aliases `function`/`variable`/`constant`/`enumeration`: use the short forms in production code; reserve the long forms for beginner/intermediate tutorials only.
+`func`/`var`/`const`/`enum` have aliases `function`/`variable`/`constant`/`enumeration`:
+use the short forms in production code; reserve the long forms for
+beginner/intermediate tutorials only.
 
 ### Constants
 
-Constants are fixed values determined at compile time. Declare them one at a time with `const`:
+Declare one at a time with `const`. For a group of related constants —
+especially sequential integers or string-backed labels — use `enum` instead
+(the parenthesized `const ( ... )` form and `iota` are Go-only):
 
 ```kukicha
 const PI = 3.14159
 const MaxRetries int = 5
 ```
-
-For a group of related constants — especially sequential integers or string-backed labels — use `enum` instead. Enums replace Go's `const ( ... iota ... )` block and give you typed values, an autogenerated `String()` method, and (for string-backed enums) a `ParseX` helper:
-
-```kukicha
-enum Status
-    Active   # 0
-    Inactive # 1
-    Archived # 2
-
-enum Format: string
-    JSON = "json"
-    XML  = "xml"
-```
-
-The parenthesized `const ( ... )` form and `iota` are Go-only — write `enum` in `.kuki` files. See [Enums](#enums) for the full reference.
-
 
 ### Variables and Functions
 
@@ -101,10 +274,6 @@ func Greet(name: string, greeting: string = "Hello") string
 
 result := Greet("Alice", greeting: "Hi")
 files.Copy(from: src, to: dst)
-
-# Optional `:` between param name and type — beginner-friendly synonym
-func triage(issue: Issue) Verdict
-    return Verdict{}
 ```
 
 ### Strings and Interpolation
@@ -131,7 +300,6 @@ type Repo
 
 # Defined named type (distinct from base — needs explicit conversion: UserID(42))
 type UserID int
-type Status string
 
 # Function type alias
 type Handler func(context.Context, string) (string, error)
@@ -140,8 +308,8 @@ type Handler func(context.Context, string) (string, error)
 type TextContent = mcp.TextContent
 
 # Use transparent aliases to tame long multi-token types in signatures.
-# Rule of thumb: alias if the type repeats 3+ times in a file or pushes
-# a signature past ~100 columns.
+# Rule of thumb: alias if the type repeats 3+ times in a file or pushes a
+# signature past ~100 columns.
 type UserMap = map of string to reference User
 
 func MergeUsers(primary: UserMap, secondary: UserMap, overrides: list of UserMap) UserMap
@@ -150,19 +318,26 @@ func MergeUsers(primary: UserMap, secondary: UserMap, overrides: list of UserMap
 ### Enums
 
 ```kukicha
+# Plain integer-backed (variants with no value)  (illustrative, from race-to-the-crystal)
+enum GamePhase
+    SETUP
+    PLAYING
+    ENDED
+
+# Reference variants bare inside the package (PLAYING) or qualified (enums.PLAYING).
+switch gs.phase
+    when enums.PLAYING
+        ...
+    when enums.ENDED
+        ...
+
+# Explicit-value integer enum
 enum Status
     OK = 200
     NotFound = 404
     Error = 500
 
 status := Status.OK    # dot access → transpiles to StatusOK
-
-# Exhaustiveness-checked switch
-switch status
-    when Status.OK
-        print("ok")
-    when Status.NotFound, Status.Error
-        print("problem")
 ```
 
 - Underlying type (int or string) inferred from values; all must match
@@ -170,22 +345,25 @@ switch status
 - Integer enums warn if no case has value 0
 - Auto-generated `String()` method
 
-### String-Backed Enums (`enum Name: string`)
+#### String-Backed Enums (`enum Name: string`)
 
-For closed sets of string values. Compiler generates `String()` (raw value) and a package-level `Parse<Name>` returning `(<Name>, bool)`. Parse at the boundary so typos fail fast.
+For closed sets of string values. Compiler generates `String()` (raw value) and
+a package-level `Parse<Name>` returning `(<Name>, bool)`. Parse at the boundary
+so typos fail fast.
 
 ```kukicha
-enum Bump: string
-    Patch = "patch"
-    Minor = "minor"
-    Major = "major"
+enum PlayerColor: string
+    CYAN = "cyan"
+    MAGENTA = "magenta"
 
-b, ok := ParseBump(raw)
+c, ok := ParsePlayerColor(raw)
 if not ok
-    cli.Fatal("invalid --bump value '{raw}'")
+    cli.Fatal("invalid color '{raw}'")
 ```
 
-### Variant Enums (Tagged Unions)
+Prefer `switch` + `when` over a chain of `if color equals ...` for 3+ arms.
+
+#### Variant Enums (Tagged Unions)
 
 ```kukicha
 enum Shape
@@ -196,7 +374,6 @@ enum Shape
         height float64
     Point
 
-# Pattern matching
 func area(s: Shape) float64
     switch s as v
         when Circle
@@ -206,14 +383,6 @@ func area(s: Shape) float64
         when Point
             return 0.0
 
-# Multiple variants can share a body
-func isZero(s: Shape) bool
-    switch s as v
-        when Point
-            return true
-        when Circle, Rectangle
-            return false
-
 # Single-case check with binding
 if s is Circle as c
     return 3.14159 * c.radius * c.radius
@@ -221,9 +390,12 @@ if s is Circle as c
 
 - Cannot mix value cases (`= literal`) and variant cases in the same enum
 - `is` for bool checks; `is CaseName as v` binds in `if` blocks (top-level condition only)
-- **3+ arms → use `switch x as v` + `when` arms** (gets exhaustiveness checking). Reserve `if v is X as y` for single-case binding or single-arm filters inside a `for` loop. Sequential `if v is A` / `if v is B` / `if v is C` chains are a code-smell — convert to `switch`.
+- **3+ arms → use `switch x as v` + `when` arms** (gets exhaustiveness checking).
+  Sequential `if v is A` / `if v is B` / `if v is C` chains are a code-smell —
+  convert to `switch`.
 
-A variant enum may declare one or more type parameters with `enum Name of T and E` (use `and`, never commas — `enum X of T, E` is a compile error):
+A variant enum may declare type parameters with `enum Name of T and E` (use
+`and`, never commas):
 
 ```kukicha
 enum Result of T and E
@@ -238,16 +410,11 @@ func divide(a: int, b: int) Result of int and string
     return Ok{Value: a / b}
 ```
 
-- Construction (`Ok{Value: 5}`) infers type args from the surrounding
-  return / var-decl / call-argument type. There is no syntax to write
-  them explicitly at the call site.
-- Bindings substitute through automatically: in `if r is Ok as o` (or
-  `switch r as v ... when Ok`), `o.Value` has the concrete type used to
-  instantiate `r`.
-- **Cross-package variants** work the same way with qualified names —
-  `import "stdlib/result"` lets you write `result.Result of int and string`,
-  `result.Ok{Value: 5}`, and `r is result.Ok as o`. The canonical
-  fixture is `stdlib/result`.
+- Construction (`Ok{Value: 5}`) infers type args from the surrounding return /
+  var-decl / call-argument type. There is no explicit call-site syntax.
+- Cross-package variants work with qualified names — `import "stdlib/result"`
+  lets you write `result.Result of int and string`, `result.Ok{Value: 5}`, and
+  `r is result.Ok as o`. The canonical fixture is `stdlib/result`.
 
 ### Methods
 
@@ -261,9 +428,15 @@ func SetDone on todo: reference Todo       # pointer receiver
 
 ### Error Handling (`onerr`)
 
-`onerr` is for **fallible operations** — calls that can genuinely fail (I/O, parsing, network, validation). Reach for it when the failure case is a real error you want to recover from, propagate, or log.
+`onerr` is for **fallible operations** — calls that can genuinely fail (I/O,
+parsing, network, validation). Reach for it when the failure case is a real
+error you want to recover from, propagate, or log.
 
-For **expected absence** with a sensible default — env vars, slice index, map key, find-by-predicate — prefer the package's `*Or` variant (`env.GetOr`, `slice.GetOr`, `slice.FirstOr`, `slice.FindOr`, `maps.GetOr`). `pkg.XOr(args, default)` reads as "give me X, or this default"; `pkg.X(args) onerr default` reads as "do X; on error, fall back" — when there is no real error, the first form is what the code means.
+For **expected absence** with a sensible default — env vars, slice index, map
+key, find-by-predicate — prefer the package's `*Or` variant (`env.GetOr`,
+`slice.GetOr`, `slice.FirstOr`, `slice.FindOr`, `maps.GetOr`). `pkg.XOr(args,
+default)` reads as "give me X, or this default"; routing expected-absence
+through `onerr` is a Python/Go-ism.
 
 ```kukicha
 # Expected absence → *Or
@@ -277,7 +450,8 @@ apiKey  := env.Get("GITHUB_TOKEN") onerr return        # required secret, absenc
 n       := parse.Int(raw) onerr 0                       # parse can actually fail
 ```
 
-The caught error is always `{error}` — **never** `{err}`. Use `onerr as e` to rename.
+The caught error is always `{error}` — **never** `{err}`. Use `onerr as e` to
+rename.
 
 ```kukicha
 data := fetch.Get(url) onerr panic "failed: {error}"        # stop with message
@@ -286,6 +460,10 @@ data := fetch.Get(url) onerr return empty, error "{error}"  # propagate (wrap)
 port := getPort()      onerr 8080                           # default value
 riskyOp()              onerr discard                        # ignore (warns; test code only)
 v    := parse(item)    onerr continue                       # skip in loop
+
+# Named error for wrapping
+data := parse(raw) onerr as e
+    return empty, error "parse failed: {e}"
 
 # Block form (optionally `onerr as e`)
 users := parse() onerr
@@ -308,9 +486,6 @@ result := data |> parse() |> transform()
 # _ placeholder for non-first argument
 todo |> json.Write(w, _)   # → json.Write(w, todo)
 
-# `_` is reserved for this purpose and as the blank assignment target.
-# Reading it as a value (`fmt.Println(_)`, `x := _ + 1`) is a compile error.
-
 # Bare identifier as target
 data |> print                     # → fmt.Println(data)
 
@@ -325,27 +500,8 @@ user.Role |> switch
     default
         checkPermissions()
 
-# Piped switch on a variant enum — exhaustiveness-checked
-shape |> switch as v
-    when Circle
-        return v.radius * v.radius
-    when Square
-        return v.side * v.side
-
-# Piped switch with multi-return arms — IIFE emits a tuple signature.
-# Legal when every arm returns the matching arity. A `return X` inside a
-# statement-position piped switch (its IIFE value is discarded) is
-# diagnosed — use the statement-form `switch x` / `switch x as v` instead.
-func parseKind(s: string) (string, error)
-    return s |> switch
-        when "tick"
-            return "T", empty
-        default
-            return "", error "unknown"
-
 # Tee a pipe value — `|> also as name` binds the upstream value into the
-# enclosing scope and passes it through unchanged. Valid only when the
-# pipe is the RHS of `:=` / `=` or a bare expression statement.
+# enclosing scope and passes it through unchanged.
 n := 5
     |> double()
     |> also as ten
@@ -389,23 +545,15 @@ switch command
     default
         print("Unknown: {command}")
 
-# Bare switch (condition-based)
-switch
-    when stars >= 1000
-        print("popular")
-    default
-        print("new")
-
-# Type switch
+# Type switch — `switch x as v ... when T`
 switch event as e
     when string
         print(e)
     when reference TaskEvent
         print(e.Status)
 
-# `where` guard on a `when` clause — predicate on the matched value.
-# A guarded case does NOT cover its variant for exhaustiveness; add an
-# unguarded `when X` fallback (or `default`).
+# `where` guard on a `when` clause. A guarded case does NOT cover its variant
+# for exhaustiveness; add an unguarded `when X` fallback (or `default`).
 switch shape as s
     when Circle where s.radius > 10.0
         return "big circle"
@@ -421,7 +569,6 @@ Parameter types are inferred from context; explicit annotations are optional.
 
 ```kukicha
 repos   |> slice.Filter(r => r.stars > 100)     # inferred type
-entries |> sort.ByKey(e => e.name)
 repos   |> sort.By((a, b) => a.stars < b.stars)  # two params
 
 # Block lambda (multi-statement)
@@ -436,12 +583,6 @@ db.Transaction(pool, (tx) =>
     db.TxExec(tx, "UPDATE accounts SET balance = balance + $1 WHERE id = $2", amt, to)   onerr return
     return empty
 ) onerr panic "transfer failed: {error}"
-
-# Cross-package named types infer from the callback signature — no helper func needed:
-retry.DoCtx(ctx, cfg, (h) =>            # h is ctxpkg.Handle, inferred
-    _, err := fetch.GetCtx(h, url)
-    return err
-)
 ```
 
 ### Collections and Literals
@@ -458,7 +599,8 @@ func makeConfig() Config
 applyConfig({host: "prod", port: 443})        # inferred from parameter
 ```
 
-Inference works in return statements, `onerr return`, function arguments, assignments, and typed list elements.
+Inference works in return statements, `onerr return`, function arguments,
+assignments, and typed list elements.
 
 ### Variadic Arguments (`many`)
 
@@ -500,15 +642,8 @@ select
         return
     when msg := receive from ch
         print(msg)
-    when send "ping" to out
-        print("sent")
     default
         print("nothing ready")
-
-# Arm bodies may be empty — omit the indented block:
-select
-    when send true to ch
-    default
 ```
 
 ### Defer
@@ -529,367 +664,235 @@ defer
 import "stdlib/slice"
 import "stdlib/ctx"       as ctxpkg     # clashes with local 'ctx'
 import "stdlib/db"        as dbpkg      # clashes with local 'db'
-import "stdlib/errors"    as errs       # clashes with 'errors'
-import "stdlib/json"      as jsonpkg    # clashes with 'encoding/json'
 import "stdlib/string"    as strpkg     # clashes with 'string' type
 import "stdlib/http"      as httphelper # clashes with 'net/http'
 
 import "github.com/jackc/pgx/v5" as pgx  # external package
+
+# Cross-package project types — alias to avoid collisions
+# (illustrative, from race-to-the-crystal)
+import "race-to-the-crystal/shared/enums" as enums
+import "race-to-the-crystal/shared/types" as types
 ```
 
-Always use these aliases when the package name clashes — collisions cause compile errors.
+Always use these aliases when the package name clashes — collisions cause
+compile errors.
 
-### Commands
+## Commands
 
 ```bash
 kukicha init [module]          # init project (go mod init + extract stdlib)
 kukicha check file.kuki        # validate syntax
 kukicha check --json file.kuki # JSON diagnostics
 kukicha run file.kuki          # transpile + compile + run
-kukicha run --json file.kuki   # JSON compile errors (program output unchanged on success)
 kukicha build file.kuki        # compile to binary
 kukicha build myapp/           # build directory
 kukicha build --wasm file.kuki # WebAssembly output
-kukicha build --json file.kuki # JSON build result
 kukicha fmt -w file.kuki       # format in place
 kukicha fmt --check dir/       # check formatting (CI / pre-commit gate)
-kukicha fmt --check --json dir/ # JSON array of unformatted file paths
 kukicha brew file.kuki         # convert .kuki to standalone Go
-kukicha pack skill.kuki        # package skill with SKILL.md + binary
 kukicha context myapp/         # project metadata as JSON (agents, IDEs, CI)
 kukicha audit                  # vulnerability check
 ```
 
 Run `kukicha fmt -w` before committing; CI should run `kukicha fmt --check`.
 
-### Edit loop for this project
+## Edit loop — two modes (pick the one your repo uses)
 
-`.go` files are committed alongside `.kuki` sources so `go test` / `go build` work without a build step (see `docs/plans/kukicha-port.md`). The loop after editing a `.kuki` file:
+The two projects sharing this skill differ here. Identify which mode applies by
+whether `.go` files are committed next to the `.kuki` sources.
 
-1. `kukicha check internal/foo/foo.kuki` — fastest typed validator. Use this first; **do not** rely on `kukicha brew --stdout | wc -c` as a proxy for success — brew can exit 0 with empty output when it gives up on a construct (e.g. two-var `for k, v in m` over a type-asserted `map[string]any` — see gotcha in "Still active" below).
-2. `kukicha brew --stdout internal/foo/foo.kuki > internal/foo/main.go` — refresh the committed Go. Directory-mode `kukicha brew internal/foo/` is unreliable (sometimes writes to `./main.go` or `./.go` in cwd); prefer the explicit `--stdout > target` form.
+**Mode A — source-only (no committed `.go`).** *Used by town-builder (0 committed
+`.go`).* Edit the `.kuki` file, then:
+
+1. `kukicha check internal/foo/foo.kuki` — fastest typed validator.
+2. `kukicha build ./...` (or `kukicha run <entry>.kuki`) — final correctness check.
+
+**Mode B — committed brewed `.go` alongside `.kuki`.** *Used by
+race-to-the-crystal (~118 committed `.go`), so `go test` / `go build` work
+without a build step.* After editing a `.kuki` file:
+
+1. `kukicha check internal/foo/foo.kuki` — fastest typed validator. Use this
+   first; **do not** rely on `kukicha brew --stdout | wc -c` as a proxy for
+   success — brew can exit 0 with empty output when it gives up on a construct.
+2. `kukicha brew --stdout internal/foo/foo.kuki > internal/foo/main.go` — refresh
+   the committed Go. Directory-mode `kukicha brew internal/foo/` is unreliable
+   (sometimes writes to `./main.go` or `./.go` in cwd); prefer the explicit
+   `--stdout > target` form.
 3. `go build ./...` — final correctness check across the whole module.
 
-`kukicha context <file|dir>` emits a JSON snapshot for agents and CI: top-level decls only (methods, fields, enum cases, interface methods are excluded to keep the shape flat):
-
-```json
-{
-  "kukicha_version": "0.6.4",
-  "petiole": "myapp",
-  "is_directory": true,
-  "files": ["main.kuki", "lib.kuki"],
-  "entry_point": "main.kuki",
-  "imports": [{"path": "stdlib/slice", "alias": ""}],
-  "functions": ["Hello", "main"],
-  "types": ["User"],
-  "enums": ["Status"],
-  "commands": {"check": "...", "build": "...", "run": "..."}
-}
-```
-
-`entry_point` is omitted for library projects or when multiple `func main()` declarations are found across files. Names are deduplicated across files and sorted.
+In **both** modes, run `kukicha fmt -w` before committing and never commit a
+`.kuki` file that doesn't pass `kukicha check`.
 
 ---
 
-### Stdlib Packages
+## Stdlib Packages
 
-Browse `.kukicha/stdlib/` for full API details. Key functions listed below.
+Browse `.kukicha/stdlib/` for full API details (extracted by `kukicha init`).
+Key functions below.
 
 #### Collections & Strings
 
-**slice**: `Filter`, `Reject`, `Partition`, `Map`, `GroupBy`, `Sort`, `SortBy`, `First`, `Last`, `Contains`, `Unique`, `Chunk`, `Find`, `FindOr`, `Get`, `GetOr`, `FirstOr`, `LastOr`, `Pop`, `Shift`, `Reverse`, `Concat`, `IndexOf`, `IsEmpty`, `Sum`, `Min`, `Max`, `Average`
+**slice**: `Filter`, `Reject`, `Partition`, `Map`, `GroupBy`, `Sort`, `SortBy`,
+`First`, `Last`, `Contains`, `Unique`, `Chunk`, `Find`, `FindOr`, `Get`,
+`GetOr`, `FirstOr`, `LastOr`, `Pop`, `Shift`, `Reverse`, `Concat`, `IndexOf`,
+`IsEmpty`, `Sum`, `Min`, `Max`, `Average`
 
 ```kukicha
 active := slice.Filter(items, x => x.active)
-live   := slice.Reject(items, x => x.deleted)            # inverse of Filter
 healthy, unhealthy := slice.Partition(items, x => x.ok)  # single pass, both halves
-names  := slice.Map(items, x => x.name)
 first  := slice.FirstOr(items, defaultVal)
 total  := slice.Sum(scores)                              # ordered: ints, floats, strings
-hi, _  := slice.Max(scores)                              # error on empty; Min/Average mirror this
 ```
 
-**maps**, **set**, **sort** — Go-equivalent helpers plus `sort.By`/`sort.ByKey` for pipe-friendly sorts.
+**maps**, **set**, **sort** — Go-equivalent helpers plus `sort.By`/`sort.ByKey`
+for pipe-friendly sorts.
 
-**string** (as `strpkg`) — standard string ops (`Split`, `Join`, `ToUpper`, `Contains`, `Trim`, `Fields`, `Lines`, etc.) plus `IsBlank`, `OrDefault`, `PadLeft`/`PadRight`.
+**string** (as `strpkg`) — standard string ops (`Split`, `Join`, `ToUpper`,
+`Contains`, `Trim`, `Fields`, `Lines`, etc.) plus `IsBlank`, `OrDefault`,
+`PadLeft`/`PadRight`.
 
-**regex** — `Match`, `Find`, `FindAll`, `FindGroups`, `Replace`, `Split`; pre-compile with `MustCompile` + `*Compiled` variants.
+**regex** — `Match`, `Find`, `FindAll`, `FindGroups`, `Replace`, `Split`;
+pre-compile with `MustCompile` + `*Compiled` variants.
 
-**iterator** — lazy `iter.Seq` chain: `Values`, `Filter`, `Map`, `FlatMap`, `Take`, `Skip`, `Enumerate`, `Chunk`, `Zip`, `Reduce`, `Collect`, `Any`, `All`, `Find`.
+**iterator** — lazy `iter.Seq` chain: `Values`, `Filter`, `Map`, `FlatMap`,
+`Take`, `Skip`, `Enumerate`, `Chunk`, `Zip`, `Reduce`, `Collect`, `Any`, `All`,
+`Find`.
 
-**cast** — `SmartInt`, `SmartFloat64`, `SmartBool`, `SmartString` (forgiving coercion).
+**cast** — `SmartInt`, `SmartFloat64`, `SmartBool`, `SmartString` (forgiving
+coercion). *A cloud of these is the Python-dict smell — see Porting §1.*
 
 #### Data & Encoding
 
-**json** (as `jsonpkg`) — `Bytes`, `PrettyBytes`, `Parse`, `ParseInto`, `Read`/`Write`, `Pretty`.
+**json** (as `jsonpkg`) — `Bytes`, `PrettyBytes`, `Parse`, `ParseInto`,
+`Read`/`Write`, `Pretty`.
 
-**parse** — typed decode with `parse.JSON of T from text` (also `YAML`, `Form`, `Env`); plus `JSONLines`, `CSV`, `Lines`, `Int`, `Float64`, `Duration`, `URL`, `Query`. JSON/YAML/Form/Env auto-run `Validate()` and return `(T, list of validate.FieldError)`.
+**parse** — typed decode with `parse.JSON of T from text` (also `YAML`, `Form`,
+`Env`); plus `JSONLines`, `CSV`, `Lines`, `Int`, `Float64`, `Duration`, `URL`,
+`Query`. JSON/YAML/Form/Env auto-run `Validate()` and return `(T, list of
+validate.FieldError)`.
 
 **encoding** — `Base64Encode`/`Decode`, `HexEncode`/`Decode`.
 
-**template** — wrapper over `text/template`/`html/template`. One-shots `Render`/`HTML`; parsed-once `Compile`/`CompileHTML` returning a `Template` with `.Render(data)`.
+**template** — wrapper over `text/template`/`html/template`.
 
-**markdown** — CommonMark + GFM → HTML via goldmark. `ToHTML(md)` (raw HTML escaped); `ToHTMLWith(md, Options{...})` for opt-ins. Pass output through `http.SafeHTML` for untrusted Markdown over HTTP.
+**markdown** — CommonMark + GFM → HTML via goldmark.
 
 #### I/O & Files
 
-**files**: `Read`, `ReadString`, `Write`, `Append`, `Exists`, `IsDir`, `Copy`, `Move`, `Delete`, `List`, `ListRecursive`, `MkDirAll`, `TempFile`, `TempDir`, `Join`, `Watch`
+**files**: `Read`, `ReadString`, `Write`, `Append`, `Exists`, `IsDir`, `Copy`,
+`Move`, `Delete`, `List`, `ListRecursive`, `MkDirAll`, `TempFile`, `TempDir`,
+`Join`, `Watch`
 
-```kukicha
-data := files.Read("config.json") onerr panic "{error}"
-files.Copy(from: src, to: dst) onerr panic "{error}"
-```
+**archive** — zip + tar.gz, safe extraction (rejects zip-slip).
 
-**archive** — zip + tar.gz, safe extraction (rejects zip-slip): `Extract`, `List`, `ReadEntry`, `WriteZip`, `WriteTarGz`.
+**sandbox** — filesystem jail for HTTP handlers: `New`, `Read`, `Write`, `List`,
+`Exists`.
 
-**sandbox** — filesystem jail for HTTP handlers: `New`, `Read`, `Write`, `List`, `Exists`. `sandbox.Read(box, userPath)` can't escape root.
-
-**shell** — subprocess helpers:
-- `Run(literal)` — fixed string only; `Output("cmd", arg...)` — stdout, errors on non-zero exit
-- `Lines(...)` — stdout split; `Check(...)` — exit status only
-- `Capture(...)` — `(stdout, stderr, err)` regardless of exit
-- Builder: `shell.New("cmd", args...) |> .Dir(d) |> .Env(...) |> .Stdin(bytes) |> .Output()/.Check()/.Capture()`
-- Pipeline form: `|> shell.Execute() |> shell.Require()`
-
-```kukicha
-files := shell.Lines("git", "ls-files") onerr return
-reply := shell.New("claude", "--print") |> .Stdin(prompt) |> .Output() onerr return
-```
+**shell** — subprocess helpers: `Run(literal)` (fixed string only),
+`Output("cmd", arg...)`, `Lines`, `Check`, `Capture`; builder
+`shell.New("cmd", args...) |> .Dir(d) |> .Output()`.
 
 #### HTTP & Networking
 
 **fetch**: HTTP client with builder, auth, retry, SSRF protection
 
 ```kukicha
-# Typed JSON decode — explicit type argument
 repos := fetch.GetJson of list of Repo from url onerr panic "{error}"
 
-# Or split status check and decode:
-resp := fetch.Get(url) |> fetch.CheckStatus() onerr panic "{error}"
-repos := fetch.Json of list of Repo from resp onerr panic "{error}"
-
-# Builder: auth, timeout, retry
 resp := fetch.New(url)
     |> fetch.BearerAuth(token)
     |> fetch.Retry(3, 500)
     |> fetch.Do() onerr panic "{error}"
 ```
 
-Key: `Get`, `SafeGet` (SSRF-safe), `Post`, `Json`, `Text`, `Bytes`, `CheckStatus`, `URLTemplate`, `URLWithQuery`, `New`/`NewExternal` (SSRF-safe builder)/`BearerAuth`/`Timeout`/`Retry`/`MaxBodySize`/`Do`, `DownloadTo`
+Key: `Get`, `SafeGet` (SSRF-safe), `Post`, `Json`, `Text`, `Bytes`,
+`CheckStatus`, `New`/`NewExternal`/`BearerAuth`/`Timeout`/`Retry`/`Do`,
+`DownloadTo`
 
-**http** (as `httphelper`) — `JSON`, `JSONCreated`, `JSONNotFound`, `JSONBadRequest`, `ReadJSONLimit`, `SafeRedirect`, `SetSecureHeaders`, `SafeHTML`.
+**http** (as `httphelper`) — `JSON`, `JSONCreated`, `JSONNotFound`,
+`JSONBadRequest`, `ReadJSONLimit`, `SafeRedirect`, `SetSecureHeaders`,
+`SafeHTML`.
 
-**html** — component rendering with auto-escaping: `Render`, `Escape`, `Attr`, `Embed`, `WriteTo`, `Join`, `Map`, `When`, `WhenElse`.
+**html** — component rendering with auto-escaping.
 
-**netguard** — SSRF: `NewSSRFGuard`, `NewAllow`, `NewBlock`, `Check`, `HTTPClient`, `HTTPTransport`.
-
-**shellguard** — subprocess allowlist for agent ops: `New`, `Allow(g, "kubectl", {"rollout", "get"})`, `AllowAny`, `WithArgValidator`, `Check(g, name, args...)`, `Allowed`. Fail-closed: an empty guard denies all spawns. Call `shellguard.Check` before `shell.Output`.
-
-**policy** — approval gate variant for agent-ops: `New`, `Register(reg, action, rule)`, `Check(reg, ctx, action, attrs)` returns `Decision` variant (`Allowed` / `RequiresApproval{ToUser, TTL}` / `Denied{Reason}`). Helpers `AllowAll`, `DenyAll`. Fail-closed: unregistered actions return `Denied`.
+**netguard** — SSRF guard. **shellguard** — subprocess allowlist (fail-closed).
+**policy** — approval gate for agent ops (fail-closed).
 
 #### CLI & System
 
-**cli** — flag/subcommand parser. Top-level: `New`, `Version`, `Description`, `AddFlag`, `Action`, `Run`, `WithCommands`, `*GlobalFlag`. Subcommand: `NewCommand` builder with `BoolFlag`/`IntFlag`/`StringFlag`/`Short`/`RestArg`/`Action`. Accessors: `GetString`/`GetStringOr`/`GetBool`/`GetBoolOr`/`GetInt`/`GetIntOr`/`GetRest`. Test entry: `ParseArgs`. Errors: `Fatal`, `Error`.
-
-Prefer typed flag constructors (`BoolFlag`/`IntFlag`/`StringFlag`) over the generic `AddFlag` — they enable `--flag=value` and prevent misparse.
+**cli** — flag/subcommand parser. Prefer typed flag constructors
+(`BoolFlag`/`IntFlag`/`StringFlag`) over the generic `AddFlag`.
 
 ```kukicha
 listCmd := cli.NewCommand("list", "List items")
     |> .IntFlag("limit", "Max results", 20)
-    |> .StringFlag("filter", "Filter", "")
-    |> .Short("filter", "f")
     |> .Action(doList)
 
 cli.New("myapp")
     |> cli.Version("0.1.0")
-    |> cli.BoolGlobalFlag("json", "JSON output", false)
     |> cli.WithCommands(listCmd)
     |> cli.Run() onerr cli.Fatal("{error}")
 ```
 
-**input** — `ReadLine`, `Prompt`, `Confirm`, `Choose`; `NewForm` builder with `Text`/`Confirm`/`Choose`/`Default`/`Validate`/`Run`, then `String(key)`/`Bool(key)`.
-
-**table** — `New`, `AddRow`, `Print`, `PrintWithStyle("plain"|"box"|"markdown")`, `ToString*`. ANSI-aware widths via `term.VisibleWidth`.
-
-**color** — ANSI styling. Package funcs bind to stdout; `NewStyler(w)` for explicit writer. Funcs/methods: `Bold`, `Dim`, `Italic`, `Underline`, basic + bright color names, `Error` (bold bright red), `Enabled`/`SetEnabled`. TTY detection via `stdlib/term`.
-
-**term** — single source of truth for tty/color/width: `IsTTY`, `ColorEnabled[For]`, `SetColorEnabled`, `Width`, `VisibleWidth`, `PadRightVisible`. Use instead of per-package globals.
-
-**log** — leveled structured logger (Text + JSON). `New(w)` for instance; package funcs bind to stderr. `Debug`/`Info`/`Warn`/`Error`/`Fatal`; `SetLevel`/`SetFormat`.
-
-**env** — typed env vars: `Get`, `GetOr`, `GetInt`, `GetBool`, `Set`, `All`.
-
-**must** — panic-on-error startup: `Env`, `EnvOr`, `EnvInt`, `EnvIntOr`, `True`, `NotEmpty`.
+**input** — `ReadLine`, `Prompt`, `Confirm`, `Choose`; `NewForm` builder.
+**table** — `New`, `AddRow`, `Print`, `PrintWithStyle`. **color** — ANSI styling.
+**term** — single source of truth for tty/color/width. **log** — leveled
+structured logger. **env** — typed env vars: `Get`, `GetOr`, `GetInt`,
+`GetBool`, `Set`, `All`. **must** — panic-on-error startup helpers.
 
 #### Concurrency & Resilience
 
 **concurrent** — `Parallel`, `ParallelWithLimit`, `Map`, `MapWithLimit`, `Go`.
-
 **ctx** (as `ctxpkg`) — `Background`, `WithTimeout`, `Cancel`, `Done`, `Value`.
-
-**retry** — backoff: `New`, `Attempts`, `Delay`, `Linear`, `Exponential`, `Do`, `DoCtx`, `Sleep`. Circuit breaker: `NewBudget`, `WithLimit`, `WithKey`, `Open`, `DoBudget`, `BudgetExceeded` (matchable via `errors.Is`).
-
-**datetime** — `Format`, `Parse`, `Now`, `AddDays`, `Seconds`, `Sleep`; constants `ISO8601`, `RFC3339`, `Date`, `Time`.
+**retry** — backoff + circuit breaker. **datetime** — `Format`, `Parse`, `Now`,
+`AddDays`, `Seconds`, `Sleep`; constants `ISO8601`, `RFC3339`.
 
 #### Data & Storage
 
-**db** (as `dbpkg`) — SQL with struct scanning: `Open`, `Close`, `Query`, `QueryRow`, `Exec`, `ScanAll`, `ScanOne`, `ScanRow`, `Transaction`, `Count`, `Exists`.
-
-```kukicha
-pool := db.Open("postgres", connStr) onerr panic "{error}"
-defer db.Close(pool)
-users := db.Query(pool, "SELECT id, name FROM users WHERE active = $1", true)
-    |> db.ScanAll of User onerr panic "{error}"
-```
-
-**sqlite** — convenience over SQLite (WAL, foreign keys, busy timeout by default): `Open`, `OpenMemory`, `OpenWith`, `Pragma`, `Tables`, `TableExists`, `BatchExec`, `Backup`, `Dump`, `CreateFunction*`. Queries go through `stdlib/db`.
-
-**audit** — tamper-evident agent decision log: append-only, hash-chained, ed25519-signed rows over SQLite. `Open`/`OpenWithKey`/`OpenWithSigner`/`Close`, `Record(log, Event)`, `Query(log, Filter)`, `Verify(log)`, `VerifyIncremental`, `Checkpoint`/`SetCheckpointInterval`, `Vacuum(log, before)`. `Event` carries Actor/Action/Target/Reason and an `Outcome` variant (`Done{Detail}` / `Escalated{ToUser, Reason}` / `Skipped{Reason}` / `Vacuumed{...}`). `FileSigner` is the default ed25519 signer; implement `Signer` for KMS/HSM. Use `log.Info` for debug breadcrumbs and `audit.Record` for decisions that need to survive an audit.
+**db** (as `dbpkg`) — SQL with struct scanning: `Open`, `Close`, `Query`,
+`QueryRow`, `Exec`, `ScanAll`, `ScanOne`, `Transaction`, `Count`, `Exists`.
+**sqlite** — convenience over SQLite (WAL, FK, busy timeout). **audit** —
+tamper-evident hash-chained decision log.
 
 #### Security & Crypto
 
-**crypto** — `SHA256`, `HMAC`, `RandomToken`, `RandomBytes`, `Equal` (constant-time).
-
-**validate** — pipe-style: `Email`, `URL`, `NotEmpty`, `MinLength`, `MaxLength`, `InRange`, `Matches`, `NoHTML`, `SafeFilename`. Tag-driven: `# kuki:validate "rule[,rule…]"` above struct fields generates `Validate()`. Rules: `nonempty`, `nonzero`, `min=N`, `max=N`, `len=N`, `email`, `url`, `regex=PAT`, `oneof=a|b|c`. Pairs with `parse.JSON of T from body` for one-call parse+validate.
-
-**random** — `String`, `Alphanumeric`, `Int`, `Float`.
-
-**errors** (as `errs`) — `Wrap`, `Opaque`, `Is`, `New`, `Join`, `NewPublic`, `Public`.
-
-#### DevOps & Infrastructure
-
-**git** — Git/GitHub via `gh`: `ListTags`, `TagExists`, `DefaultBranch`, `CreateRelease`, `PreviewRelease`.
-
-**semver** — `Parse`, `Bump`, `Format`, `Valid`, `Compare`, `Highest`.
-
-**obs** — structured logging: `New`, `Component`, `Info`, `Warn`, `Error`, `Start`, `Stop`.
+**crypto** — `SHA256`, `HMAC`, `RandomToken`, `RandomBytes`, `Equal`
+(constant-time). **validate** — pipe-style + tag-driven `# kuki:validate`.
+**random** — `String`, `Alphanumeric`, `Int`, `Float`. **errors** (as `errs`) —
+`Wrap`, `Opaque`, `Is`, `New`, `Join`, `NewPublic`, `Public`.
 
 #### AI & Agents
 
-**llm** — shared schema builders (`Prop`, `Schema`, `Required`) plus the unified `StreamEvent` and `Content` variant vocabularies that all provider packages decode their wire formats into. Streaming handlers and `Response.Content`/`Response.Output` use these variants so one `if evt is llm.Delta as d` handler works across chat/responses/anthropic.
-
-**llm/chat**, **llm/responses**, **llm/anthropic** — three providers, same builder shape. `New(model)` + role helpers (`System`/`User`/`Assistant`) + tuning (`Temperature`, `MaxTokens`/`MaxOutputTokens`, `Stream`/`StreamEvents(func(llm.StreamEvent))`, `Retry`, `WithContext`) + tools (`AddTool`, `ExecuteToolCalls`/`ExecuteFunctionCalls`/`ExecuteToolUses`) + send (`Ask`/`Send`/`SendRaw`/`Complete`). Typed/streaming entry points (chat): `AskJSON of T from prompt` for typed LLM decode (struct targets force `JSONMode`; string-backed enum targets are JSON-quoted before unmarshal), `AskStream`/`SendStream` returning `(events, collect)` for agent-loop callers. Provider-specific extras: `JSONMode`/`JSONSchema` (chat, responses), `AdaptiveThinking`/`Effort`/`GetThinking` (anthropic), `PreviousResponse`/`Store` (responses). `Response.Content` (anthropic) and `Response.Output` (responses) are `list of llm.Content` — iterate with `if block is llm.Text as t` / `llm.ToolUse as tu`.
-
-**llm/embeddings** — OpenAI-compatible text embeddings (works with OpenAI/Cohere/Voyage/Mistral/Together/DeepSeek/Ollama). `Embed(model, text)` one-shot; builder `New |> Provider/Model/BaseURL/APIKey/Dimensions(...) |> EmbedOne|EmbedBatch|EmbedRaw`. `Dimensions(N)` does Matryoshka truncation.
-
-**llm/safe** — prompt-injection-resistant input wrapping for adversarial text (commit messages, user input, fetched HTML): `Wrap(label, content)`, `Frame(instructions, blocks)`, `UntrustedPreamble`, `Truncate`, `SanitizeLine`, `IsStructural`.
-
-```kukicha
-import "stdlib/llm"
-import "stdlib/llm/chat"
-
-reply := chat.New("openai:gpt-4o-mini") |> chat.Retry(3, 2000) |> chat.Ask("Hello!") onerr panic "{error}"
-
-# Typed LLM decode (string-backed enum or struct target)
-enum Verdict: string
-    Restart = "restart"
-    Ignore = "ignore"
-v := chat.New("anthropic:claude-opus-4-7")
-    |> chat.System("Reply with restart or ignore only.")
-    |> chat.AskJSON of Verdict from "alert: db down" onerr return Verdict.Ignore, error
-
-# Tool loop
-schema := llm.Schema(list of llm.SchemaProperty{llm.Prop("city", "string", "City")}) |> llm.Required(list of string{"city"})
-c := chat.New("openai:gpt-4o-mini") |> chat.AddTool("get_weather", "Get weather", schema) |> chat.User("Weather in Paris?")
-comp := c |> chat.SendRaw onerr panic "{error}"
-if chat.HasToolCalls(comp)
-    handlers := make(map of string to func(string) string)
-    handlers["get_weather"] = (args: string) => "Sunny, 22°C"
-    c = chat.ExecuteToolCalls(c, comp, handlers) onerr panic "{error}"
-    reply = c |> chat.Send onerr panic "{error}"
-```
-
-**mcp** — MCP server + client. Server: `New`, `Serve`/`ServeHTTP`, `Tool`/`ToolWithOpts`/`ToolRich`, `Resource`/`TextResource`/`ResourceTemplate`/`TextResourceTemplate`, `Prompt`/`UserPrompt`, `TextResult`/`ErrorResult`, `NewWithCompletion`/`Completions`/`NewRouter`. Client: `Connect`/`BearerConnect`/`ConnectWithClient`/`Close`, `ListTools`/`CallTool`, `ListResources`/`ListResourceTemplates`/`ReadResource`, `ListPrompts`/`GetPrompt`. Schema builders: `Prop`/`Schema`/`Required`.
-
-```kukicha
-# Server
-type PriceArgs
-    Symbol string
-
-server := mcp.New("stock-tool", "1.0.0")
-schema := mcp.Schema(list of mcp.SchemaProperty{
-    mcp.Prop("symbol", "string", "Ticker symbol"),
-}) |> mcp.Required(list of string{"symbol"})
-mcp.Tool of PriceArgs(server, "get_price", "Get stock price", schema,
-    func(args: PriceArgs) (any, error)
-        return lookupPrice(args.Symbol), empty)
-mcp.Serve(server) onerr panic "{error}"
-
-# Client
-session := mcp.Connect(ctx, url) onerr panic "{error}"
-defer mcp.Close(session)
-result := mcp.CallTool(ctx, session, "get_price", args) onerr panic "{error}"
-```
-
-**skills**: Agent SKILL.md discovery: `Discover`, `AgentSkills`, `ClaudeSkills` *(deprecated — copy the package or call `filepath.Walk` directly)*
+**llm** + **llm/chat**, **llm/responses**, **llm/anthropic** — provider packages
+sharing a builder shape (`New(model)` + role helpers + tuning + tools + send).
+**llm/embeddings**, **llm/safe** (prompt-injection-resistant wrapping). **mcp** —
+MCP server + client.
 
 #### External Packages (separate modules)
 
-These packages require adding a separate Go module to your project: they are not bundled with the Kukicha compiler.
-
-**game** (WASM-only): 2D game lib: `Window`, `Run`, `DrawRect`, `DrawCircle`, `DrawText`, `IsKeyDown`, `MousePosition`
-Module: `github.com/kukichalang/game` — add with `go get github.com/kukichalang/game`
-
-**infer** / **ort** / **webinfer**: ML inference
-Module: `github.com/kukichalang/infer` — add with `go get github.com/kukichalang/infer`
+**game** (WASM-only): 2D game lib — `github.com/kukichalang/game`.
+**infer** / **ort** / **webinfer**: ML inference — `github.com/kukichalang/infer`.
 
 ---
 
-### Security — Compiler-Enforced Checks
+## Security — Compiler-Enforced Checks
 
-The compiler **rejects** these patterns in HTTP handlers (functions with `http.ResponseWriter`):
+The compiler **rejects** these patterns in HTTP handlers (functions with
+`http.ResponseWriter`):
 
 | Pattern | Fix |
 |---------|-----|
 | `httphelper.HTML(w, nonLiteral)` | `httphelper.SafeHTML(w, content)` |
-| `fetch.Get(url)` in handler | `fetch.SafeGet(url)` (or `fetch.NewExternal(url) \|> ... \|> Do()` for builder) |
+| `fetch.Get(url)` in handler | `fetch.SafeGet(url)` |
 | `files.Read(path)` in handler | `sandbox.New(root)` + `sandbox.Read(box, path)` |
 | `shell.Run("cmd {var}")` | `shell.Output("cmd", arg)` |
 | `httphelper.Redirect(w, r, nonLiteral)` | `httphelper.SafeRedirect(w, r, url, "host")` |
-| `html.Render("<script>...")` | Static `.js` file with `<script src="...">` |
-| `regex.Match(userPattern, ...)` (non-literal pattern) | `regex.MatchSafe(pattern, text)` returns error, or hoist with `regex.MustCompile` at init + `regex.MatchCompiled` |
-
-`http.SafeRedirect` rejects non-`http`/`https` schemes (e.g. `javascript:`, `data:`, `file:`), protocol-relative `//host`, and bare relative paths: only allow-listed hosts on absolute http(s) URLs are permitted.
+| `regex.Match(userPattern, ...)` | `regex.MatchSafe(...)` or hoist with `MustCompile` |
 
 ---
 
-### Skills (Agent Tool Packaging)
-
-```kukicha
-# target: mcp
-petiole weather
-
-skill WeatherService
-    description: "Provides weather forecasts."
-    version: "1.0.0"
-
-# ... MCP server implementation
-```
-
-`kukicha pack weather.kuki` produces an [agentskills.io](https://agentskills.io/specification)-compliant directory:
-
-```
-skills/weather-service/
-├── SKILL.md                    # frontmatter (name, description, metadata) + markdown body
-└── scripts/
-    └── weather-service.kuki    # source copy — no binary compilation
-```
-
-Agents invoke the skill by running the source at call time (no cross-compilation):
-
-```bash
-kukicha run scripts/weather-service.kuki <args>
-```
-
-Pass a directory to pack multi-file skills; all `.kuki` files (except tests) are copied under `scripts/<name>/`. Discover at runtime (`stdlib/skills` is deprecated; copy the package or call `filepath.Walk` directly):
-
-```kukicha
-tools := skills.Discover("./tools") onerr panic "{error}"
-```
-
----
-
-### Testing
+## Testing
 
 Test files use `*_test.kuki` with the table-driven pattern:
 
@@ -908,8 +911,8 @@ type TakeCase
 func TestTake(t: reference testing.T)
     items := list of string{"a", "b", "c", "d", "e"}
     cases := list of TakeCase{
-        TakeCase{name: "3 elements", n: 3, wantLen: 3},
-        TakeCase{name: "n > length", n: 10, wantLen: 5},
+        {name: "3 elements", n: 3, wantLen: 3},
+        {name: "n > length", n: 10, wantLen: 5},
     }
     for tc in cases
         t.Run(tc.name, (t: reference testing.T) =>
@@ -918,24 +921,28 @@ func TestTake(t: reference testing.T)
         )
 ```
 
-Assertions: `AssertEqual`, `AssertNotEqual`, `AssertTrue`, `AssertFalse`, `AssertNoError`, `AssertError`, `AssertNotEmpty`, `AssertNil`, `AssertNotNil`.
+Assertions: `AssertEqual`, `AssertNotEqual`, `AssertTrue`, `AssertFalse`,
+`AssertNoError`, `AssertError`, `AssertNotEmpty`, `AssertNil`, `AssertNotNil`.
 
 ---
 
-### Pitfalls
+## Pitfalls
 
-**WaitGroups: always `defer wg.Done()` as first goroutine statement.** Explicit `wg.Done()` at the end is skipped if the task panics, hanging `wg.Wait()` forever.
+**WaitGroups: always `defer wg.Done()` as the first goroutine statement.**
+Explicit `wg.Done()` at the end is skipped if the task panics, hanging
+`wg.Wait()` forever.
 
-**Context cancel: defer in the function that uses the resource, not the one that creates it:**
+**Context cancel: defer in the function that uses the resource, not the one that
+creates it:**
 
 ```kukicha
-# WRONG — cancel fires when buildCmd returns, context is dead before use
+# WRONG — cancel fires when buildCmd returns; context is dead before use
 func buildCmd() reference exec.Cmd
     h := ctxpkg.WithTimeout(ctxpkg.Background(), 30 * time.Second)
     defer h.Cancel()
     return exec.CommandContext(h.Ctx, name, many args)
 
-# CORRECT — defer in Execute, which owns the resource's lifetime
+# CORRECT — defer in the function that owns the resource's lifetime
 func Execute() Result
     h := ctxpkg.WithTimeout(ctxpkg.Background(), 30 * time.Second)
     defer h.Cancel()     # fires after Run()
@@ -943,38 +950,76 @@ func Execute() Result
     ...
 ```
 
-**Cleanup goroutines**: always provide a shutdown path (context or stop channel). Goroutines looping on a ticker leak if there's no stop signal.
+**Cleanup goroutines**: always provide a shutdown path (context or stop
+channel). Goroutines looping on a ticker leak without a stop signal.
 
-**Never use `io.NopCloser` on a live response body**: it silences `Close()`, leaking TCP connections. Wrap with a type that delegates both `Read` and `Close`.
+**Never use `io.NopCloser` on a live response body**: it silences `Close()`,
+leaking TCP connections.
 
-
-**`in` / `not in` are membership operators**: `x in xs` works on lists (element comparison), maps (key lookup), and strings (substring). For lists with non-comparable element types (slices, maps, funcs as elements), use `slice.Contains` with a custom predicate. `in` also still drives `for` loops.
+**`in` / `not in` are membership operators**: `x in xs` works on lists (element
+comparison), maps (key lookup), and strings (substring). For lists with
+non-comparable element types, use `slice.Contains` with a predicate. `in` also
+drives `for` loops.
 
 ---
 
-### Troubleshooting
+## Project-local gotchas (general Kukicha tripwires)
+
+Tripwires confirmed by hand against current Kukicha releases. These bit both
+ports.
+
+1. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper
+   returning `reference ctx.Handle` won't compile against it. Return the bare
+   type.
+
+2. **Type switch is `switch x as v ... when T`, not `switch v in x`.** The `in`
+   form looks plausible but parses as a `for`-iteration expression and confuses
+   the parser.
+
+3. **`onerr` on external (non-stdlib) calls** errors with `cannot use onerr on
+   call to X: return signature is unknown`. Annotate with `# kuki:returns N`
+   above the call, or capture the error variable and check explicitly.
+
+4. **External Go packages need explicit aliases on import.** `import
+   "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write
+   `... as redis`.
+
+---
+
+## Troubleshooting
 
 | Error | Fix |
 |-------|-----|
 | `use {error} not {err} inside onerr` | Change `{err}` to `{error}`, or use `onerr as e` |
-| `variable 'x' not used` | Remove the variable, or use it; never use `_ = x` to suppress — remove the dead code instead |
+| `variable 'x' not used` | Remove the variable, or use it; never `_ = x` to suppress |
 | `function must declare return type` | Add explicit return type: `func F() int` |
 | `onerr return requires return type` | Use `onerr discard`, or add return type |
 | `SSRF risk` / `path traversal` / `command injection` / `XSS risk` | See Security table above |
 | `expected INDENT` | Check 4-space indentation (no tabs) |
 | `expected 'when' or 'default'` | Use `when`/`default` |
-
+| `cannot dereference possibly-empty` | Narrow with `if x isnt empty` / `if x equals empty: return` first |
 
 ---
 
-## Project-local gotchas
+## Project module layouts (for orientation)
 
-Tripwires confirmed by hand in this codebase against the current kukicha release.
+*race-to-the-crystal* (committed `.go` alongside `.kuki`; module
+`race-to-the-crystal`):
 
-1. **`ctx.WithTimeout` returns `Handle` (value), not `*Handle`.** A helper returning `reference ctx.Handle` won't compile against it. Return the bare type.
+```
+shared/enums/     — CellType, GamePhase, TurnPhase, PlayerColor, Direction, …
+shared/types/     — TokenID, PlayerID, Position, Pos()
+shared/constants/ — board dimensions and tunable constants
+shared/errs/      — project error values
+game/             — board, token, player, combat, movement, crystal, AI logic
+server/           — HTTP/WebSocket handlers, auth, lobby, coordinator
+client/, web_server/
+```
 
-2. **Type switch is `switch x as v ... when T`, not `switch v in x`.** The `in` form looks plausible but parses as a `for`-iteration expression and confuses the parser.
+*town-builder* (source-only, no committed `.go`; module
+`github.com/Iribala/town-builder`):
 
-3. **`onerr` on external (non-stdlib) calls** still errors with `cannot use onerr on call to X: return signature is unknown`. Annotate with `# kuki:returns N` above the call, or capture the error variable and check explicitly.
-
-4. **External Go packages need explicit aliases on import.** `import "github.com/redis/go-redis/v9"` alone leaves `redis.X` undefined. Write `... as redis`.
+```
+cmd/      — entry points
+internal/ — game packages
+```
