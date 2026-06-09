@@ -79,11 +79,11 @@ switch action.type
 
 Extend this instinct to action types, phases, and any other "magic string" set.
 
-### 3. Python `None` → `nullable reference T`, and prefer non-null by default
+### 3. Python `None` → `optional reference T`, and prefer non-null by default
 
 Python lets every value be `None`, so you guard defensively everywhere. Kukicha
 makes nullability part of the type. A plain `reference T` is *statically
-guaranteed* non-empty — no guard needed. Reach for `nullable reference T` only
+guaranteed* non-empty — no guard needed. Reach for `optional reference T` only
 when absence is real, and narrow once (`if x equals empty: return`) before
 `dereference`. Don't reflexively make everything nullable "to be safe" — that's
 the Python habit, and it forces guards the type system would otherwise spare you.
@@ -221,7 +221,7 @@ packages (`myapp/...` sweeps recursively).
 | `list of string` | `[]string` |
 | `map of string to int` | `map[string]int` |
 | `reference User` / `reference of x` | `*User` / `&x` |
-| `nullable reference User` | `*User` (may hold `empty`; guard before `dereference`) |
+| `optional reference User` | `*User` (may hold `empty`; guard before `dereference`) |
 | `dereference ptr` | `*ptr` |
 | `name: Type` (params, receivers, lambdas) | `name Type` (bare; parses but warns deprecated) |
 | `func Method on t: T` | `func (t T) Method()` (Go-compat input, not idiomatic) |

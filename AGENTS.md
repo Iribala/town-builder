@@ -116,7 +116,7 @@ Run: `kukicha run hello.kuki` · Build: `kukicha build hello.kuki`
 | `list of string` | `[]string` |
 | `map of string to int` | `map[string]int` |
 | `reference User` / `reference of x` | `*User` / `&x` (statically guaranteed non-empty) |
-| `nullable reference User` | `*User` (may hold `empty`; must be narrowed with `isnt empty` before `dereference`) |
+| `optional reference User` | `*User` (may hold `empty`; must be narrowed with `isnt empty` before `dereference`) |
 | `dereference ptr` | `*ptr` |
 | `name: Type` (params, receivers, lambdas) | `name Type` (bare; parses but warns as deprecated) |
 | `func Method on t: T` | `func (t T) Method()` (accepted as Go-compat input but not idiomatic) |
@@ -176,7 +176,7 @@ The parenthesized `const ( ... )` form and `iota` are Go-only — write `enum` i
 count := 42           # inferred type
 count = 100           # reassignment
 
-var p nullable reference int   # zero-value declaration (bare `reference T` rejects this — see Nullable references)
+var p optional reference int   # zero-value declaration (bare `reference T` rejects this — see Nullable references)
 var xs list of string
 
 func Add(a: int, b: int) int
@@ -265,20 +265,20 @@ func MergeUsers(primary: UserMap, secondary: UserMap, overrides: list of UserMap
 
 `reference T` is **statically non-empty** — the compiler guarantees it. Use it for builder receivers, constructor returns, and anywhere a value is always present.
 
-`nullable reference T` is the opt-in form for references that *may* hold `empty`. Use it for optional struct fields, lookup results that can miss, and zero-value var declarations.
+`optional reference T` is the opt-in form for references that *may* hold `empty`. Use it for optional struct fields, lookup results that can miss, and zero-value var declarations.
 
 Rules:
 
-- `dereference x` on a `nullable reference T` is an error unless x is narrowed in the current branch (`if x isnt empty`, `if x equals empty: return`, or the Go-style `!= nil` / `== nil` forms).
-- `var p reference T` without an initializer is rejected — either initialize it or declare it `nullable reference T`.
-- Struct fields can't be bare `reference T` (the zero value would be `empty`); declare them `nullable reference T`.
+- `dereference x` on a `optional reference T` is an error unless x is narrowed in the current branch (`if x isnt empty`, `if x equals empty: return`, or the Go-style `!= nil` / `== nil` forms).
+- `var p reference T` without an initializer is rejected — either initialize it or declare it `optional reference T`.
+- Struct fields can't be bare `reference T` (the zero value would be `empty`); declare them `optional reference T`.
 - **Calling a `reference func(...)` field needs no `dereference`** — after narrowing, just call it: `wh.on_connect(args)`. The compiler inserts the pointer deref for you. Writing `dereference wh.on_connect(args)` is a trap: `dereference` binds to the whole call, so it reads as "deref the receiver `wh`," not "deref the function pointer." It still compiles to the right thing now, but the bare call is what you mean.
 
 ```kukicha
 func Greet(u: reference User) string         # u is guaranteed non-empty
     return "hello " + u.Name                 # no guard needed
 
-func LookupOr(id: int) nullable reference User
+func LookupOr(id: int) optional reference User
     return users.Get(id) onerr empty         # may miss
 
 caller := LookupOr(42)
@@ -304,7 +304,7 @@ func NewOuter() reference Outer        # fix — stable shared address
 
 The compiler flags the value-return form (`semantic/value-ctor-capture`; `kukicha explain semantic/value-ctor-capture`). Silence with `KUKICHA_LINT_VALUE_CTOR_CAPTURE=0` if you genuinely want the copy semantics.
 
-When you're choosing a return signature: use `nullable reference T` whenever absence is the only failure mode (lookups, optional config). Reserve `(reference T, error)` for genuine errors (I/O, parse, network) where the error message is part of the value. Wrapping a "not found" lookup in `(reference T, error)` reads as "something went wrong" when nothing did — `nullable reference T` is what the code means.
+When you're choosing a return signature: use `optional reference T` whenever absence is the only failure mode (lookups, optional config). Reserve `(reference T, error)` for genuine errors (I/O, parse, network) where the error message is part of the value. Wrapping a "not found" lookup in `(reference T, error)` reads as "something went wrong" when nothing did — `optional reference T` is what the code means.
 
 ### Enums
 
