@@ -9,10 +9,10 @@ import "syscall/js"
 # ============================================================================
 
 type BoundingBox
-    MinX float64
-    MinY float64
-    MaxX float64
-    MaxY float64
+    MinX: float64
+    MinY: float64
+    MaxX: float64
+    MaxY: float64
 
 type CategoryMask = uint32
 
@@ -51,23 +51,23 @@ func categoryFromString(category: string) CategoryMask
     return CategoryUnknown
 
 type GameObject
-    ID int
-    X float64
-    Y float64
-    BBox BoundingBox
-    CategoryMask CategoryMask
+    ID: int
+    X: float64
+    Y: float64
+    BBox: BoundingBox
+    CategoryMask: CategoryMask
 
 type GridKey
-    X int
-    Y int
+    X: int
+    Y: int
 
 # ============================================================================
 # Spatial Grid
 # ============================================================================
 
 type SpatialGrid
-    cellSize float64
-    cells map of GridKey to list of int
+    cellSize: float64
+    cells: map of GridKey to list of int
 
 func newSpatialGrid(cellSize: float64) reference SpatialGrid
     return reference of SpatialGrid{
@@ -398,11 +398,11 @@ func getGridStats(this: js.Value, args: list of js.Value) any
 # ============================================================================
 
 type CarState
-    X float64
-    Z float64
-    RotationY float64
-    VelocityX float64
-    VelocityZ float64
+    X: float64
+    Z: float64
+    RotationY: float64
+    VelocityX: float64
+    VelocityZ: float64
 
 func updateCarPhysics(this: js.Value, args: list of js.Value) any
     if len(args) < 3

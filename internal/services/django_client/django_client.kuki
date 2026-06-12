@@ -14,9 +14,9 @@ import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/utils/security"
 
 type ProxyResponse
-    StatusCode int
-    Body list of byte
-    Headers map of string to list of string
+    StatusCode: int
+    Body: list of byte
+    Headers: map of string to list of string
 
 var fieldsToPropagate = list of string{
     "latitude",

@@ -44,16 +44,16 @@ func basePath() string
     return strpkg.TrimRight(s.RootPath, "/")
 
 type indexData
-    Models map of string to list of string
-    TownID int
-    Token string
-    BasePath string
+    Models: map of string to list of string
+    TownID: int
+    Token: string
+    BasePath: string
 
 func index(w: http.ResponseWriter, r: reference http.Request)
     if indexTmpl equals empty
         if err := loadTemplate(); err isnt empty
             log.Error("Failed to load index template: {err}")
-            httphelper.JSONError(w, "template load failed", 500)
+            httphelper.JSONError(w, "template load failed", 500) onerr discard
             return
 
     townID := 0
@@ -74,10 +74,10 @@ func index(w: http.ResponseWriter, r: reference http.Request)
 func favicon(w: http.ResponseWriter, r: reference http.Request)
     path := "static/favicon.ico"
     if _, err := os.Stat(path); err isnt empty
-        httphelper.JSONNotFound(w, "Favicon not found")
+        httphelper.JSONNotFound(w, "Favicon not found") onerr discard
         return
     http.ServeFile(w, r, path)
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /{$}", index)
+    mux.HandleFunc("GET /\{$\}", index)
     mux.HandleFunc("GET /favicon.ico", favicon)

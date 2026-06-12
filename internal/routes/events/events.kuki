@@ -51,11 +51,11 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
     if s isnt empty and not s.DisableJwtAuth
         cookie, err := r.Cookie("auth_token")
         if err isnt empty or cookie equals empty or cookie.Value equals ""
-            httphelper.JSONUnauthorized(w, "Not authenticated")
+            httphelper.JSONUnauthorized(w, "Not authenticated") onerr discard
             return
         _, verr := auth.VerifyTokenString(cookie.Value)
         if verr isnt empty
-            httphelper.JSONUnauthorized(w, "Not authenticated")
+            httphelper.JSONUnauthorized(w, "Not authenticated") onerr discard
             return
 
     playerName := r.URL.Query().Get("name")
@@ -65,7 +65,7 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
     w.Header().Set("Connection", "keep-alive")
     flusher, ok := w.(http.Flusher)
     if not ok
-        httphelper.JSONError(w, "streaming unsupported", 500)
+        httphelper.JSONError(w, "streaming unsupported", 500) onerr discard
         return
 
     if playerName isnt "" and not pubsub.CanConnect(playerName)

@@ -1,7 +1,6 @@
 petiole main
 
 import "net/http"
-
 import "stdlib/http" as httppkg
 import "stdlib/log"
 
@@ -25,7 +24,7 @@ func main()
     cors.Init()
 
     mux := router.NewMux()
-    handler := httppkg.TrustedHosts(bodylimit.Wrap(cors.Wrap(mux)), s.AllowedHosts...)
+    handler := httppkg.TrustedHosts(bodylimit.Wrap(cors.Wrap(mux)), many s.AllowedHosts)
 
     addr := ":5001"
     log.Info("Listening on {addr}")

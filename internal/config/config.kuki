@@ -3,34 +3,34 @@ petiole config
 import "stdlib/env"
 
 type Settings
-    AppTitle string
-    AppDescription string
-    AppVersion string
-    Environment string
-    JwtSecretKey string
-    JwtAlgorithm string
-    DisableJwtAuth bool
-    ApiURL string
-    ApiToken string
-    RedisURL string
-    PubsubChannel string
-    ModelsPath string
-    StaticPath string
-    TemplatesPath string
-    DataPath string
-    RootPath string
-    SseTimeout float64
-    SseKeepaliveInterval float64
-    UserActivityTimeout float64
-    MaxHistorySize int
-    MaxSnapshots int
-    MaxRequestBodyBytes int64
-    MaxBatchOperations int
-    MaxSseConnectionsPerUser int
-    AllowedOrigins string
-    AllowedDomains string
-    AllowedApiDomains list of string
-    AllowedHosts      list of string
+    AppTitle: string
+    AppDescription: string
+    AppVersion: string
+    Environment: string
+    JwtSecretKey: string
+    JwtAlgorithm: string
+    DisableJwtAuth: bool
+    ApiURL: string
+    ApiToken: string
+    RedisURL: string
+    PubsubChannel: string
+    ModelsPath: string
+    StaticPath: string
+    TemplatesPath: string
+    DataPath: string
+    RootPath: string
+    SseTimeout: float64
+    SseKeepaliveInterval: float64
+    UserActivityTimeout: float64
+    MaxHistorySize: int
+    MaxSnapshots: int
+    MaxRequestBodyBytes: int64
+    MaxBatchOperations: int
+    MaxSseConnectionsPerUser: int
+    AllowedOrigins: string
+    AllowedDomains: string
+    AllowedApiDomains: list of string
+    AllowedHosts: list of string
 
 var current reference Settings
 

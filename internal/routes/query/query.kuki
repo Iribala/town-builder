@@ -20,7 +20,7 @@ func writeResults(w: http.ResponseWriter, results: list of map of string to any)
         "status": "success",
         "count": len(results),
         "results": results,
-    })
+    }) onerr discard
 
 func radius(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -28,7 +28,7 @@ func radius(w: http.ResponseWriter, r: reference http.Request)
         return
     body, bok := readBody(r)
     if not bok
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     results := querysvc.SpatialQueryRadius(
         mapx.MapOr(body, "center"),
@@ -44,7 +44,7 @@ func bounds(w: http.ResponseWriter, r: reference http.Request)
         return
     body, bok := readBody(r)
     if not bok
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     results := querysvc.SpatialQueryBounds(
         mapx.MapOr(body, "min"),
@@ -60,7 +60,7 @@ func nearest(w: http.ResponseWriter, r: reference http.Request)
         return
     body, bok := readBody(r)
     if not bok
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     hasMaxDist := false
     maxDist := 0.0
@@ -83,7 +83,7 @@ func advanced(w: http.ResponseWriter, r: reference http.Request)
         return
     body, bok := readBody(r)
     if not bok
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     filters := empty list of map of string to any
     if v, vok := body["filters"]; vok

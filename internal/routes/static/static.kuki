@@ -33,7 +33,7 @@ func mimeFor(p: string) string
             return ""
 
 type mimeHandler
-    next http.Handler
+    next: http.Handler
 
 func ServeHTTP on h: reference mimeHandler(w: http.ResponseWriter, r: reference http.Request)
     if m := mimeFor(r.URL.Path); m isnt ""

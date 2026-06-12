@@ -15,28 +15,28 @@ func executeOps(w: http.ResponseWriter, r: reference http.Request)
     body := make(map of string to any)
     err := httphelper.ReadJSON(r, reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     opsRaw, opsOk := body["operations"]
     if not opsOk
-        httphelper.JSONBadRequest(w, "operations is required")
+        httphelper.JSONBadRequest(w, "operations is required") onerr discard
         return
     opsList, listOk := opsRaw.(list of any)
     if not listOk
-        httphelper.JSONBadRequest(w, "operations must be a list")
+        httphelper.JSONBadRequest(w, "operations must be a list") onerr discard
         return
     s := config.Current()
     maxOps := 100
     if s isnt empty and s.MaxBatchOperations > 0
         maxOps = s.MaxBatchOperations
     if len(opsList) > maxOps
-        httphelper.JSONBadRequest(w, "operations exceeds limit")
+        httphelper.JSONBadRequest(w, "operations exceeds limit") onerr discard
         return
     ops := empty list of map of string to any
     for item in opsList
         m, mok := item.(map of string to any)
         if not mok
-            httphelper.JSONBadRequest(w, "each operation must be an object")
+            httphelper.JSONBadRequest(w, "each operation must be an object") onerr discard
             return
         ops = append(ops, m)
     checkRequired := true
@@ -53,7 +53,7 @@ func executeOps(w: http.ResponseWriter, r: reference http.Request)
         "results": results,
         "successful": successful,
         "failed": failed,
-    })
+    }) onerr discard
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("POST /api/batch/operations", executeOps)

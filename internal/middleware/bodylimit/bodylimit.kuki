@@ -16,7 +16,7 @@ func Wrap(next: http.Handler) http.Handler
         if cl isnt ""
             n, err := strconv.ParseInt(cl, 10, 64)
             if err equals empty and n > limit
-                httphelper.JSONError(w, "Request body too large. Maximum size: {limit} bytes", 413)
+                httphelper.JSONError(w, "Request body too large. Maximum size: {limit} bytes", 413) onerr discard
                 return
         r.Body = http.MaxBytesReader(w, r.Body, limit)
         next.ServeHTTP(w, r)

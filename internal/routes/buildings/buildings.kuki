@@ -63,17 +63,17 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     body := make(map of string to any)
     err := httphelper.ReadJSON(r, reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     model := mapx.Str(body, "model")
     if model equals ""
-        httphelper.JSONBadRequest(w, "model is required")
+        httphelper.JSONBadRequest(w, "model is required") onerr discard
         return
     category := mapx.Str(body, "category")
     if category equals ""
         category = "buildings"
     if _, pok := mapx.MapAt(body, "position"); not pok
-        httphelper.JSONBadRequest(w, "position is required")
+        httphelper.JSONBadRequest(w, "position is required") onerr discard
         return
     buildingID := newID()
     var posV object.Vec3 = object.Vec3FromAny(body["position"], 0.0, 0.0, 0.0)
@@ -88,17 +88,17 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     })
     townData, gerr := storage.Get()
     if gerr isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500)
+        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
         return
     arr := categoryList(townData, category)
     arr = append(arr, building as any)
     setCategory(townData, category, arr)
     err = town_helpers.SaveAndBroadcast(townData, evt.Full(townData))
     if err isnt empty
-        httphelper.JSONError(w, "Failed to save", 500)
+        httphelper.JSONError(w, "Failed to save", 500) onerr discard
         return
     log.Info("Created building: {buildingID} ({model}) in category {category}")
-    httphelper.JSONStatus(w, response(building, category), 201)
+    httphelper.JSONStatus(w, response(building, category), 201) onerr discard
 
 func list(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -106,7 +106,7 @@ func list(w: http.ResponseWriter, r: reference http.Request)
         return
     townData, err := storage.Get()
     if err isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500)
+        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
         return
     cat := r.URL.Query().Get("category")
     cats := normalization.Categories
@@ -124,7 +124,7 @@ func list(w: http.ResponseWriter, r: reference http.Request)
             if mm, mok := item.(map of string to any); mok
                 out = append(out, response(mm, c))
     log.Info("Listed {len(out)} buildings")
-    httphelper.JSON(w, out)
+    httphelper.JSON(w, out) onerr discard
 
 func get(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -133,13 +133,13 @@ func get(w: http.ResponseWriter, r: reference http.Request)
     id := r.PathValue("id")
     townData, err := storage.Get()
     if err isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500)
+        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
         return
     cat, b, _ := findBuilding(townData, id)
     if b equals empty
-        httphelper.JSONNotFound(w, "Building with ID {id} not found")
+        httphelper.JSONNotFound(w, "Building with ID {id} not found") onerr discard
         return
-    httphelper.JSON(w, response(b, cat))
+    httphelper.JSON(w, response(b, cat)) onerr discard
 
 func update(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -149,15 +149,15 @@ func update(w: http.ResponseWriter, r: reference http.Request)
     body := make(map of string to any)
     err := httphelper.ReadJSON(r, reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     townData, gerr := storage.Get()
     if gerr isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500)
+        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
         return
     cat, b, idx := findBuilding(townData, id)
     if b equals empty
-        httphelper.JSONNotFound(w, "Building with ID {id} not found")
+        httphelper.JSONNotFound(w, "Building with ID {id} not found") onerr discard
         return
     arr := categoryList(townData, cat)
     current, _ := arr[idx].(map of string to any)
@@ -192,10 +192,10 @@ func update(w: http.ResponseWriter, r: reference http.Request)
         "data": current,
     })
     if err isnt empty
-        httphelper.JSONError(w, "Failed to save", 500)
+        httphelper.JSONError(w, "Failed to save", 500) onerr discard
         return
     log.Info("Updated building: {id}")
-    httphelper.JSON(w, response(current, cat))
+    httphelper.JSON(w, response(current, cat)) onerr discard
 
 func remove(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -204,11 +204,11 @@ func remove(w: http.ResponseWriter, r: reference http.Request)
     id := r.PathValue("id")
     townData, err := storage.Get()
     if err isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500)
+        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
         return
     cat, _, idx := findBuilding(townData, id)
     if idx equals -1
-        httphelper.JSONNotFound(w, "Building with ID {id} not found")
+        httphelper.JSONNotFound(w, "Building with ID {id} not found") onerr discard
         return
     arr := categoryList(townData, cat)
     newArr := empty list of any
@@ -222,13 +222,13 @@ func remove(w: http.ResponseWriter, r: reference http.Request)
         "id": id,
     })
     if serr isnt empty
-        httphelper.JSONError(w, "Failed to save", 500)
+        httphelper.JSONError(w, "Failed to save", 500) onerr discard
         return
     log.Info("Deleted building: {id} from category {cat}")
     httphelper.JSON(w, map of string to any{
         "status": "success",
         "message": "Building {id} deleted successfully",
-    })
+    }) onerr discard
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("POST /api/buildings", create)

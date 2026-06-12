@@ -18,6 +18,6 @@ func CurrentUser(w: http.ResponseWriter, r: reference http.Request) (reference a
     token := ExtractToken(r)
     u, err := auth.GetCurrentUser(token)
     if err isnt empty
-        httphelper.JSONUnauthorized(w, "Not authenticated")
+        httphelper.JSONUnauthorized(w, "Not authenticated") onerr discard
         return empty, false
     return u, true

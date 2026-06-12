@@ -11,19 +11,19 @@ import "stdlib/cast"
 import "github.com/Iribala/town-builder/internal/mapx"
 
 type Vec3
-    X float64 as "x"
-    Y float64 as "y"
-    Z float64 as "z"
+    X: float64 as "x"
+    Y: float64 as "y"
+    Z: float64 as "z"
 
 type PlacedObject
-    ID string as "id"
-    Model string as "model"
-    Category string as "category"
-    Position Vec3 as "position"
-    Rotation Vec3 as "rotation"
-    Scale Vec3 as "scale"
-    Driver any as "driver"
-    Extra map of string to any
+    ID: string as "id"
+    Model: string as "model"
+    Category: string as "category"
+    Position: Vec3 as "position"
+    Rotation: Vec3 as "rotation"
+    Scale: Vec3 as "scale"
+    Driver: any as "driver"
+    Extra: map of string to any
 
 var knownKeys = list of string{"id", "model", "category", "position", "rotation", "scale", "driver"}
 

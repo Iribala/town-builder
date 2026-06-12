@@ -16,21 +16,21 @@ func create(w: http.ResponseWriter, r: reference http.Request)
     if not ok
         return
     body := make(map of string to any)
-    httphelper.ReadJSON(r, reference of body)
+    httphelper.ReadJSON(r, reference of body) onerr discard
     townData, err := storage.Get()
     if err isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500)
+        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
         return
     snapID, serr := snapsvc.CreateSnapshot(townData, mapx.Str(body, "name"), mapx.Str(body, "description"))
     if serr isnt empty
-        httphelper.JSONError(w, "Failed to create snapshot", 500)
+        httphelper.JSONError(w, "Failed to create snapshot", 500) onerr discard
         return
     meta, _ := snapsvc.GetSnapshotMetadata(snapID)
     httphelper.JSON(w, map of string to any{
         "status": "success",
         "message": "Snapshot created",
         "snapshot": meta,
-    })
+    }) onerr discard
 
 func list(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -40,7 +40,7 @@ func list(w: http.ResponseWriter, r: reference http.Request)
     httphelper.JSON(w, map of string to any{
         "status": "success",
         "snapshots": items,
-    })
+    }) onerr discard
 
 func get(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -49,14 +49,14 @@ func get(w: http.ResponseWriter, r: reference http.Request)
     id := r.PathValue("id")
     data, dok := snapsvc.GetSnapshot(id)
     if not dok
-        httphelper.JSONNotFound(w, "Snapshot not found")
+        httphelper.JSONNotFound(w, "Snapshot not found") onerr discard
         return
     meta, _ := snapsvc.GetSnapshotMetadata(id)
     httphelper.JSON(w, map of string to any{
         "status": "success",
         "snapshot": meta,
         "data": data,
-    })
+    }) onerr discard
 
 func restore(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -65,11 +65,11 @@ func restore(w: http.ResponseWriter, r: reference http.Request)
     id := r.PathValue("id")
     data, dok := snapsvc.GetSnapshot(id)
     if not dok
-        httphelper.JSONNotFound(w, "Snapshot not found")
+        httphelper.JSONNotFound(w, "Snapshot not found") onerr discard
         return
     err := storage.Set(data)
     if err isnt empty
-        httphelper.JSONError(w, "Failed to restore", 500)
+        httphelper.JSONError(w, "Failed to restore", 500) onerr discard
         return
     town_helpers.BroadcastSSE(evt.Full(data))
     meta, _ := snapsvc.GetSnapshotMetadata(id)
@@ -81,7 +81,7 @@ func restore(w: http.ResponseWriter, r: reference http.Request)
         "status": "success",
         "message": "Restored to snapshot: {name}",
         "snapshot": meta,
-    })
+    }) onerr discard
 
 func remove(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -89,12 +89,12 @@ func remove(w: http.ResponseWriter, r: reference http.Request)
         return
     id := r.PathValue("id")
     if not snapsvc.DeleteSnapshot(id)
-        httphelper.JSONNotFound(w, "Snapshot not found")
+        httphelper.JSONNotFound(w, "Snapshot not found") onerr discard
         return
     httphelper.JSON(w, map of string to any{
         "status": "success",
         "message": "Snapshot deleted",
-    })
+    }) onerr discard
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("POST /api/snapshots", create)

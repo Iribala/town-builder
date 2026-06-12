@@ -8,7 +8,7 @@ import "stdlib/log"
 import "github.com/Iribala/town-builder/internal/storage"
 
 func livez(w: http.ResponseWriter, r: reference http.Request)
-    httphelper.JSON(w, map of string to any{"status": "ok"})
+    httphelper.JSON(w, map of string to any{"status": "ok"}) onerr discard
 
 func readyz(w: http.ResponseWriter, r: reference http.Request)
     checks := make(map of string to any)
@@ -30,7 +30,7 @@ func readyz(w: http.ResponseWriter, r: reference http.Request)
         "status": status,
         "checks": checks,
     }
-    httphelper.JSON(w, body)
+    httphelper.JSON(w, body) onerr discard
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("GET /healthz", livez)

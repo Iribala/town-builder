@@ -7,14 +7,14 @@ import "github.com/Iribala/town-builder/internal/config"
 import "github.com/golang-jwt/jwt/v5" as jwtpkg
 
 type UserInfo
-    Username string
-    Payload map of string to any
+    Username: string
+    Payload: map of string to any
 
 type TokenResponse
-    AccessToken string as "access_token"
-    TokenType string as "token_type"
-    ExpiresIn int as "expires_in"
-    Username string as "username"
+    AccessToken: string as "access_token"
+    TokenType: string as "token_type"
+    ExpiresIn: int as "expires_in"
+    Username: string as "username"
 
 func keyFunc(token: reference jwtpkg.Token) (any, error)
     s := config.Current()

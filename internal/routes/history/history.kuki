@@ -23,20 +23,20 @@ func getHistory(w: http.ResponseWriter, r: reference http.Request)
         "history": entries,
         "can_undo": histsvc.CanUndo(),
         "can_redo": histsvc.CanRedo(),
-    })
+    }) onerr discard
 
 func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey: string, action: string, pastTense: string, pushBack: func(map of string to any)) bool
     sv, sok := entry[stateKey]
     if not sok or cast.IsNil(sv)
-        httphelper.JSONBadRequest(w, "Cannot {action}: no {stateKey}")
+        httphelper.JSONBadRequest(w, "Cannot {action}: no {stateKey}") onerr discard
         return false
     state, mok := sv.(map of string to any)
     if not mok
-        httphelper.JSONBadRequest(w, "Cannot {action}: invalid {stateKey}")
+        httphelper.JSONBadRequest(w, "Cannot {action}: invalid {stateKey}") onerr discard
         return false
     err := storage.Set(state)
     if err isnt empty
-        httphelper.JSONError(w, "Failed to save state", 500)
+        httphelper.JSONError(w, "Failed to save state", 500) onerr discard
         return false
     pushBack(entry)
     town_helpers.BroadcastSSE(evt.Full(state))
@@ -47,7 +47,7 @@ func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey:
         "message": "{pastTense} {op} operation",
         "can_undo": histsvc.CanUndo(),
         "can_redo": histsvc.CanRedo(),
-    })
+    }) onerr discard
     return true
 
 func undo(w: http.ResponseWriter, r: reference http.Request)
@@ -55,11 +55,11 @@ func undo(w: http.ResponseWriter, r: reference http.Request)
     if not ok
         return
     if not histsvc.CanUndo()
-        httphelper.JSONBadRequest(w, "Nothing to undo")
+        httphelper.JSONBadRequest(w, "Nothing to undo") onerr discard
         return
     entry, eok := histsvc.PopLastEntry()
     if not eok
-        httphelper.JSONBadRequest(w, "Failed to get last operation")
+        httphelper.JSONBadRequest(w, "Failed to get last operation") onerr discard
         return
     restoreState(w, entry, "before_state", "undo", "Undid", histsvc.PushRedoEntry)
 
@@ -70,18 +70,18 @@ func redoPushBack(entry: map of string to any)
         mapx.Str(entry, "object_id"),
         mapx.MapOr(entry, "before_state"),
         mapx.MapOr(entry, "after_state"),
-    )
+    ) onerr discard
 
 func redo(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
     if not ok
         return
     if not histsvc.CanRedo()
-        httphelper.JSONBadRequest(w, "Nothing to redo")
+        httphelper.JSONBadRequest(w, "Nothing to redo") onerr discard
         return
     entry, eok := histsvc.PopRedoEntry()
     if not eok
-        httphelper.JSONBadRequest(w, "Failed to get redo operation")
+        httphelper.JSONBadRequest(w, "Failed to get redo operation") onerr discard
         return
     restoreState(w, entry, "after_state", "redo", "Redid", redoPushBack)
 
@@ -90,7 +90,7 @@ func clearHist(w: http.ResponseWriter, r: reference http.Request)
     if not ok
         return
     histsvc.ClearHistory()
-    httphelper.JSON(w, map of string to any{"status": "success", "message": "History cleared"})
+    httphelper.JSON(w, map of string to any{"status": "success", "message": "History cleared"}) onerr discard
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("GET /api/history", getHistory)

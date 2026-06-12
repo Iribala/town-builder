@@ -15,7 +15,7 @@ func listModels(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
     if not ok
         return
-    httphelper.JSON(w, model_loader.GetAvailableModels())
+    httphelper.JSON(w, model_loader.GetAvailableModels()) onerr discard
 
 func getModel(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)
@@ -25,19 +25,19 @@ func getModel(w: http.ResponseWriter, r: reference http.Request)
     modelName := r.PathValue("model_name")
     vc, vn, err := security.ValidateModelPath(category, modelName)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid model path")
+        httphelper.JSONBadRequest(w, "Invalid model path") onerr discard
         return
     s := config.Current()
     if s equals empty
-        httphelper.JSONError(w, "config not loaded", 500)
+        httphelper.JSONError(w, "config not loaded", 500) onerr discard
         return
     modelPath := filepath.Join(s.ModelsPath, vc, vn)
     if not urlpkg.IsSubpath(s.ModelsPath, modelPath)
-        httphelper.JSONBadRequest(w, "Invalid model path")
+        httphelper.JSONBadRequest(w, "Invalid model path") onerr discard
         return
     _, statErr := os.Stat(modelPath)
     if statErr isnt empty
-        httphelper.JSONNotFound(w, "Model not found")
+        httphelper.JSONNotFound(w, "Model not found") onerr discard
         return
     info := r.URL.Query().Get("info")
     if info equals "1"
@@ -47,7 +47,7 @@ func getModel(w: http.ResponseWriter, r: reference http.Request)
             "category": category,
             "has_bin": fileExists(modelPath[:len(modelPath) - len(filepath.Ext(modelPath))] + ".bin"),
         }
-        httphelper.JSON(w, body)
+        httphelper.JSON(w, body) onerr discard
         return
     http.ServeFile(w, r, modelPath)
 

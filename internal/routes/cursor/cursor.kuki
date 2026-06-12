@@ -22,7 +22,7 @@ func update(w: http.ResponseWriter, r: reference http.Request)
     body := make(map of string to any)
     err := httphelper.ReadJSON(r, reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body")
+        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
         return
     pos := readPosition(body["position"])
     cam := readPosition(body["camera_position"])
@@ -36,7 +36,7 @@ func update(w: http.ResponseWriter, r: reference http.Request)
     httphelper.JSON(
         w,
         map of string to any{"status": "success", "message": "Cursor position updated"},
-    )
+    ) onerr discard
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("POST /api/cursor/update", update)

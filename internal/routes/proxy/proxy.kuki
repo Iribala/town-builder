@@ -47,7 +47,7 @@ func handle(w: http.ResponseWriter, r: reference http.Request, method: string)
     if r.Body isnt empty
         raw, ierr := io.ReadAll(r.Body)
         if ierr isnt empty
-            httphelper.JSONBadRequest(w, "Failed to read request body")
+            httphelper.JSONBadRequest(w, "Failed to read request body") onerr discard
             return
         body = raw
 
@@ -56,12 +56,12 @@ func handle(w: http.ResponseWriter, r: reference http.Request, method: string)
         msg := perr.Error()
         log.Warn("Proxy request failed: {msg}")
         if strpkg.Contains(msg, "timeout")
-            httphelper.JSONError(w, "Request to upstream service timed out", 504)
+            httphelper.JSONError(w, "Request to upstream service timed out", 504) onerr discard
             return
         if strpkg.Contains(msg, "not allowed") or strpkg.Contains(msg, "Unsupported") or strpkg.Contains(msg, "must not contain") or strpkg.Contains(msg, "disallowed")
-            httphelper.JSONBadRequest(w, msg)
+            httphelper.JSONBadRequest(w, msg) onerr discard
             return
-        httphelper.JSONError(w, msg, 502)
+        httphelper.JSONError(w, msg, 502) onerr discard
         return
 
     for k in mapspkg.Keys(resp.Headers)
@@ -72,7 +72,7 @@ func handle(w: http.ResponseWriter, r: reference http.Request, method: string)
 
     w.WriteHeader(resp.StatusCode)
     if len(resp.Body) > 0
-        w.Write(resp.Body)
+        w.Write(resp.Body) onerr discard
 
 func get(w: http.ResponseWriter, r: reference http.Request)
     handle(w, r, "GET")
@@ -90,10 +90,10 @@ func remove(w: http.ResponseWriter, r: reference http.Request)
     handle(w, r, "DELETE")
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /api/proxy/towns/{path...}", get)
-    mux.HandleFunc("POST /api/proxy/towns/{path...}", post)
-    mux.HandleFunc("PUT /api/proxy/towns/{path...}", put)
-    mux.HandleFunc("PATCH /api/proxy/towns/{path...}", patch)
-    mux.HandleFunc("DELETE /api/proxy/towns/{path...}", remove)
+    mux.HandleFunc("GET /api/proxy/towns/\{path...\}", get)
+    mux.HandleFunc("POST /api/proxy/towns/\{path...\}", post)
+    mux.HandleFunc("PUT /api/proxy/towns/\{path...\}", put)
+    mux.HandleFunc("PATCH /api/proxy/towns/\{path...\}", patch)
+    mux.HandleFunc("DELETE /api/proxy/towns/\{path...\}", remove)
     mux.HandleFunc("GET /api/proxy/towns", get)
     mux.HandleFunc("POST /api/proxy/towns", post)
