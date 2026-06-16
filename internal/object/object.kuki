@@ -38,13 +38,12 @@ func toFloat(v: any, def: float64) float64
 func Vec3FromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
     if cast.IsNil(values)
         return Vec3{X: dx, Y: dy, Z: dz}
-    if v, okVec := values.(Vec3); okVec
+    if values is Vec3 as v
         return v
-    arr, okArr := values.(list of any)
-    if okArr and len(arr) >= 3
-        return Vec3{X: toFloat(arr[0], dx), Y: toFloat(arr[1], dy), Z: toFloat(arr[2], dz)}
-    m, okMap := values.(map of string to any)
-    if okMap
+    if values is list of any as arr
+        if len(arr) >= 3
+            return Vec3{X: toFloat(arr[0], dx), Y: toFloat(arr[1], dy), Z: toFloat(arr[2], dz)}
+    if values is map of string to any as m
         return Vec3{X: toFloat(m["x"], dx), Y: toFloat(m["y"], dy), Z: toFloat(m["z"], dz)}
     return Vec3{X: dx, Y: dy, Z: dz}
 

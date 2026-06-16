@@ -37,21 +37,16 @@ func normalizeObject(item: map of string to any, category: string) map of string
 
 func normalizeList(items: any, category: string) list of map of string to any
     out := empty list of map of string to any
-    arr, ok := items.(list of any)
-    if not ok
-        return out
-    for raw in arr
-        item, isMap := raw.(map of string to any)
-        if not isMap
-            continue
-        out = append(out, normalizeObject(item, category))
+    if items is list of any as arr
+        for raw in arr
+            if raw is map of string to any as item
+                out = append(out, normalizeObject(item, category))
     return out
 
 func Normalize(layoutData: any) map of string to any
     out := make(map of string to any)
 
-    inMap, isMap := layoutData.(map of string to any)
-    if isMap
+    if layoutData is map of string to any as inMap
         for category in Categories
             out[category] = normalizeList(inMap[category], category)
         keys := maps.Keys(inMap)
@@ -61,27 +56,19 @@ func Normalize(layoutData: any) map of string to any
                 out[name] = inMap[name]
         return out
 
-    arr, isList := layoutData.(list of any)
-    if isList
+    if layoutData is list of any as arr
         for category in Categories
             out[category] = empty list of map of string to any
         for raw in arr
-            item, okItem := raw.(map of string to any)
-            if not okItem
-                continue
-            catAny, hasCat := item["category"]
-            if not hasCat
-                continue
-            cat, okCat := catAny.(string)
-            if not okCat
-                continue
-            existing, present := out[cat]
-            if not present
-                continue
-            asList, okList := existing.(list of map of string to any)
-            if not okList
-                continue
-            out[cat] = append(asList, normalizeObject(item, cat))
+            if raw is map of string to any as item
+                catAny, hasCat := item["category"]
+                if not hasCat
+                    continue
+                if catAny is string as cat
+                    existing, present := out[cat]
+                    if present
+                        if existing is list of map of string to any as asList
+                            out[cat] = append(asList, normalizeObject(item, cat))
         return out
 
     for category in Categories
