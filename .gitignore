@@ -37,3 +37,8 @@ data/*.json
 
 # Encryption keys
 .encryption-key
+
+# Agent tooling — local per-machine permission grants, not portable
+.agent/settings.local.json
+.claude/settings.local.json
+.agents/settings.local.json

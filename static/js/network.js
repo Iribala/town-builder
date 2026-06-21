@@ -243,7 +243,7 @@ export async function broadcastSceneUpdate(eventData) {
 export async function sendCursorUpdate(position, cameraPosition) {
     try {
         // username is intentionally omitted: the server derives it from the
-        // authenticated JWT token (see app/routes/cursor.py).
+        // authenticated JWT token (see internal/routes/cursor/cursor.kuki).
         await fetch((getBasePath() || '') + '/api/cursor/update', {
             method: 'POST',
             headers: authHeaders({ 'Content-Type': 'application/json' }),

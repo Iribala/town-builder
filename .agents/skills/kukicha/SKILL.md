@@ -536,8 +536,8 @@ for                        # infinite loop (use break to exit)
 result := if condition then "yes" else "no"
 
 # If with init statement
-if val, ok := cache[key]; ok
-    return val
+if val, ok := cache[key]; ok          # comma-ok — works, but for expected
+    return val                          # absence prefer maps.GetOr
 
 switch command
     when "fetch", "pull"
@@ -619,8 +619,15 @@ result := Sum(many nums)    # spread a slice
 
 ```kukicha
 n := x as int                         # type conversion
-result, ok := value.(string)          # safe type assertion
-s := value.(string)                   # panics if wrong type
+
+# Narrowing an any/error/interface value — idiomatic form
+if v is string as s
+    print(s)
+if v is reference TaskEvent as t
+    print(t.Status)
+
+# The Go-compat `value.(string)` assertion also parses, but `is T as v`
+# is the idiomatic narrowing form (see Variant Enums + type switch above).
 ```
 
 ### Concurrency
@@ -653,7 +660,7 @@ defer resource.Close()
 
 # Block form (emits defer func() { ... }())
 defer
-    if r := recover(); r != empty
+    if r := recover(); r isnt empty
         tx.Rollback()
         panic(r)
 ```

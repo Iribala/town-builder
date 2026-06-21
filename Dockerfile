@@ -6,7 +6,7 @@ WORKDIR /src
 # `replace` directive. We don't compile any .kuki sources here — the brewed
 # .go files are committed alongside — but go.mod requires the stdlib path to
 # resolve.
-RUN go install github.com/kukichalang/kukicha/cmd/kukicha@v0.22.0
+RUN go install github.com/kukichalang/kukicha/cmd/kukicha@v0.54.1
 
 # Copy module files first for better layer caching, then materialize the
 # stdlib replacement target before `go mod download`.
