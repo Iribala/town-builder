@@ -53,8 +53,7 @@ func countObjects(townData: map of string to any) int
         v, ok := townData[cat]
         if not ok
             continue
-        lst, lok := v.(list of any)
-        if lok
+        if v is list of any as lst
             total = total + len(lst)
     return total
 
@@ -78,7 +77,7 @@ func CreateSnapshot(townData: map of string to any, name: string, description: s
         defer memLock.Unlock()
         if len(memSnapshots) equals maxSnapshots()
             oldest := memSnapshots[0]
-            if oid, ok := oldest["id"].(string); ok
+            if oldest["id"] is string as oid
                 delete memSnapshotData[oid]
             memSnapshots = memSnapshots[1:]
         memSnapshots = append(memSnapshots, metadata)
@@ -112,7 +111,7 @@ func CreateSnapshot(townData: map of string to any, name: string, description: s
             oldestMeta := make(map of string to any)
             perr := json.ParseInto(oldestEntry as list of byte, reference of oldestMeta)
             if perr equals empty
-                if oid, ok := oldestMeta["id"].(string); ok
+                if oldestMeta["id"] is string as oid
                     client.Del(h.Ctx, snapshotDataPrefix + oid)
         client.LTrim(h.Ctx, snapshotsKey, -maxSnapshots() as int64, -1)
 
@@ -174,9 +173,12 @@ func DeleteSnapshot(snapshotID: string) bool
         before := len(memSnapshots)
         kept := empty list of map of string to any
         for s in memSnapshots
-            if id, ok := s["id"].(string); ok and id equals snapshotID
-                continue
-            kept = append(kept, s)
+            skip := false
+            if s["id"] is string as id
+                if id equals snapshotID
+                    skip = true
+            if not skip
+                kept = append(kept, s)
         memSnapshots = kept
         delete memSnapshotData[snapshotID]
         return len(memSnapshots) < before
@@ -196,7 +198,11 @@ func DeleteSnapshot(snapshotID: string) bool
         if perr isnt empty
             newEntries = append(newEntries, entry)
             continue
-        if id, ok := meta["id"].(string); ok and id equals snapshotID
+        skip := false
+        if meta["id"] is string as id
+            if id equals snapshotID
+                skip = true
+        if skip
             continue
         newEntries = append(newEntries, entry)
     foundInList := len(newEntries) < len(entries)
@@ -215,8 +221,9 @@ func GetSnapshotMetadata(snapshotID: string) (map of string to any, bool)
         memLock.Lock()
         defer memLock.Unlock()
         for s in memSnapshots
-            if id, ok := s["id"].(string); ok and id equals snapshotID
-                return s, true
+            if s["id"] is string as id
+                if id equals snapshotID
+                    return s, true
         return empty, false
 
     h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
@@ -230,6 +237,7 @@ func GetSnapshotMetadata(snapshotID: string) (map of string to any, bool)
         perr := json.ParseInto(entry as list of byte, reference of meta)
         if perr isnt empty
             continue
-        if id, ok := meta["id"].(string); ok and id equals snapshotID
-            return meta, true
+        if meta["id"] is string as id
+            if id equals snapshotID
+                return meta, true
     return empty, false

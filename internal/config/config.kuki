@@ -1,6 +1,9 @@
 petiole config
 
+import "os"
 import "stdlib/env"
+import "stdlib/files"
+import "stdlib/string" as strpkg
 
 type Settings
     AppTitle: string
@@ -37,6 +40,40 @@ var current reference Settings
 func floatOr(key: string, def: float64) float64
     v := env.GetFloatOr(key, def) onerr def
     return v
+
+# LoadEnvFile reads a .env file (KEY=VALUE per line, '#' comments, optional
+# surrounding quotes on values) and sets each entry into the process
+# environment WITHOUT overriding variables already present. The real
+# environment (shell or container) always wins; .env only fills gaps. Call
+# this once at startup, before Load().
+func LoadEnvFile(path: string)
+    content, err := files.ReadString(path)
+    if err isnt empty
+        return
+    for line in strpkg.Lines(content)
+        trimmed := strpkg.TrimSpace(line)
+        if trimmed equals "" or strpkg.HasPrefix(trimmed, "#")
+            continue
+        key, val, found := strpkg.Cut(trimmed, "=")
+        if not found
+            continue
+        key = strpkg.TrimSpace(key)
+        val = stripQuotes(strpkg.TrimSpace(val))
+        if key equals ""
+            continue
+        if os.Getenv(key) isnt ""
+            continue
+        # os.Setenv is an external call (no onerr); check its error explicitly.
+        if serr := os.Setenv(key, val); serr isnt empty
+            continue
+
+func stripQuotes(s: string) string
+    if len(s) >= 2
+        if strpkg.HasPrefix(s, "\"") and strpkg.HasSuffix(s, "\"")
+            return strpkg.TrimPrefix(strpkg.TrimSuffix(s, "\""), "\"")
+        if strpkg.HasPrefix(s, "'") and strpkg.HasSuffix(s, "'")
+            return strpkg.TrimPrefix(strpkg.TrimSuffix(s, "'"), "'")
+    return s
 
 func Load() (reference Settings, error)
     s := reference of Settings{

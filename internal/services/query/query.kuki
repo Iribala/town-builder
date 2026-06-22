@@ -15,8 +15,7 @@ func getAllCategories(townData: map of string to any) list of string
     for k, v in townData
         if k equals "snapshots" or k equals "history"
             continue
-        _, ok := v.(list of any)
-        if ok
+        if v is list of any
             keys = append(keys, k)
     return keys
 
@@ -55,19 +54,17 @@ func SpatialQueryRadius(center: map of string to any, radius: float64, category:
         catVal, ok := townData[cat]
         if not ok
             continue
-        items, lok := catVal.(list of any)
-        if not lok
-            continue
-        for item in items
-            obj, mok := mapx.AsMap(item)
-            if not mok
-                continue
-            pos, _ := mapx.AsMap(obj["position"])
-            distance := geometry.CalculateDistance(center, pos)
-            if distance <= radius
-                entry := cloneWithCat(obj, cat)
-                entry["distance"] = distance
-                results = append(results, entry)
+        if catVal is list of any as items
+            for item in items
+                obj, mok := mapx.AsMap(item)
+                if not mok
+                    continue
+                pos, _ := mapx.AsMap(obj["position"])
+                distance := geometry.CalculateDistance(center, pos)
+                if distance <= radius
+                    entry := cloneWithCat(obj, cat)
+                    entry["distance"] = distance
+                    results = append(results, entry)
     sortByDistance(results)
     if limit > 0 and len(results) > limit
         results = results[:limit]
@@ -99,16 +96,14 @@ func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string 
         catVal, ok := townData[cat]
         if not ok
             continue
-        items, lok := catVal.(list of any)
-        if not lok
-            continue
-        for item in items
-            obj, mok := mapx.AsMap(item)
-            if not mok
-                continue
-            pos, _ := mapx.AsMap(obj["position"])
-            if isWithinBounds(pos, minPoint, maxPoint)
-                results = append(results, cloneWithCat(obj, cat))
+        if catVal is list of any as items
+            for item in items
+                obj, mok := mapx.AsMap(item)
+                if not mok
+                    continue
+                pos, _ := mapx.AsMap(obj["position"])
+                if isWithinBounds(pos, minPoint, maxPoint)
+                    results = append(results, cloneWithCat(obj, cat))
     if limit > 0 and len(results) > limit
         results = results[:limit]
     log.Info("Bounds query: found {len(results)} objects")
@@ -126,19 +121,17 @@ func SpatialQueryNearest(point: map of string to any, category: string, count: i
         catVal, ok := townData[cat]
         if not ok
             continue
-        items, lok := catVal.(list of any)
-        if not lok
-            continue
-        for item in items
-            obj, mok := mapx.AsMap(item)
-            if not mok
-                continue
-            pos, _ := mapx.AsMap(obj["position"])
-            distance := geometry.CalculateDistance(point, pos)
-            if not hasMaxDistance or distance <= maxDistance
-                entry := cloneWithCat(obj, cat)
-                entry["distance"] = distance
-                results = append(results, entry)
+        if catVal is list of any as items
+            for item in items
+                obj, mok := mapx.AsMap(item)
+                if not mok
+                    continue
+                pos, _ := mapx.AsMap(obj["position"])
+                distance := geometry.CalculateDistance(point, pos)
+                if not hasMaxDistance or distance <= maxDistance
+                    entry := cloneWithCat(obj, cat)
+                    entry["distance"] = distance
+                    results = append(results, entry)
     sortByDistance(results)
     if count > 0 and len(results) > count
         results = results[:count]
@@ -149,10 +142,10 @@ func getNestedValue(obj: map of string to any, field: string) any
     parts := strpkg.Split(field, ".")
     var value any = obj
     for part in parts
-        m, ok := value.(map of string to any)
-        if not ok
+        if value is map of string to any as m
+            value = m[part]
+        else
             return empty
-        value = m[part]
     return value
 
 func compareValues(a: any, b: any) int
@@ -164,10 +157,9 @@ func compareValues(a: any, b: any) int
         if af > bf
             return 1
         return 0
-    astr, aok := a.(string)
-    bstr, bok := b.(string)
-    if aok and bok
-        return strpkg.Compare(astr, bstr)
+    if a is string as astr
+        if b is string as bstr
+            return strpkg.Compare(astr, bstr)
     return 0
 
 func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
@@ -191,12 +183,11 @@ func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
             filterStr, _ := cast.SmartString(filterValue)
             return strpkg.Contains(objStr, filterStr)
         when "in"
-            items, ok := filterValue.(list of any)
-            if not ok
+            if filterValue is list of any as items
+                for v in items
+                    if compareValues(objValue, v) equals 0
+                        return true
                 return false
-            for v in items
-                if compareValues(objValue, v) equals 0
-                    return true
             return false
         default
             log.Warn("Unknown operator: {operator}")
@@ -204,8 +195,12 @@ func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
 
 func matchesFilters(obj: map of string to any, filters: list of map of string to any) bool
     for cond in filters
-        field, _ := cond["field"].(string)
-        operator, _ := cond["operator"].(string)
+        field := ""
+        if cond["field"] is string as f
+            field = f
+        operator := ""
+        if cond["operator"] is string as op
+            operator = op
         value := cond["value"]
         objValue := getNestedValue(obj, field)
         if not evaluateCondition(objValue, operator, value)
@@ -224,19 +219,17 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
         catVal, ok := townData[cat]
         if not ok
             continue
-        items, lok := catVal.(list of any)
-        if not lok
-            continue
-        for item in items
-            obj, mok := mapx.AsMap(item)
-            if not mok
-                continue
-            entry := cloneWithCat(obj, cat)
-            if len(filters) > 0
-                if matchesFilters(entry, filters)
+        if catVal is list of any as items
+            for item in items
+                obj, mok := mapx.AsMap(item)
+                if not mok
+                    continue
+                entry := cloneWithCat(obj, cat)
+                if len(filters) > 0
+                    if matchesFilters(entry, filters)
+                        results = append(results, entry)
+                else
                     results = append(results, entry)
-            else
-                results = append(results, entry)
 
     if sortBy isnt ""
         reverse := sortOrder equals "desc"

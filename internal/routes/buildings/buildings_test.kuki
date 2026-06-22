@@ -57,16 +57,15 @@ func TestCreateBuildingTypedShape(t: reference testing.T)
     test.AssertEqual(t, code, 201)
     test.AssertEqual(t, out["model"], "house.glb")
     test.AssertEqual(t, out["category"], "buildings")
-    id, _ := out["id"].(string)
-    test.AssertNotEqual(t, id, "")
+    if out["id"] is string as id
+        test.AssertNotEqual(t, id, "")
     # Vec3 serializes to the {x,y,z} wire shape.
-    pos, ok := out["position"].(map of string to any)
-    test.AssertTrue(t, ok)
-    test.AssertEqual(t, pos["x"], 1.0)
-    test.AssertEqual(t, pos["z"], 3.0)
+    if out["position"] is map of string to any as pos
+        test.AssertEqual(t, pos["x"], 1.0)
+        test.AssertEqual(t, pos["z"], 3.0)
     # Scale defaults to 1/1/1 when omitted.
-    scale, _ := out["scale"].(map of string to any)
-    test.AssertEqual(t, scale["x"], 1.0)
+    if out["scale"] is map of string to any as scale
+        test.AssertEqual(t, scale["x"], 1.0)
 
 func TestBuildingLifecycle(t: reference testing.T)
     setup()
@@ -78,8 +77,12 @@ func TestBuildingLifecycle(t: reference testing.T)
     }
     code, created := do(mux, "POST", "/api/buildings", body)
     test.AssertEqual(t, code, 201)
-    id, _ := created["id"].(string)
-    test.AssertNotEqual(t, id, "")
+    var id string
+    if created["id"] is string as createdID
+        id = createdID
+        test.AssertNotEqual(t, id, "")
+    else
+        t.Fatalf("created building id is not a string")
 
     lcode, _ := do(mux, "GET", "/api/buildings", empty)
     test.AssertEqual(t, lcode, 200)

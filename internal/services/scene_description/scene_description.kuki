@@ -32,7 +32,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
             continue
         model := "unknown"
         if mv, mok := obj["model"]; mok
-            if ms, mss := mv.(string); mss
+            if mv is string as ms
                 model = ms
         modelCounts[model] = modelCounts[model] + 1
         if d, ok := obj["driver"]; ok and not cast.IsNil(d)
@@ -103,8 +103,10 @@ func calculateSceneBounds(allPositions: list of list of float64) map of string t
     return out
 
 func formatModels(catData: map of string to any) string
-    models, ok := catData["models"].(map of string to int)
-    if not ok
+    models := make(map of string to int)
+    if catData["models"] is map of string to int as m
+        models = m
+    else
         return ""
     keys := sort.Strings(mapspkg.Keys(models))
     parts := empty list of string
@@ -121,7 +123,7 @@ func appendCategory(parts: list of string, categories: map of string to any, nam
     if not mok
         return parts
     count := 0
-    if c, cok := cat["count"].(int); cok
+    if cat["count"] is int as c
         count = c
     if count <= 0
         return parts
@@ -134,11 +136,12 @@ func appendCategory(parts: list of string, categories: map of string to any, nam
 func generateNaturalDescription(analysis: map of string to any) string
     parts := empty list of string
     townName := "Unnamed Town"
-    if tv, ok := analysis["town_name"].(string); ok and tv isnt ""
-        townName = tv
+    if analysis["town_name"] is string as tv
+        if tv isnt ""
+            townName = tv
     parts = append(parts, "Scene: " + townName)
     total := 0
-    if t, ok := analysis["total_objects"].(int); ok
+    if analysis["total_objects"] is int as t
         total = t
     if total equals 0
         return townName + " is currently empty with no objects placed."
@@ -152,16 +155,17 @@ func generateNaturalDescription(analysis: map of string to any) string
         vehicles, mok := mapx.AsMap(vehRaw)
         if mok
             count := 0
-            if c, cok := vehicles["count"].(int); cok
+            if vehicles["count"] is int as c
                 count = c
             if count > 0
                 modelDesc := formatModels(vehicles)
                 driverInfo := ""
-                if hd, hok := vehicles["has_drivers"].(bool); hok and hd
-                    dc := 0
-                    if dcv, dcok := vehicles["driver_count"].(int); dcok
-                        dc = dcv
-                    driverInfo = ", {dc} in use"
+                if vehicles["has_drivers"] is bool as hd
+                    if hd
+                        dc := 0
+                        if vehicles["driver_count"] is int as dcv
+                            dc = dcv
+                        driverInfo = ", {dc} in use"
                 parts = append(parts, "Vehicles ({count}): {modelDesc}{driverInfo}")
 
     parts = appendCategory(parts, categories, "trees", "Trees", "objects", true, "")
@@ -189,15 +193,16 @@ func GenerateSceneDescription(townData: map of string to any) map of string to a
         catList, _ := mapx.AsList(catRaw)
         analysis := analyzeCategory(catList, category)
         categoryAnalysis[category] = analysis
-        if c, ok := analysis["count"].(int); ok
+        if analysis["count"] is int as c
             totalObjects = totalObjects + c
-        if positions, ok := analysis["positions"].(list of list of float64); ok
+        if analysis["positions"] is list of list of float64 as positions
             for p in positions
                 allPositions = append(allPositions, p)
     bounds := calculateSceneBounds(allPositions)
     townName := "Unnamed Town"
-    if tn, ok := townData["townName"].(string); ok and tn isnt ""
-        townName = tn
+    if townData["townName"] is string as tn
+        if tn isnt ""
+            townName = tn
     analysis := make(map of string to any)
     analysis["town_name"] = townName
     analysis["total_objects"] = totalObjects

@@ -21,39 +21,39 @@ func executeOps(w: http.ResponseWriter, r: reference http.Request)
     if not opsOk
         httphelper.JSONBadRequest(w, "operations is required") onerr discard
         return
-    opsList, listOk := opsRaw.(list of any)
-    if not listOk
+    if opsRaw is list of any as opsList
+        s := config.Current()
+        maxOps := 100
+        if s isnt empty and s.MaxBatchOperations > 0
+            maxOps = s.MaxBatchOperations
+        if len(opsList) > maxOps
+            httphelper.JSONBadRequest(w, "operations exceeds limit") onerr discard
+            return
+        ops := empty list of map of string to any
+        for item in opsList
+            if item is map of string to any as m
+                ops = append(ops, m)
+            else
+                httphelper.JSONBadRequest(w, "each operation must be an object") onerr discard
+                return
+        checkRequired := true
+        if v, vok := body["check_required_fields"]; vok
+            if v is bool as b
+                checkRequired = b
+        results, successful, failed := batchsvc.ExecuteOperations(ops, checkRequired)
+        status := "success"
+        if failed > 0
+            status = "partial"
+        log.Info("Batch operations: {successful} ok, {failed} failed")
+        httphelper.JSON(w, map of string to any{
+            "status": status,
+            "results": results,
+            "successful": successful,
+            "failed": failed,
+        }) onerr discard
+    else
         httphelper.JSONBadRequest(w, "operations must be a list") onerr discard
         return
-    s := config.Current()
-    maxOps := 100
-    if s isnt empty and s.MaxBatchOperations > 0
-        maxOps = s.MaxBatchOperations
-    if len(opsList) > maxOps
-        httphelper.JSONBadRequest(w, "operations exceeds limit") onerr discard
-        return
-    ops := empty list of map of string to any
-    for item in opsList
-        m, mok := item.(map of string to any)
-        if not mok
-            httphelper.JSONBadRequest(w, "each operation must be an object") onerr discard
-            return
-        ops = append(ops, m)
-    checkRequired := true
-    if v, vok := body["check_required_fields"]; vok
-        if b, bok := v.(bool); bok
-            checkRequired = b
-    results, successful, failed := batchsvc.ExecuteOperations(ops, checkRequired)
-    status := "success"
-    if failed > 0
-        status = "partial"
-    log.Info("Batch operations: {successful} ok, {failed} failed")
-    httphelper.JSON(w, map of string to any{
-        "status": status,
-        "results": results,
-        "successful": successful,
-        "failed": failed,
-    }) onerr discard
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("POST /api/batch/operations", executeOps)

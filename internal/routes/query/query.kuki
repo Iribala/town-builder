@@ -65,7 +65,7 @@ func nearest(w: http.ResponseWriter, r: reference http.Request)
     hasMaxDist := false
     maxDist := 0.0
     if v, vok := body["max_distance"]; vok and not cast.IsNil(v)
-        if f, fok := v.(float64); fok
+        if v is float64 as f
             hasMaxDist = true
             maxDist = f
     results := querysvc.SpatialQueryNearest(
@@ -87,9 +87,9 @@ func advanced(w: http.ResponseWriter, r: reference http.Request)
         return
     filters := empty list of map of string to any
     if v, vok := body["filters"]; vok
-        if arr, aok := v.(list of any); aok
+        if v is list of any as arr
             for item in arr
-                if mm, mok := item.(map of string to any); mok
+                if item is map of string to any as mm
                     filters = append(filters, mm)
     sortOrder := mapx.Str(body, "sort_order")
     if sortOrder equals ""

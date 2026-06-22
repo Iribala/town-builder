@@ -60,25 +60,22 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
         updated := false
         v, vok := townData[category]
         if vok
-            arr, aok := v.(list of any)
-            if aok
+            if v is list of any as arr
                 for i from 0 to len(arr)
-                    entry, eok := arr[i].(map of string to any)
-                    if not eok
-                        continue
-                    if mapx.Str(entry, "id") equals modelID
-                        entry["driver"] = driver
-                        arr[i] = entry
-                        townData[category] = arr
-                        updated = true
-                        town_helpers.SaveAndBroadcast(townData, map of string to any{
-                            "type": "driver",
-                            "category": category,
-                            "id": modelID,
-                            "driver": driver,
-                        }) onerr discard
-                        log.Info("Updated driver for {category} id={modelID} to {driver}")
-                        break
+                    if arr[i] is map of string to any as entry
+                        if mapx.Str(entry, "id") equals modelID
+                            entry["driver"] = driver
+                            arr[i] = entry
+                            townData[category] = arr
+                            updated = true
+                            town_helpers.SaveAndBroadcast(townData, map of string to any{
+                                "type": "driver",
+                                "category": category,
+                                "id": modelID,
+                                "driver": driver,
+                            }) onerr discard
+                            log.Info("Updated driver for {category} id={modelID} to {driver}")
+                            break
         if not updated
             httphelper.JSONNotFound(w, "Model not found") onerr discard
             return
@@ -152,7 +149,7 @@ func saveTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request
         townID = v
     if not cast.IsNil(townID)
         idInt := 0
-        if f, fok := townID.(float64); fok
+        if townID is float64 as f
             idInt = f as int
         _, derr := django_client.UpdateTown(idInt, payload, canonical, townName)
         if derr isnt empty
@@ -163,7 +160,7 @@ func saveTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request
     else
         searchName := townName
         if searchName equals ""
-            if m, mok := rawData.(map of string to any); mok
+            if rawData is map of string to any as m
                 searchName = mapx.Str(m, "townName")
                 if searchName equals ""
                     searchName = mapx.Str(m, "name")
@@ -304,65 +301,60 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
     if not vok
         httphelper.JSONNotFound(w, "Model not found") onerr discard
         return
-    arr, aok := v.(list of any)
-    if not aok
-        httphelper.JSONNotFound(w, "Model not found") onerr discard
-        return
-    if modelID isnt ""
+    if v is list of any as arr
+        if modelID isnt ""
+            for i from 0 to len(arr)
+                if arr[i] is map of string to any as entry
+                    if mapx.Str(entry, "id") equals modelID
+                        newArr := empty list of any
+                        for j from 0 to len(arr)
+                            if j isnt i
+                                newArr = append(newArr, arr[j])
+                        townData[category] = newArr
+                        town_helpers.SaveAndBroadcast(townData, map of string to any{
+                            "type": "delete",
+                            "category": category,
+                            "id": modelID,
+                        }) onerr discard
+                        httphelper.JSON(w, map of string to any{
+                            "status": "success",
+                            "message": "Deleted model with ID {modelID}",
+                        }) onerr discard
+                        return
+            httphelper.JSONNotFound(w, "Model not found") onerr discard
+            return
+        closestIdx := -1
+        closestDist := 1e308
         for i from 0 to len(arr)
-            entry, eok := arr[i].(map of string to any)
-            if not eok
-                continue
-            if mapx.Str(entry, "id") equals modelID
-                newArr := empty list of any
-                for j from 0 to len(arr)
-                    if j isnt i
-                        newArr = append(newArr, arr[j])
-                townData[category] = newArr
-                town_helpers.SaveAndBroadcast(townData, map of string to any{
-                    "type": "delete",
-                    "category": category,
-                    "id": modelID,
-                }) onerr discard
-                httphelper.JSON(w, map of string to any{
-                    "status": "success",
-                    "message": "Deleted model with ID {modelID}",
-                }) onerr discard
-                return
-        httphelper.JSONNotFound(w, "Model not found") onerr discard
-        return
-    closestIdx := -1
-    closestDist := 1e308
-    for i from 0 to len(arr)
-        entry, eok := arr[i].(map of string to any)
-        if not eok
-            continue
-        mp, _ := mapx.MapAt(entry, "position")
-        d := geometry.CalculateDistance(pos, mp)
-        if d < closestDist
-            closestDist = d
-            closestIdx = i
-    if closestIdx >= 0 and closestDist < geometry.DeleteProximityThreshold
-        deleted, _ := arr[closestIdx].(map of string to any)
-        newArr := empty list of any
-        for j from 0 to len(arr)
-            if j isnt closestIdx
-                newArr = append(newArr, arr[j])
-        townData[category] = newArr
-        town_helpers.SaveAndBroadcast(townData, map of string to any{
-            "type": "delete",
-            "category": category,
-            "position": pos,
-            "deleted_id": deleted["id"],
-        }) onerr discard
-        px := pos["x"]
-        py := pos["y"]
-        pz := pos["z"]
-        httphelper.JSON(w, map of string to any{
-            "status": "success",
-            "message": "Deleted model at position ({px}, {py}, {pz})",
-        }) onerr discard
-        return
+            if arr[i] is map of string to any as entry
+                mp, _v := mapx.MapAt(entry, "position")
+                d := geometry.CalculateDistance(pos, mp)
+                if d < closestDist
+                    closestDist = d
+                    closestIdx = i
+        if closestIdx >= 0 and closestDist < geometry.DeleteProximityThreshold
+            var deletedID any = ""
+            if arr[closestIdx] is map of string to any as del
+                deletedID = mapx.Str(del, "id")
+            newArr := empty list of any
+            for j from 0 to len(arr)
+                if j isnt closestIdx
+                    newArr = append(newArr, arr[j])
+            townData[category] = newArr
+            town_helpers.SaveAndBroadcast(townData, map of string to any{
+                "type": "delete",
+                "category": category,
+                "position": pos,
+                "deleted_id": deletedID,
+            }) onerr discard
+            px := pos["x"]
+            py := pos["y"]
+            pz := pos["z"]
+            httphelper.JSON(w, map of string to any{
+                "status": "success",
+                "message": "Deleted model at position ({px}, {py}, {pz})",
+            }) onerr discard
+            return
     httphelper.JSONNotFound(w, "Model not found") onerr discard
 
 func editModel(w: http.ResponseWriter, r: reference http.Request)
@@ -387,34 +379,29 @@ func editModel(w: http.ResponseWriter, r: reference http.Request)
     if not vok
         httphelper.JSONNotFound(w, "Model not found") onerr discard
         return
-    arr, aok := v.(list of any)
-    if not aok
-        httphelper.JSONNotFound(w, "Model not found") onerr discard
-        return
-    for i from 0 to len(arr)
-        entry, eok := arr[i].(map of string to any)
-        if not eok
-            continue
-        if mapx.Str(entry, "id") equals modelID
-            if pos, pok := mapx.MapAt(body, "position"); pok
-                entry["position"] = pos
-            if rot, rok := mapx.MapAt(body, "rotation"); rok
-                entry["rotation"] = rot
-            if scl, sok := mapx.MapAt(body, "scale"); sok
-                entry["scale"] = scl
-            arr[i] = entry
-            townData[category] = arr
-            town_helpers.SaveAndBroadcast(townData, map of string to any{
-                "type": "edit",
-                "category": category,
-                "id": modelID,
-                "data": entry,
-            }) onerr discard
-            httphelper.JSON(w, map of string to any{
-                "status": "success",
-                "message": "Updated model with ID {modelID}",
-            }) onerr discard
-            return
+    if v is list of any as arr
+        for i from 0 to len(arr)
+            if arr[i] is map of string to any as entry
+                if mapx.Str(entry, "id") equals modelID
+                    if pos, pok := mapx.MapAt(body, "position"); pok
+                        entry["position"] = pos
+                    if rot, rok := mapx.MapAt(body, "rotation"); rok
+                        entry["rotation"] = rot
+                    if scl, sok := mapx.MapAt(body, "scale"); sok
+                        entry["scale"] = scl
+                    arr[i] = entry
+                    townData[category] = arr
+                    town_helpers.SaveAndBroadcast(townData, map of string to any{
+                        "type": "edit",
+                        "category": category,
+                        "id": modelID,
+                        "data": entry,
+                    }) onerr discard
+                    httphelper.JSON(w, map of string to any{
+                        "status": "success",
+                        "message": "Updated model with ID {modelID}",
+                    }) onerr discard
+                    return
     httphelper.JSONNotFound(w, "Model not found") onerr discard
 
 func getConfig(w: http.ResponseWriter, r: reference http.Request)
@@ -433,8 +420,14 @@ func Register(mux: reference http.ServeMux)
         log.Error("Failed to open data directory: {h.initErr}")
     mux.HandleFunc("GET /api/town", getTown)
     mux.HandleFunc("POST /api/town", updateTown)
-    mux.HandleFunc("POST /api/town/save", h.saveTown)
-    mux.HandleFunc("POST /api/town/load", h.loadTown)
+    # Bind methods via typed lambdas — bare method values (h.saveTown) aren't
+    # resolved by the semantic checker, but method calls inside a lambda are.
+    mux.HandleFunc("POST /api/town/save", (w: http.ResponseWriter, r: reference http.Request) =>
+        h.saveTown(w, r)
+    )
+    mux.HandleFunc("POST /api/town/load", (w: http.ResponseWriter, r: reference http.Request) =>
+        h.loadTown(w, r)
+    )
     mux.HandleFunc(`GET /api/town/load-from-django/{id}`, loadFromDjango)
     mux.HandleFunc("DELETE /api/town/model", deleteModel)
     mux.HandleFunc("PUT /api/town/model", editModel)

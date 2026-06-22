@@ -66,10 +66,13 @@ func PrepareDjangoPayload(requestPayload: map of string to any, normalizedTownDa
 
     effectiveName := townName
     if effectiveName equals ""
-        if v, ok := currentLayoutData["townName"].(string); ok and v isnt ""
-            effectiveName = v
-        else if v, ok := currentLayoutData["name"].(string); ok and v isnt ""
-            effectiveName = v
+        if currentLayoutData["townName"] is string as v
+            if v isnt ""
+                effectiveName = v
+        if effectiveName equals ""
+            if currentLayoutData["name"] is string as v
+                if v isnt ""
+                    effectiveName = v
 
     if not isUpdate
         if effectiveName isnt ""
@@ -150,28 +153,28 @@ func SearchTownByName(townName: string) (int, bool, error)
     perr := json.ParseInto(raw, reference of parsedAny)
     if perr isnt empty
         return 0, false, perr
-    if arr, ok := parsedAny.(list of any); ok
+    if parsedAny is list of any as arr
         results = arr
-    else if data, ok := parsedAny.(map of string to any); ok
-        if arr, aok := data["results"].(list of any); aok
-            results = arr
+    else if parsedAny is map of string to any as data
+        if data["results"] is list of any as r
+            results = r
     if results equals empty or len(results) equals 0
         log.Info("No town found with name '{townName}'")
         return 0, false, empty
-    first, fok := results[0].(map of string to any)
-    if not fok
-        return 0, false, empty
-    idVal, idOk := first["id"]
-    if not idOk
-        return 0, false, empty
     townID := 0
-    switch idVal as v
-        when float64
-            townID = v as int
-        when int
-            townID = v
-        default
+    if results[0] is map of string to any as first
+        idVal, idOk := first["id"]
+        if not idOk
             return 0, false, empty
+        switch idVal as v
+            when float64
+                townID = v as int
+            when int
+                townID = v
+            default
+                return 0, false, empty
+    else
+        return 0, false, empty
 
     if len(results) > 1
         log.Warn(

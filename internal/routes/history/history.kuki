@@ -30,25 +30,25 @@ func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey:
     if not sok or cast.IsNil(sv)
         httphelper.JSONBadRequest(w, "Cannot {action}: no {stateKey}") onerr discard
         return false
-    state, mok := sv.(map of string to any)
-    if not mok
+    if sv is map of string to any as state
+        err := storage.Set(state)
+        if err isnt empty
+            httphelper.JSONError(w, "Failed to save state", 500) onerr discard
+            return false
+        pushBack(entry)
+        town_helpers.BroadcastSSE(evt.Full(state))
+        op := mapx.Str(entry, "operation")
+        log.Info("{action} operation: {op}")
+        httphelper.JSON(w, map of string to any{
+            "status": "success",
+            "message": "{pastTense} {op} operation",
+            "can_undo": histsvc.CanUndo(),
+            "can_redo": histsvc.CanRedo(),
+        }) onerr discard
+        return true
+    else
         httphelper.JSONBadRequest(w, "Cannot {action}: invalid {stateKey}") onerr discard
         return false
-    err := storage.Set(state)
-    if err isnt empty
-        httphelper.JSONError(w, "Failed to save state", 500) onerr discard
-        return false
-    pushBack(entry)
-    town_helpers.BroadcastSSE(evt.Full(state))
-    op := mapx.Str(entry, "operation")
-    log.Info("{action} operation: {op}")
-    httphelper.JSON(w, map of string to any{
-        "status": "success",
-        "message": "{pastTense} {op} operation",
-        "can_undo": histsvc.CanUndo(),
-        "can_redo": histsvc.CanRedo(),
-    }) onerr discard
-    return true
 
 func undo(w: http.ResponseWriter, r: reference http.Request)
     _, ok := common.CurrentUser(w, r)

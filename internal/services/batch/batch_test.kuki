@@ -62,11 +62,11 @@ func TestBatchCreateAddsObject(t: reference testing.T)
     results, ok, failed := batch.ExecuteOperations(ops, true)
     test.AssertEqual(t, ok, 1)
     test.AssertEqual(t, failed, 0)
-    success, _ := results[0]["success"].(bool)
-    test.AssertTrue(t, success)
+    if results[0]["success"] is bool as success
+        test.AssertTrue(t, success)
     data, _ := storage.Get()
-    vehicles, _ := data["vehicles"].(list of any)
-    test.AssertEqual(t, len(vehicles), 1)
+    if data["vehicles"] is list of any as vehicles
+        test.AssertEqual(t, len(vehicles), 1)
 
 func TestBatchCreateMissingCategoryFails(t: reference testing.T)
     setupBatch()
@@ -91,10 +91,10 @@ func TestBatchDeleteById(t: reference testing.T)
     _, ok, _ := batch.ExecuteOperations(ops, true)
     test.AssertEqual(t, ok, 1)
     data, _ := storage.Get()
-    buildings, _ := data["buildings"].(list of any)
-    test.AssertEqual(t, len(buildings), 1)
-    first, _ := buildings[0].(map of string to any)
-    test.AssertEqual(t, first["id"], "bld-2")
+    if data["buildings"] is list of any as buildings
+        test.AssertEqual(t, len(buildings), 1)
+        if buildings[0] is map of string to any as first
+            test.AssertEqual(t, first["id"], "bld-2")
 
 func TestBatchDeleteNonexistentFails(t: reference testing.T)
     setupBatch()
@@ -121,10 +121,10 @@ func TestBatchEditPosition(t: reference testing.T)
     _, ok, _ := batch.ExecuteOperations(ops, true)
     test.AssertEqual(t, ok, 1)
     data, _ := storage.Get()
-    buildings, _ := data["buildings"].(list of any)
-    first, _ := buildings[0].(map of string to any)
-    pos, _ := first["position"].(map of string to any)
-    test.AssertEqual(t, pos["x"], 99.0)
+    if data["buildings"] is list of any as buildings
+        if buildings[0] is map of string to any as first
+            if first["position"] is map of string to any as pos
+                test.AssertEqual(t, pos["x"], 99.0)
 
 func TestBatchUnknownOpFails(t: reference testing.T)
     setupBatch()

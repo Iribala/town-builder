@@ -63,62 +63,62 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
     w.Header().Set("Content-Type", "text/event-stream")
     w.Header().Set("Cache-Control", "no-cache")
     w.Header().Set("Connection", "keep-alive")
-    flusher, ok := w.(http.Flusher)
-    if not ok
+
+    if w is http.Flusher as flusher
+        if playerName isnt "" and not pubsub.CanConnect(playerName)
+            writeEventMap(w, flusher, map of string to any{
+                "type": "error",
+                "message": "Connection limit reached",
+            })
+            return
+        defer pubsub.Disconnect(playerName)
+
+        if playerName isnt ""
+            broadcastUsers()
+
+        townData, terr := storage.Get()
+        if terr equals empty
+            writeEventMap(w, flusher, evt.Full(townData))
+        writeEventMap(w, flusher, map of string to any{
+            "type": "users",
+            "users": pubsub.OnlineUsers(),
+        })
+
+        msgs, cancelSub := pubsub.Subscribe()
+        if cancelSub isnt empty
+            defer cancelSub()
+            log.Info("SSE client subscribed to pubsub: {playerName}")
+        else
+            log.Warn("Redis unavailable for SSE; running in keepalive-only mode")
+
+        keepaliveInterval := 10.0
+        if s isnt empty
+            keepaliveInterval = s.SseKeepaliveInterval
+        ticker := time.NewTicker(time.Duration((keepaliveInterval * 1_000_000_000.0) as int64))
+        defer ticker.Stop()
+
+        ctxDone := r.Context().Done()
+
+        for true
+            select
+                when receive from ctxDone
+                    log.Info("SSE client disconnected: {playerName}")
+                    if playerName isnt ""
+                        broadcastUsers()
+                    return
+                when payload := receive from msgs
+                    if not writeRaw(w, flusher, "data: {payload}\n\n")
+                        return
+                    pubsub.Touch(playerName)
+                when receive from ticker.C
+                    pubsub.Touch(playerName)
+                    if playerName isnt ""
+                        broadcastUsers()
+                    if not writeRaw(w, flusher, ": keepalive\n\n")
+                        return
+    else
         httphelper.JSONError(w, "streaming unsupported", 500) onerr discard
         return
-
-    if playerName isnt "" and not pubsub.CanConnect(playerName)
-        writeEventMap(w, flusher, map of string to any{
-            "type": "error",
-            "message": "Connection limit reached",
-        })
-        return
-    defer pubsub.Disconnect(playerName)
-
-    if playerName isnt ""
-        broadcastUsers()
-
-    townData, terr := storage.Get()
-    if terr equals empty
-        writeEventMap(w, flusher, evt.Full(townData))
-    writeEventMap(w, flusher, map of string to any{
-        "type": "users",
-        "users": pubsub.OnlineUsers(),
-    })
-
-    msgs, cancelSub := pubsub.Subscribe()
-    if cancelSub isnt empty
-        defer cancelSub()
-        log.Info("SSE client subscribed to pubsub: {playerName}")
-    else
-        log.Warn("Redis unavailable for SSE; running in keepalive-only mode")
-
-    keepaliveInterval := 10.0
-    if s isnt empty
-        keepaliveInterval = s.SseKeepaliveInterval
-    ticker := time.NewTicker(time.Duration((keepaliveInterval * 1_000_000_000.0) as int64))
-    defer ticker.Stop()
-
-    ctxDone := r.Context().Done()
-
-    for true
-        select
-            when receive from ctxDone
-                log.Info("SSE client disconnected: {playerName}")
-                if playerName isnt ""
-                    broadcastUsers()
-                return
-            when payload := receive from msgs
-                if not writeRaw(w, flusher, "data: {payload}\n\n")
-                    return
-                pubsub.Touch(playerName)
-            when receive from ticker.C
-                pubsub.Touch(playerName)
-                if playerName isnt ""
-                    broadcastUsers()
-                if not writeRaw(w, flusher, ": keepalive\n\n")
-                    return
 
 func Register(mux: reference http.ServeMux)
     mux.HandleFunc("GET /events", sse)

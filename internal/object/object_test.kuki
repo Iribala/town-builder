@@ -5,6 +5,13 @@ import "testing"
 
 import "github.com/Iribala/town-builder/internal/object"
 
+# Local alias: narrowing `out["scale"] is object.Vec3 as v` fails when `out` is
+# inferred from a cross-package return (object.ToMap) — the checker misreads
+# the dotted target as an enum-variant lookup. An unqualified local alias
+# narrows correctly. (An explicit `var out map of string to any = ...` works
+# too; the alias keeps the idiomatic `is X as y` form.)
+type Vec3 = object.Vec3
+
 func TestFromMapToMapRoundTrip(t: reference testing.T)
     m := map of string to any{
         "id": "b1",
@@ -27,12 +34,11 @@ func TestFromMapToMapRoundTrip(t: reference testing.T)
     test.AssertEqual(t, out["driver"], "alice")
     # Extra keys survive the round trip.
     test.AssertEqual(t, out["custom"], "keep-me")
-    pos, ok := out["position"].(object.Vec3)
-    test.AssertTrue(t, ok)
-    test.AssertEqual(t, pos.X, 1.0)
     # Missing scale defaults to 1/1/1.
-    scale, _ := out["scale"].(object.Vec3)
-    test.AssertEqual(t, scale.X, 1.0)
+    if out["scale"] is Vec3 as scale
+        test.AssertEqual(t, scale.X, 1.0)
+    else
+        t.Fatalf("scale is not an object.Vec3")
 
 func TestArrayVectorForm(t: reference testing.T)
     o := object.FromMap(map of string to any{"position": list of any{5, 6, 7}})

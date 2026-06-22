@@ -11,6 +11,7 @@ import "github.com/Iribala/town-builder/internal/routes/router"
 import "github.com/Iribala/town-builder/internal/storage"
 
 func main()
+    config.LoadEnvFile(".env")
     s, err := config.Load()
     if err isnt empty
         log.Fatal("Failed to load config: {err}")

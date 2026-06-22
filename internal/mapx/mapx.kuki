@@ -10,7 +10,7 @@ import "stdlib/cast"
 # Str returns m[key] as a string, or "" when absent or not a string.
 func Str(m: map of string to any, key: string) string
     if v, ok := m[key]; ok
-        if s, sok := v.(string); sok
+        if v is string as s
             return s
     return ""
 
@@ -23,7 +23,7 @@ func Has(m: map of string to any, key: string) bool
 # absent, nil, or not a map.
 func MapAt(m: map of string to any, key: string) (map of string to any, bool)
     if v, ok := m[key]; ok and not cast.IsNil(v)
-        if mm, mok := v.(map of string to any); mok
+        if v is map of string to any as mm
             return mm, true
     return empty, false
 
@@ -35,7 +35,7 @@ func MapOr(m: map of string to any, key: string) map of string to any
 # ListOr returns m[key] as a list, or an empty list when absent/not a list.
 func ListOr(m: map of string to any, key: string) list of any
     if v, ok := m[key]; ok
-        if arr, aok := v.(list of any); aok
+        if v is list of any as arr
             return arr
     return empty list of any
 
@@ -61,10 +61,12 @@ func IntAt(m: map of string to any, key: string, def: int) int
 
 # AsMap type-asserts an any value to a map.
 func AsMap(v: any) (map of string to any, bool)
-    m, ok := v.(map of string to any)
-    return m, ok
+    if v is map of string to any as m
+        return m, true
+    return empty, false
 
 # AsList type-asserts an any value to a list.
 func AsList(v: any) (list of any, bool)
-    arr, ok := v.(list of any)
-    return arr, ok
+    if v is list of any as arr
+        return arr, true
+    return empty list of any, false

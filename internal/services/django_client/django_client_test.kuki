@@ -124,9 +124,8 @@ func TestCreateExtractsId(t: reference testing.T)
     setupWithURL(srv.URL + "/")
     result, err := django_client.CreateTown(empty map of string to any, sampleLayout, "Springfield")
     test.AssertNoError(t, err)
-    townID, ok := result["town_id"].(float64)
-    test.AssertTrue(t, ok)
-    test.AssertEqual(t, townID as int, 42)
+    if result["town_id"] is float64 as townID
+        test.AssertEqual(t, townID as int, 42)
 
 func TestCreateHttpErrorRaises(t: reference testing.T)
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)

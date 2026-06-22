@@ -224,7 +224,9 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
 
     for op in operations
         result := executeSingle(townData, op, validate)
-        success, _ := result["success"].(bool)
+        var success bool
+        if result["success"] is bool as s
+            success = s
         if success
             successful = successful + 1
         else

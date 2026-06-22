@@ -33,15 +33,11 @@ func findBuilding(townData: map of string to any, buildingID: string) (string, m
         v, ok := townData[category]
         if not ok
             continue
-        arr, aok := v.(list of any)
-        if not aok
-            continue
-        for i from 0 to len(arr)
-            entry, eok := arr[i].(map of string to any)
-            if not eok
-                continue
-            if mapx.Str(entry, "id") equals buildingID
-                return category, entry, i
+        if v is list of any as arr
+            for i from 0 to len(arr)
+                if arr[i] is map of string to any as entry
+                    if mapx.Str(entry, "id") equals buildingID
+                        return category, entry, i
     return "", empty, -1
 
 func newID() string
@@ -117,12 +113,10 @@ func list(w: http.ResponseWriter, r: reference http.Request)
         v, vok := townData[c]
         if not vok
             continue
-        arr, aok := v.(list of any)
-        if not aok
-            continue
-        for item in arr
-            if mm, mok := item.(map of string to any); mok
-                out = append(out, response(mm, c))
+        if v is list of any as arr
+            for item in arr
+                if item is map of string to any as mm
+                    out = append(out, response(mm, c))
     log.Info("Listed {len(out)} buildings")
     httphelper.JSON(w, out) onerr discard
 
@@ -160,7 +154,9 @@ func update(w: http.ResponseWriter, r: reference http.Request)
         httphelper.JSONNotFound(w, "Building with ID {id} not found") onerr discard
         return
     arr := categoryList(townData, cat)
-    current, _ := arr[idx].(map of string to any)
+    # b is the building entry findBuilding located at idx (arr[idx] is the
+    # same map reference); use it directly so current stays a typed map.
+    current := b
     if pos, pok := mapx.MapAt(body, "position"); pok
         current["position"] = pos
     if rot, rok := mapx.MapAt(body, "rotation"); rok

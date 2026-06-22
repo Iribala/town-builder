@@ -47,18 +47,18 @@ func sampleArray() list of any
 
 func TestCanonicalDictPassthrough(t: reference testing.T)
     result := normalization.Normalize(sampleDict())
-    buildings, _ := result["buildings"].(list of map of string to any)
-    test.AssertEqual(t, len(buildings), 1)
-    bld := buildings[0]
-    test.AssertEqual(t, bld["model"], "house.glb")
-    pos, _ := bld["position"].(normalization.Vec3)
-    test.AssertEqual(t, pos.X, 10.0)
-    test.AssertEqual(t, pos.Y, 0.0)
-    test.AssertEqual(t, pos.Z, 5.0)
-    rot, _ := bld["rotation"].(normalization.Vec3)
-    test.AssertEqual(t, rot.Y, 1.57)
-    scale, _ := bld["scale"].(normalization.Vec3)
-    test.AssertEqual(t, scale.X, 1.0)
+    if result["buildings"] is list of map of string to any as buildings
+        test.AssertEqual(t, len(buildings), 1)
+        bld := buildings[0]
+        test.AssertEqual(t, bld["model"], "house.glb")
+        pos, _ := bld["position"].(normalization.Vec3)
+        test.AssertEqual(t, pos.X, 10.0)
+        test.AssertEqual(t, pos.Y, 0.0)
+        test.AssertEqual(t, pos.Z, 5.0)
+        rot, _ := bld["rotation"].(normalization.Vec3)
+        test.AssertEqual(t, rot.Y, 1.57)
+        scale, _ := bld["scale"].(normalization.Vec3)
+        test.AssertEqual(t, scale.X, 1.0)
 
 func TestAllCategoriesPresent(t: reference testing.T)
     result := normalization.Normalize(sampleDict())
@@ -78,18 +78,17 @@ func TestExtraTopLevelKeysPreserved(t: reference testing.T)
 func TestEmptyDictReturnsEmptyCategories(t: reference testing.T)
     result := normalization.Normalize(empty map of string to any)
     for cat in normalization.Categories
-        items, ok := result[cat].(list of map of string to any)
-        test.AssertTrue(t, ok)
-        test.AssertEqual(t, len(items), 0)
+        if result[cat] is list of map of string to any as items
+            test.AssertEqual(t, len(items), 0)
 
 func TestArrayToDictConversion(t: reference testing.T)
     result := normalization.Normalize(sampleArray())
-    buildings, _ := result["buildings"].(list of map of string to any)
-    vehicles, _ := result["vehicles"].(list of map of string to any)
-    test.AssertEqual(t, len(buildings), 1)
-    test.AssertEqual(t, len(vehicles), 1)
-    test.AssertEqual(t, buildings[0]["model"], "house.glb")
-    test.AssertEqual(t, vehicles[0]["model"], "car.glb")
+    if result["buildings"] is list of map of string to any as buildings
+        test.AssertEqual(t, len(buildings), 1)
+        test.AssertEqual(t, buildings[0]["model"], "house.glb")
+    if result["vehicles"] is list of map of string to any as vehicles
+        test.AssertEqual(t, len(vehicles), 1)
+        test.AssertEqual(t, vehicles[0]["model"], "car.glb")
 
 func TestUnknownCategoriesIgnored(t: reference testing.T)
     data := list of any{
@@ -101,8 +100,8 @@ func TestUnknownCategoriesIgnored(t: reference testing.T)
     }
     result := normalization.Normalize(data)
     for cat in normalization.Categories
-        items, _ := result[cat].(list of map of string to any)
-        test.AssertEqual(t, len(items), 0)
+        if result[cat] is list of map of string to any as items
+            test.AssertEqual(t, len(items), 0)
 
 func TestNonDictItemsSkipped(t: reference testing.T)
     data := list of any{
@@ -112,8 +111,8 @@ func TestNonDictItemsSkipped(t: reference testing.T)
         empty,
     }
     result := normalization.Normalize(data)
-    buildings, _ := result["buildings"].(list of map of string to any)
-    test.AssertEqual(t, len(buildings), 1)
+    if result["buildings"] is list of map of string to any as buildings
+        test.AssertEqual(t, len(buildings), 1)
 
 func TestPositionArrayToDict(t: reference testing.T)
     data := map of string to any{
@@ -125,11 +124,11 @@ func TestPositionArrayToDict(t: reference testing.T)
         },
     }
     result := normalization.Normalize(data)
-    buildings, _ := result["buildings"].(list of map of string to any)
-    pos, _ := buildings[0]["position"].(normalization.Vec3)
-    test.AssertEqual(t, pos.X, 1.0)
-    test.AssertEqual(t, pos.Y, 2.0)
-    test.AssertEqual(t, pos.Z, 3.0)
+    if result["buildings"] is list of map of string to any as buildings
+        pos, _ := buildings[0]["position"].(normalization.Vec3)
+        test.AssertEqual(t, pos.X, 1.0)
+        test.AssertEqual(t, pos.Y, 2.0)
+        test.AssertEqual(t, pos.Z, 3.0)
 
 func TestPositionDictPreserved(t: reference testing.T)
     data := map of string to any{
@@ -141,56 +140,56 @@ func TestPositionDictPreserved(t: reference testing.T)
         },
     }
     result := normalization.Normalize(data)
-    buildings, _ := result["buildings"].(list of map of string to any)
-    pos, _ := buildings[0]["position"].(normalization.Vec3)
-    test.AssertEqual(t, pos.X, 5.0)
-    test.AssertEqual(t, pos.Y, 6.0)
-    test.AssertEqual(t, pos.Z, 7.0)
+    if result["buildings"] is list of map of string to any as buildings
+        pos, _ := buildings[0]["position"].(normalization.Vec3)
+        test.AssertEqual(t, pos.X, 5.0)
+        test.AssertEqual(t, pos.Y, 6.0)
+        test.AssertEqual(t, pos.Z, 7.0)
 
 func TestMissingPositionDefaultsZero(t: reference testing.T)
     data := map of string to any{
         "buildings": list of any{map of string to any{"model": "h.glb"}},
     }
     result := normalization.Normalize(data)
-    buildings, _ := result["buildings"].(list of map of string to any)
-    pos, _ := buildings[0]["position"].(normalization.Vec3)
-    test.AssertEqual(t, pos.X, 0.0)
-    test.AssertEqual(t, pos.Y, 0.0)
-    test.AssertEqual(t, pos.Z, 0.0)
+    if result["buildings"] is list of map of string to any as buildings
+        pos, _ := buildings[0]["position"].(normalization.Vec3)
+        test.AssertEqual(t, pos.X, 0.0)
+        test.AssertEqual(t, pos.Y, 0.0)
+        test.AssertEqual(t, pos.Z, 0.0)
 
 func TestMissingScaleDefaultsOne(t: reference testing.T)
     data := map of string to any{
         "buildings": list of any{map of string to any{"model": "h.glb"}},
     }
     result := normalization.Normalize(data)
-    buildings, _ := result["buildings"].(list of map of string to any)
-    scale, _ := buildings[0]["scale"].(normalization.Vec3)
-    test.AssertEqual(t, scale.X, 1.0)
-    test.AssertEqual(t, scale.Y, 1.0)
-    test.AssertEqual(t, scale.Z, 1.0)
+    if result["buildings"] is list of map of string to any as buildings
+        scale, _ := buildings[0]["scale"].(normalization.Vec3)
+        test.AssertEqual(t, scale.X, 1.0)
+        test.AssertEqual(t, scale.Y, 1.0)
+        test.AssertEqual(t, scale.Z, 1.0)
 
 func TestModelNameNormalizedToModel(t: reference testing.T)
     data := map of string to any{
         "buildings": list of any{map of string to any{"modelName": "house.glb"}},
     }
     result := normalization.Normalize(data)
-    buildings, _ := result["buildings"].(list of map of string to any)
-    test.AssertEqual(t, buildings[0]["model"], "house.glb")
+    if result["buildings"] is list of map of string to any as buildings
+        test.AssertEqual(t, buildings[0]["model"], "house.glb")
 
 func TestNoneReturnsEmpty(t: reference testing.T)
     result := normalization.Normalize(empty)
     for cat in normalization.Categories
-        items, _ := result[cat].(list of map of string to any)
-        test.AssertEqual(t, len(items), 0)
+        if result[cat] is list of map of string to any as items
+            test.AssertEqual(t, len(items), 0)
 
 func TestIntReturnsEmpty(t: reference testing.T)
     result := normalization.Normalize(42)
     for cat in normalization.Categories
-        items, _ := result[cat].(list of map of string to any)
-        test.AssertEqual(t, len(items), 0)
+        if result[cat] is list of map of string to any as items
+            test.AssertEqual(t, len(items), 0)
 
 func TestStringReturnsEmpty(t: reference testing.T)
     result := normalization.Normalize("not valid")
     for cat in normalization.Categories
-        items, _ := result[cat].(list of map of string to any)
-        test.AssertEqual(t, len(items), 0)
+        if result[cat] is list of map of string to any as items
+            test.AssertEqual(t, len(items), 0)

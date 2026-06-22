@@ -38,7 +38,7 @@ func stats(w: http.ResponseWriter, r: reference http.Request)
     for cat in normalization.Categories
         n := 0
         if v, vok := data[cat]; vok
-            if arr, aok := v.(list of any); aok
+            if v is list of any as arr
                 n = len(arr)
         out[cat] = n
         total = total + n

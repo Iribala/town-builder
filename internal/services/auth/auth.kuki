@@ -31,16 +31,19 @@ func VerifyTokenString(token: string) (reference UserInfo, error)
         return empty, error "Invalid authentication credentials"
     if not parsed.Valid
         return empty, error "Invalid authentication credentials"
-    claims, ok := parsed.Claims.(jwtpkg.MapClaims)
-    if not ok
+    claims := empty jwtpkg.MapClaims
+    if parsed.Claims is jwtpkg.MapClaims as c
+        claims = c
+    else
         return empty, error "Invalid authentication credentials"
     payload := claims as map of string to any
     username := ""
     for key in list of string{"username", "sub"}
         if v, vok := payload[key]; vok
-            if str, sok := v.(string); sok and str isnt ""
-                username = str
-                break
+            if v is string as str
+                if str isnt ""
+                    username = str
+                    break
     if username equals ""
         return empty, error "Invalid authentication credentials"
     return reference of UserInfo{Username: username, Payload: payload}, empty
