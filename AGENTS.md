@@ -50,8 +50,9 @@ Town data arrives in two shapes (map-of-categories or list-of-objects). Always p
 After editing any `.kuki` file, brew the `.go` next to it (see `docs/plans/kukicha-port.md` "Build pipeline" section).
 
 ### Configuration
-`internal/config/config.kuki` exposes settings loaded from `.env`. Key variables:
+`internal/config/config.kuki` reads settings from the process environment via `env.GetOr`/`env.GetBoolOrDefault` (`os.Getenv` under the hood). The server loads `.env` at startup: `cmd/server/main()` calls `config.LoadEnvFile(".env")` before `config.Load()`. The loader parses `KEY=VALUE` lines (skips `#` comments/blank lines, strips surrounding quotes, splits on the first `=`) and `os.Setenv`s each — **without overriding variables already in the environment** (shell/container wins; `.env` only fills gaps, like `godotenv.Load`). So real env vars (e.g. Kubernetes-injected secrets) always take precedence. `config.Load()` itself stays a pure reader so `config.SetForTest` tests are unaffected. Key variables:
 - `DISABLE_JWT_AUTH=true` – bypass auth in development/tests.
+- `JWT_SECRET_KEY` – required when `DISABLE_JWT_AUTH` is not `true` (the server FATALs otherwise).
 - `ALLOWED_ORIGINS` – comma-separated CORS origins; defaults to localhost in development if empty.
 - `ROOT_PATH` – reverse-proxy path prefix for template URL generation.
 
@@ -72,7 +73,6 @@ The physics module outputs to `static/wasm/physics_greentea.wasm` (not `physics.
 
 ## Writing Kukicha
 
-Detailed Kukicha reference (syntax, stdlib, compiler-enforced security checks, gotchas) lives in the `kukicha` skill at `.claude/skills/kukicha/SKILL.md`. It is auto-loaded when you edit `.kuki` files or use kukicha tooling.
+Detailed Kukicha reference (syntax, stdlib, compiler-enforced security checks, gotchas) lives in the `kukicha` skill at `.agents/skills/kukicha/SKILL.md`. It is auto-loaded when you edit `.kuki` files or use kukicha tooling.
 
 `kukicha init` recreates this section if regenerated — leave the skill as the source of truth and replace the regenerated block with this pointer if it returns.
-

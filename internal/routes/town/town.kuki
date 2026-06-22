@@ -420,14 +420,8 @@ func Register(mux: reference http.ServeMux)
         log.Error("Failed to open data directory: {h.initErr}")
     mux.HandleFunc("GET /api/town", getTown)
     mux.HandleFunc("POST /api/town", updateTown)
-    # Bind methods via typed lambdas — bare method values (h.saveTown) aren't
-    # resolved by the semantic checker, but method calls inside a lambda are.
-    mux.HandleFunc("POST /api/town/save", (w: http.ResponseWriter, r: reference http.Request) =>
-        h.saveTown(w, r)
-    )
-    mux.HandleFunc("POST /api/town/load", (w: http.ResponseWriter, r: reference http.Request) =>
-        h.loadTown(w, r)
-    )
+    mux.HandleFunc("POST /api/town/save", h.saveTown)
+    mux.HandleFunc("POST /api/town/load", h.loadTown)
     mux.HandleFunc(`GET /api/town/load-from-django/{id}`, loadFromDjango)
     mux.HandleFunc("DELETE /api/town/model", deleteModel)
     mux.HandleFunc("PUT /api/town/model", editModel)
