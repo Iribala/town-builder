@@ -498,4 +498,5 @@ func registerCallbacks()
 func main()
     registerCallbacks()
     print("Physics WASM module loaded")
-    select{}
+    ch := make(channel of bool)
+    receive from ch
