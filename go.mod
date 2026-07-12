@@ -1,6 +1,6 @@
 module github.com/Iribala/town-builder
 
-go 1.26.4
+go 1.27rc2
 
 // This module leverages Go 1.26 features:
 // - Swiss Tables: 30-60% faster map operations
@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	codeberg.org/kukichalang/kukicha/stdlib v0.56.4
+	codeberg.org/kukichalang/kukicha/stdlib v0.59.1
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	golang.org/x/text v0.37.0 // indirect
