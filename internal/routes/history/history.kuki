@@ -12,34 +12,34 @@ import "github.com/Iribala/town-builder/internal/services/history" as histsvc
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
 
-func getHistory(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func getHistory(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    limit := httphelper.GetQueryIntOr(r, "limit", 50)
+    limit := request.GetQueryIntOr("limit", 50)
     entries := histsvc.GetHistory(limit)
-    httphelper.JSON(w, map of string to any{
+    response.JSON(map of string to any{
         "status": "success",
         "history": entries,
         "can_undo": histsvc.CanUndo(),
         "can_redo": histsvc.CanRedo(),
     }) onerr discard
 
-func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey: string, action: string, pastTense: string, pushBack: func(map of string to any)) bool
+func restoreState(response: httphelper.Response, entry: map of string to any, stateKey: string, action: string, pastTense: string, pushBack: func(map of string to any)) bool
     sv, sok := entry[stateKey]
     if not sok or cast.IsNil(sv)
-        httphelper.JSONBadRequest(w, "Cannot {action}: no {stateKey}") onerr discard
+        response.JSONBadRequest("Cannot {action}: no {stateKey}") onerr discard
         return false
     if sv is map of string to any as state
         err := storage.Set(state)
         if err isnt empty
-            httphelper.JSONError(w, "Failed to save state", 500) onerr discard
+            response.JSONError("Failed to save state", 500) onerr discard
             return false
         pushBack(entry)
         town_helpers.BroadcastSSE(evt.Full(state))
         op := mapx.Str(entry, "operation")
         log.Info("{action} operation: {op}")
-        httphelper.JSON(w, map of string to any{
+        response.JSON(map of string to any{
             "status": "success",
             "message": "{pastTense} {op} operation",
             "can_undo": histsvc.CanUndo(),
@@ -47,21 +47,21 @@ func restoreState(w: http.ResponseWriter, entry: map of string to any, stateKey:
         }) onerr discard
         return true
     else
-        httphelper.JSONBadRequest(w, "Cannot {action}: invalid {stateKey}") onerr discard
+        response.JSONBadRequest("Cannot {action}: invalid {stateKey}") onerr discard
         return false
 
-func undo(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func undo(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     if not histsvc.CanUndo()
-        httphelper.JSONBadRequest(w, "Nothing to undo") onerr discard
+        response.JSONBadRequest("Nothing to undo") onerr discard
         return
     entry, eok := histsvc.PopLastEntry()
     if not eok
-        httphelper.JSONBadRequest(w, "Failed to get last operation") onerr discard
+        response.JSONBadRequest("Failed to get last operation") onerr discard
         return
-    restoreState(w, entry, "before_state", "undo", "Undid", histsvc.PushRedoEntry)
+    restoreState(response, entry, "before_state", "undo", "Undid", histsvc.PushRedoEntry)
 
 func redoPushBack(entry: map of string to any)
     histsvc.AddEntry(
@@ -72,28 +72,28 @@ func redoPushBack(entry: map of string to any)
         mapx.MapOr(entry, "after_state"),
     ) onerr discard
 
-func redo(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func redo(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     if not histsvc.CanRedo()
-        httphelper.JSONBadRequest(w, "Nothing to redo") onerr discard
+        response.JSONBadRequest("Nothing to redo") onerr discard
         return
     entry, eok := histsvc.PopRedoEntry()
     if not eok
-        httphelper.JSONBadRequest(w, "Failed to get redo operation") onerr discard
+        response.JSONBadRequest("Failed to get redo operation") onerr discard
         return
-    restoreState(w, entry, "after_state", "redo", "Redid", redoPushBack)
+    restoreState(response, entry, "after_state", "redo", "Redid", redoPushBack)
 
-func clearHist(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func clearHist(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     histsvc.ClearHistory()
-    httphelper.JSON(w, map of string to any{"status": "success", "message": "History cleared"}) onerr discard
+    response.JSON(map of string to any{"status": "success", "message": "History cleared"}) onerr discard
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /api/history", getHistory)
-    mux.HandleFunc("POST /api/history/undo", undo)
-    mux.HandleFunc("POST /api/history/redo", redo)
-    mux.HandleFunc("DELETE /api/history", clearHist)
+    mux.Handle("GET /api/history", httphelper.Handler(getHistory))
+    mux.Handle("POST /api/history/undo", httphelper.Handler(undo))
+    mux.Handle("POST /api/history/redo", httphelper.Handler(redo))
+    mux.Handle("DELETE /api/history", httphelper.Handler(clearHist))

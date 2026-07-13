@@ -8,18 +8,18 @@ import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/batch" as batchsvc
 
-func executeOps(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func executeOps(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     body := make(map of string to any)
-    err := httphelper.ReadJSON(r, reference of body)
+    err := request.ReadJSON(reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
+        response.JSONBadRequest("Invalid JSON body") onerr discard
         return
     opsRaw, opsOk := body["operations"]
     if not opsOk
-        httphelper.JSONBadRequest(w, "operations is required") onerr discard
+        response.JSONBadRequest("operations is required") onerr discard
         return
     if opsRaw is list of any as opsList
         s := config.Current()
@@ -27,14 +27,14 @@ func executeOps(w: http.ResponseWriter, r: reference http.Request)
         if s isnt empty and s.MaxBatchOperations > 0
             maxOps = s.MaxBatchOperations
         if len(opsList) > maxOps
-            httphelper.JSONBadRequest(w, "operations exceeds limit") onerr discard
+            response.JSONBadRequest("operations exceeds limit") onerr discard
             return
         ops := empty list of map of string to any
         for item in opsList
             if item is map of string to any as m
                 ops = append(ops, m)
             else
-                httphelper.JSONBadRequest(w, "each operation must be an object") onerr discard
+                response.JSONBadRequest("each operation must be an object") onerr discard
                 return
         checkRequired := true
         if v, vok := body["check_required_fields"]; vok
@@ -45,15 +45,15 @@ func executeOps(w: http.ResponseWriter, r: reference http.Request)
         if failed > 0
             status = "partial"
         log.Info("Batch operations: {successful} ok, {failed} failed")
-        httphelper.JSON(w, map of string to any{
+        response.JSON(map of string to any{
             "status": status,
             "results": results,
             "successful": successful,
             "failed": failed,
         }) onerr discard
     else
-        httphelper.JSONBadRequest(w, "operations must be a list") onerr discard
+        response.JSONBadRequest("operations must be a list") onerr discard
         return
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("POST /api/batch/operations", executeOps)
+    mux.Handle("POST /api/batch/operations", httphelper.Handler(executeOps))

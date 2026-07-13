@@ -9,25 +9,25 @@ import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/scene_description"
 import "github.com/Iribala/town-builder/internal/storage"
 
-func description(w: http.ResponseWriter, r: reference http.Request)
-    u, ok := common.CurrentUser(w, r)
+func description(response: httphelper.Response, request: httphelper.Request)
+    u, ok := common.CurrentUser(response, request)
     if not ok
         return
     data, err := storage.Get()
     if err isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
+        response.JSONError("Failed to load town data", 500) onerr discard
         return
     result := scene_description.GenerateSceneDescription(data)
     log.Info("Scene description requested by {u.Username}")
-    httphelper.JSON(w, map of string to any{"status": "success", "data": result}) onerr discard
+    response.JSON(map of string to any{"status": "success", "data": result}) onerr discard
 
-func stats(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func stats(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     data, err := storage.Get()
     if err isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
+        response.JSONError("Failed to load town data", 500) onerr discard
         return
     out := make(map of string to any)
     if name, nok := data["townName"]; nok
@@ -44,8 +44,8 @@ func stats(w: http.ResponseWriter, r: reference http.Request)
         total = total + n
     out["total"] = total
     log.Info("Scene stats requested: {total} total objects")
-    httphelper.JSON(w, map of string to any{"status": "success", "data": out}) onerr discard
+    response.JSON(map of string to any{"status": "success", "data": out}) onerr discard
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /api/scene/description", description)
-    mux.HandleFunc("GET /api/scene/stats", stats)
+    mux.Handle("GET /api/scene/description", httphelper.Handler(description))
+    mux.Handle("GET /api/scene/stats", httphelper.Handler(stats))

@@ -1,23 +1,22 @@
 petiole common
 
-import "net/http"
 import "stdlib/http" as httphelper
 import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/services/auth"
 
-func ExtractToken(r: reference http.Request) string
-    h := r.Header.Get("Authorization")
+func ExtractToken(request: httphelper.Request) string
+    h := request.GetHeader("Authorization")
     if h equals ""
         return ""
     if strpkg.HasPrefix(h, "Bearer ")
         return h[7:]
     return h
 
-func CurrentUser(w: http.ResponseWriter, r: reference http.Request) (reference auth.UserInfo, bool)
-    token := ExtractToken(r)
+func CurrentUser(response: httphelper.Response, request: httphelper.Request) (reference auth.UserInfo, bool)
+    token := ExtractToken(request)
     u, err := auth.GetCurrentUser(token)
     if err isnt empty
-        httphelper.JSONUnauthorized(w, "Not authenticated") onerr discard
+        response.JSONUnauthorized("Not authenticated") onerr discard
         return empty, false
     return u, true

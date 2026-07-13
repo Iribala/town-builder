@@ -11,35 +11,35 @@ import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/model_loader"
 import "github.com/Iribala/town-builder/internal/utils/security"
 
-func listModels(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func listModels(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    httphelper.JSON(w, model_loader.GetAvailableModels()) onerr discard
+    response.JSON(model_loader.GetAvailableModels()) onerr discard
 
-func getModel(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func getModel(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    category := r.PathValue("category")
-    modelName := r.PathValue("model_name")
+    category := request.PathValue("category")
+    modelName := request.PathValue("model_name")
     vc, vn, err := security.ValidateModelPath(category, modelName)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid model path") onerr discard
+        response.JSONBadRequest("Invalid model path") onerr discard
         return
     s := config.Current()
     if s equals empty
-        httphelper.JSONError(w, "config not loaded", 500) onerr discard
+        response.JSONError("config not loaded", 500) onerr discard
         return
     modelPath := filepath.Join(s.ModelsPath, vc, vn)
     if not urlpkg.IsSubpath(s.ModelsPath, modelPath)
-        httphelper.JSONBadRequest(w, "Invalid model path") onerr discard
+        response.JSONBadRequest("Invalid model path") onerr discard
         return
     _, statErr := os.Stat(modelPath)
     if statErr isnt empty
-        httphelper.JSONNotFound(w, "Model not found") onerr discard
+        response.JSONNotFound("Model not found") onerr discard
         return
-    info := r.URL.Query().Get("info")
+    info := request.URL().Query().Get("info")
     if info equals "1"
         # Minimal metadata (GLTF parsing deferred; Python used pygltflib).
         body := map of string to any{
@@ -47,14 +47,14 @@ func getModel(w: http.ResponseWriter, r: reference http.Request)
             "category": category,
             "has_bin": fileExists(modelPath[:len(modelPath) - len(filepath.Ext(modelPath))] + ".bin"),
         }
-        httphelper.JSON(w, body) onerr discard
+        response.JSON(body) onerr discard
         return
-    http.ServeFile(w, r, modelPath)
+    response.ServeFile(request, modelPath)
 
 func fileExists(path: string) bool
     _, err := os.Stat(path)
     return err equals empty
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /api/models", listModels)
-    mux.HandleFunc(`GET /api/model/{category}/{model_name}`, getModel)
+    mux.Handle("GET /api/models", httphelper.Handler(listModels))
+    mux.Handle(`GET /api/model/{category}/{model_name}`, httphelper.Handler(getModel))

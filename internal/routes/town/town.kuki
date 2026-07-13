@@ -20,28 +20,28 @@ import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
 import "github.com/Iribala/town-builder/internal/utils/security"
 
-func getTown(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func getTown(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     data, err := storage.Get()
     if err isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
+        response.JSONError("Failed to load town data", 500) onerr discard
         return
-    httphelper.JSON(w, data) onerr discard
+    response.JSON(data) onerr discard
 
-func updateTown(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func updateTown(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     data := make(map of string to any)
-    err := httphelper.ReadJSON(r, reference of data)
+    err := request.ReadJSON(reference of data)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
+        response.JSONBadRequest("Invalid JSON body") onerr discard
         return
     townData, gerr := storage.Get()
     if gerr isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
+        response.JSONError("Failed to load town data", 500) onerr discard
         return
     if mapx.Has(data, "townName") and len(data) equals 1
         name := mapx.Str(data, "townName")
@@ -51,7 +51,7 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
             map of string to any{"type": "name", "townName": name},
         ) onerr discard
         log.Info("Updated town name to: {name}")
-        httphelper.JSON(w, map of string to any{"status": "success"}) onerr discard
+        response.JSON(map of string to any{"status": "success"}) onerr discard
         return
     if mapx.Has(data, "driver") and mapx.Has(data, "id") and mapx.Has(data, "category")
         category := mapx.Str(data, "category")
@@ -77,13 +77,13 @@ func updateTown(w: http.ResponseWriter, r: reference http.Request)
                             log.Info("Updated driver for {category} id={modelID} to {driver}")
                             break
         if not updated
-            httphelper.JSONNotFound(w, "Model not found") onerr discard
+            response.JSONNotFound("Model not found") onerr discard
             return
-        httphelper.JSON(w, map of string to any{"status": "success"}) onerr discard
+        response.JSON(map of string to any{"status": "success"}) onerr discard
         return
     canonical := normalization.Normalize(data)
     town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical)) onerr discard
-    httphelper.JSON(w, map of string to any{"status": "success"}) onerr discard
+    response.JSON(map of string to any{"status": "success"}) onerr discard
 
 type townRouter
     root: sandbox.Root
@@ -102,21 +102,21 @@ func normalizeFilename(name: string) string
     base := strpkg.TrimSuffix(name, ".json")
     return base + ".json"
 
-func saveTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request)
+func saveTown on h: townRouter(response: httphelper.Response, request: httphelper.Request)
     if h.initErr isnt empty
-        httphelper.JSONError(w, "Data directory unavailable", 500) onerr discard
+        response.JSONError("Data directory unavailable", 500) onerr discard
         return
-    _, ok := common.CurrentUser(w, r)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     payload := make(map of string to any)
-    err := httphelper.ReadJSON(r, reference of payload)
+    err := request.ReadJSON(reference of payload)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON payload") onerr discard
+        response.JSONBadRequest("Invalid JSON payload") onerr discard
         return
     rawData, hasData := payload["data"]
     if not hasData
-        httphelper.JSONBadRequest(w, "data is required") onerr discard
+        response.JSONBadRequest("data is required") onerr discard
         return
     filename := mapx.Str(payload, "filename")
     if filename equals "" and not mapx.Has(payload, "filename")
@@ -128,15 +128,15 @@ func saveTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request
         fn := normalizeFilename(filename)
         _, perr := security.SafeFilepath(fn, h.dataPath, list of string{".json"})
         if perr isnt empty
-            httphelper.JSONBadRequest(w, "Invalid filename") onerr discard
+            response.JSONBadRequest("Invalid filename") onerr discard
             return
         bytes, jerr := json.PrettyBytes(canonical)
         if jerr isnt empty
-            httphelper.JSONError(w, "Failed to encode town data", 500) onerr discard
+            response.JSONError("Failed to encode town data", 500) onerr discard
             return
         werr := sandbox.Write(h.root, bytes, fn)
         if werr isnt empty
-            httphelper.JSONError(w, "Failed to write file", 500) onerr discard
+            response.JSONError("Failed to write file", 500) onerr discard
             return
         log.Info("Town saved locally to {fn}")
         localMsg = "Town saved locally to {fn}."
@@ -189,62 +189,62 @@ func saveTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request
                 if v, vok := result["town_id"]; vok
                     townID = v
                 djangoMsg = " Town created in Django backend."
-    httphelper.JSON(w, map of string to any{
+    response.JSON(map of string to any{
         "status": "success",
         "message": "{localMsg}{djangoMsg}",
         "town_id": townID,
     }) onerr discard
 
-func loadTown on h: townRouter(w: http.ResponseWriter, r: reference http.Request)
+func loadTown on h: townRouter(response: httphelper.Response, request: httphelper.Request)
     if h.initErr isnt empty
-        httphelper.JSONError(w, "Data directory unavailable", 500) onerr discard
+        response.JSONError("Data directory unavailable", 500) onerr discard
         return
-    _, ok := common.CurrentUser(w, r)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     body := make(map of string to any)
-    httphelper.ReadJSON(r, reference of body) onerr discard
+    request.ReadJSON(reference of body) onerr discard
     filename := mapx.Str(body, "filename")
     if filename equals ""
         filename = "town_data.json"
     fn := normalizeFilename(filename)
     _, perr := security.SafeFilepath(fn, h.dataPath, list of string{".json"})
     if perr isnt empty
-        httphelper.JSONBadRequest(w, "Invalid filename") onerr discard
+        response.JSONBadRequest("Invalid filename") onerr discard
         return
     if not sandbox.Exists(h.root, fn)
-        httphelper.JSONNotFound(w, "File {fn} not found") onerr discard
+        response.JSONNotFound("File {fn} not found") onerr discard
         return
     raw, rerr := sandbox.Read(h.root, fn)
     if rerr isnt empty
-        httphelper.JSONError(w, "Failed to read file", 500) onerr discard
+        response.JSONError("Failed to read file", 500) onerr discard
         return
     var townData any
     jerr := json.ParseInto(raw, reference of townData)
     if jerr isnt empty
-        httphelper.JSONError(w, "Failed to parse town data", 500) onerr discard
+        response.JSONError("Failed to parse town data", 500) onerr discard
         return
     canonical := normalization.Normalize(townData)
     town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical)) onerr discard
     log.Info("Town loaded from {fn}")
-    httphelper.JSON(w, map of string to any{
+    response.JSON(map of string to any{
         "status": "success",
         "message": "Town loaded from {fn}",
         "data": canonical,
     }) onerr discard
 
-func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func loadFromDjango(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    idStr := r.PathValue("id")
+    idStr := request.PathValue("id")
     idInt, perr := parseTownID(idStr)
     if perr isnt empty
-        httphelper.JSONBadRequest(w, "Invalid town id") onerr discard
+        response.JSONBadRequest("Invalid town id") onerr discard
         return
     townData, derr := django_client.GetTownByID(idInt)
     if derr isnt empty
-        httphelper.JSONError(w, "Failed to load town from Django: {derr}", 500) onerr discard
+        response.JSONError("Failed to load town from Django: {derr}", 500) onerr discard
         return
     log.Info("Loaded town {idInt} from Django: {mapx.Str(townData, "name")}")
     var layoutData any
@@ -265,7 +265,7 @@ func loadFromDjango(w: http.ResponseWriter, r: reference http.Request)
         info["category_statuses"] = cs
     else
         info["category_statuses"] = empty list of any
-    httphelper.JSON(w, map of string to any{
+    response.JSON(map of string to any{
         "status": "success",
         "message": "Town '{mapx.Str(townData, "name")}' loaded from Django",
         "data": canonical,
@@ -278,28 +278,28 @@ func parseTownID(s: string) (int, error)
         return 0, err
     return n, empty
 
-func deleteModel(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func deleteModel(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     body := make(map of string to any)
-    err := httphelper.ReadJSON(r, reference of body)
+    err := request.ReadJSON(reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
+        response.JSONBadRequest("Invalid JSON body") onerr discard
         return
     category := mapx.Str(body, "category")
     modelID := mapx.Str(body, "id")
     pos, hasPos := mapx.MapAt(body, "position")
     if category equals "" or modelID equals "" and not hasPos
-        httphelper.JSONBadRequest(w, "Missing required parameters") onerr discard
+        response.JSONBadRequest("Missing required parameters") onerr discard
         return
     townData, gerr := storage.Get()
     if gerr isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
+        response.JSONError("Failed to load town data", 500) onerr discard
         return
     v, vok := townData[category]
     if not vok
-        httphelper.JSONNotFound(w, "Model not found") onerr discard
+        response.JSONNotFound("Model not found") onerr discard
         return
     if v is list of any as arr
         if modelID isnt ""
@@ -316,12 +316,12 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
                             "category": category,
                             "id": modelID,
                         }) onerr discard
-                        httphelper.JSON(w, map of string to any{
+                        response.JSON(map of string to any{
                             "status": "success",
                             "message": "Deleted model with ID {modelID}",
                         }) onerr discard
                         return
-            httphelper.JSONNotFound(w, "Model not found") onerr discard
+            response.JSONNotFound("Model not found") onerr discard
             return
         closestIdx := -1
         closestDist := 1e308
@@ -350,34 +350,34 @@ func deleteModel(w: http.ResponseWriter, r: reference http.Request)
             px := pos["x"]
             py := pos["y"]
             pz := pos["z"]
-            httphelper.JSON(w, map of string to any{
+            response.JSON(map of string to any{
                 "status": "success",
                 "message": "Deleted model at position ({px}, {py}, {pz})",
             }) onerr discard
             return
-    httphelper.JSONNotFound(w, "Model not found") onerr discard
+    response.JSONNotFound("Model not found") onerr discard
 
-func editModel(w: http.ResponseWriter, r: reference http.Request)
-    _, ok := common.CurrentUser(w, r)
+func editModel(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
     if not ok
         return
     body := make(map of string to any)
-    err := httphelper.ReadJSON(r, reference of body)
+    err := request.ReadJSON(reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
+        response.JSONBadRequest("Invalid JSON body") onerr discard
         return
     category := mapx.Str(body, "category")
     modelID := mapx.Str(body, "id")
     if category equals "" or modelID equals ""
-        httphelper.JSONBadRequest(w, "Missing required parameters") onerr discard
+        response.JSONBadRequest("Missing required parameters") onerr discard
         return
     townData, gerr := storage.Get()
     if gerr isnt empty
-        httphelper.JSONError(w, "Failed to load town data", 500) onerr discard
+        response.JSONError("Failed to load town data", 500) onerr discard
         return
     v, vok := townData[category]
     if not vok
-        httphelper.JSONNotFound(w, "Model not found") onerr discard
+        response.JSONNotFound("Model not found") onerr discard
         return
     if v is list of any as arr
         for i from 0 to len(arr)
@@ -397,18 +397,18 @@ func editModel(w: http.ResponseWriter, r: reference http.Request)
                         "id": modelID,
                         "data": entry,
                     }) onerr discard
-                    httphelper.JSON(w, map of string to any{
+                    response.JSON(map of string to any{
                         "status": "success",
                         "message": "Updated model with ID {modelID}",
                     }) onerr discard
                     return
-    httphelper.JSONNotFound(w, "Model not found") onerr discard
+    response.JSONNotFound("Model not found") onerr discard
 
-func getConfig(w: http.ResponseWriter, r: reference http.Request)
-    u, ok := common.CurrentUser(w, r)
+func getConfig(response: httphelper.Response, request: httphelper.Request)
+    u, ok := common.CurrentUser(response, request)
     if not ok
         return
-    httphelper.JSON(w, map of string to any{
+    response.JSON(map of string to any{
         "apiUrl": "/api/proxy/towns",
         "authenticated": true,
         "user": u.Username,
@@ -418,11 +418,11 @@ func Register(mux: reference http.ServeMux)
     h := newTownRouter()
     if h.initErr isnt empty
         log.Error("Failed to open data directory: {h.initErr}")
-    mux.HandleFunc("GET /api/town", getTown)
-    mux.HandleFunc("POST /api/town", updateTown)
-    mux.HandleFunc("POST /api/town/save", h.saveTown)
-    mux.HandleFunc("POST /api/town/load", h.loadTown)
-    mux.HandleFunc(`GET /api/town/load-from-django/{id}`, loadFromDjango)
-    mux.HandleFunc("DELETE /api/town/model", deleteModel)
-    mux.HandleFunc("PUT /api/town/model", editModel)
-    mux.HandleFunc("GET /api/config", getConfig)
+    mux.Handle("GET /api/town", httphelper.Handler(getTown))
+    mux.Handle("POST /api/town", httphelper.Handler(updateTown))
+    mux.Handle("POST /api/town/save", httphelper.Handler(h.saveTown))
+    mux.Handle("POST /api/town/load", httphelper.Handler(h.loadTown))
+    mux.Handle(`GET /api/town/load-from-django/{id}`, httphelper.Handler(loadFromDjango))
+    mux.Handle("DELETE /api/town/model", httphelper.Handler(deleteModel))
+    mux.Handle("PUT /api/town/model", httphelper.Handler(editModel))
+    mux.Handle("GET /api/config", httphelper.Handler(getConfig))

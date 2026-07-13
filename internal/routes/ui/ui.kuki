@@ -49,35 +49,36 @@ type indexData
     Token: string
     BasePath: string
 
-func index(w: http.ResponseWriter, r: reference http.Request)
+func index(response: httphelper.Response, request: httphelper.Request)
     if indexTmpl equals empty
         if err := loadTemplate(); err isnt empty
             log.Error("Failed to load index template: {err}")
-            httphelper.JSONError(w, "template load failed", 500) onerr discard
+            response.JSONError("template load failed", 500) onerr discard
             return
 
     townID := 0
-    if v := r.URL.Query().Get("town_id"); v isnt ""
+    if v := request.URL().Query().Get("town_id"); v isnt ""
         if n, err := strconv.Atoi(v); err equals empty
             townID = n
 
     data := indexData{
         Models: model_loader.GetAvailableModels(),
         TownID: townID,
-        Token: r.URL.Query().Get("token"),
+        Token: request.URL().Query().Get("token"),
         BasePath: basePath(),
     }
+    w := response.Raw()
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
     if err := indexTmpl.Execute(w, data); err isnt empty
         log.Error("Failed to render index: {err}")
 
-func favicon(w: http.ResponseWriter, r: reference http.Request)
+func favicon(response: httphelper.Response, request: httphelper.Request)
     path := "static/favicon.ico"
     if _, err := os.Stat(path); err isnt empty
-        httphelper.JSONNotFound(w, "Favicon not found") onerr discard
+        response.JSONNotFound("Favicon not found") onerr discard
         return
-    http.ServeFile(w, r, path)
+    response.ServeFile(request, path)
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /\{$\}", index)
-    mux.HandleFunc("GET /favicon.ico", favicon)
+    mux.Handle("GET /\{$\}", httphelper.Handler(index))
+    mux.Handle("GET /favicon.ico", httphelper.Handler(favicon))

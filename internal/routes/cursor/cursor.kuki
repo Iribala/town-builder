@@ -15,14 +15,14 @@ func readPosition(raw: any) map of string to any
         "z": mapx.FloatAt(m, "z", 0.0),
     }
 
-func update(w: http.ResponseWriter, r: reference http.Request)
-    u, ok := common.CurrentUser(w, r)
+func update(response: httphelper.Response, request: httphelper.Request)
+    u, ok := common.CurrentUser(response, request)
     if not ok
         return
     body := make(map of string to any)
-    err := httphelper.ReadJSON(r, reference of body)
+    err := request.ReadJSON(reference of body)
     if err isnt empty
-        httphelper.JSONBadRequest(w, "Invalid JSON body") onerr discard
+        response.JSONBadRequest("Invalid JSON body") onerr discard
         return
     pos := readPosition(body["position"])
     cam := readPosition(body["camera_position"])
@@ -33,10 +33,7 @@ func update(w: http.ResponseWriter, r: reference http.Request)
         "camera_position": cam,
     }
     town_helpers.BroadcastSSE(event)
-    httphelper.JSON(
-        w,
-        map of string to any{"status": "success", "message": "Cursor position updated"},
-    ) onerr discard
+    response.JSON(map of string to any{"status": "success", "message": "Cursor position updated"}) onerr discard
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("POST /api/cursor/update", update)
+    mux.Handle("POST /api/cursor/update", httphelper.Handler(update))
