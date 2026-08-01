@@ -33,7 +33,7 @@ done
 # the WASM toolchain picks it up.
 if [ -f physics_wasm.kuki ]; then
     echo "brew: physics_wasm.kuki (--build-tag 'js && wasm')"
-    kukicha brew --build-tag "js && wasm" physics_wasm.kuki > physics_wasm.go
+    kukicha brew --stdout --build-tag "js && wasm" physics_wasm.kuki > physics_wasm.go
 fi
 
 echo "✓ all .kuki sources transpiled"
