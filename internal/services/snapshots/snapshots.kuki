@@ -21,15 +21,15 @@ const redisTimeoutNanos = 2_000_000_000
 
 var snapshotCategories = list of string{"buildings", "terrain", "roads", "props", "vehicles", "trees", "park"}
 
-var memLock sync.Mutex
+var memLock: sync.Mutex
 
-var memSnapshots list of map of string to any
+var memSnapshots: list of map of string to any
 
-var memSnapshotData map of string to map of string to any
+var memSnapshotData: map of string to map of string to any
 
-var encoder reference zstd.Encoder
+var encoder: reference zstd.Encoder
 
-var decoder reference zstd.Decoder
+var decoder: reference zstd.Decoder
 
 func init()
     memSnapshots = empty list of map of string to any

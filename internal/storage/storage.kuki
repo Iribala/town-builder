@@ -13,15 +13,15 @@ const townKey = "town_data"
 
 const redisTimeoutNanos = 2_000_000_000
 
-var client reference redis.Client
+var client: reference redis.Client
 
-var lock sync.RWMutex
+var lock: sync.RWMutex
 
-var memory map of string to any
+var memory: map of string to any
 
-var encoder reference zstd.Encoder
+var encoder: reference zstd.Encoder
 
-var decoder reference zstd.Decoder
+var decoder: reference zstd.Decoder
 
 func defaultTownData() map of string to any
     out := make(map of string to any)

@@ -35,7 +35,7 @@ type Settings
     AllowedApiDomains: list of string
     AllowedHosts: list of string
 
-var current reference Settings
+var current: reference Settings
 
 func floatOr(key: string, def: float64) float64
     v := env.GetFloatOr(key, def) onerr def

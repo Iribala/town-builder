@@ -93,7 +93,7 @@ func TestSearchMultipleReturnsFirst(t: reference testing.T)
 # ── CreateTown ────────────────────────────────────────────────────
 
 func TestCreatePayloadShape(t: reference testing.T)
-    var lastBody list of byte
+    var lastBody: list of byte
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         buf := make(list of byte, r.ContentLength)
         r.Body.Read(buf) onerr discard
@@ -140,8 +140,8 @@ func TestCreateHttpErrorRaises(t: reference testing.T)
 # ── UpdateTown ────────────────────────────────────────────────────
 
 func TestUpdateUsesPatch(t: reference testing.T)
-    var seenMethod string
-    var seenPath string
+    var seenMethod: string
+    var seenPath: string
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenMethod = r.Method
         seenPath = r.URL.Path
@@ -156,7 +156,7 @@ func TestUpdateUsesPatch(t: reference testing.T)
     test.AssertTrue(t, strpkg.HasSuffix(seenPath, "/42/"))
 
 func TestUpdateOmitsName(t: reference testing.T)
-    var lastBody list of byte
+    var lastBody: list of byte
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         buf := make(list of byte, r.ContentLength)
         r.Body.Read(buf) onerr discard
@@ -247,7 +247,7 @@ func TestBaseUrlAddsTrailingSlash(t: reference testing.T)
 # ── ProxyRequest ──────────────────────────────────────────────────
 
 func TestProxyGetForwards(t: reference testing.T)
-    var seenPath string
+    var seenPath: string
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenPath = r.URL.Path
         w.WriteHeader(200)
@@ -267,7 +267,7 @@ func TestProxyGetForwards(t: reference testing.T)
     test.AssertTrue(t, strpkg.HasSuffix(seenPath, "/42/"))
 
 func TestProxyPostForwardsBody(t: reference testing.T)
-    var lastBody list of byte
+    var lastBody: list of byte
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         buf := make(list of byte, r.ContentLength)
         r.Body.Read(buf) onerr discard

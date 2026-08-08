@@ -144,7 +144,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
         localMsg = "Local save skipped (no filename)."
     town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical)) onerr discard
     djangoMsg := ""
-    var townID any = empty
+    var townID: any = empty
     if v, vok := payload["town_id"]; vok and not cast.IsNil(v)
         townID = v
     if not cast.IsNil(townID)
@@ -219,7 +219,7 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if rerr isnt empty
         response.JSONError("Failed to read file", 500) onerr discard
         return
-    var townData any
+    var townData: any
     jerr := json.ParseInto(raw, reference of townData)
     if jerr isnt empty
         response.JSONError("Failed to parse town data", 500) onerr discard
@@ -247,7 +247,7 @@ func loadFromDjango(response: httphelper.Response, request: httphelper.Request)
         response.JSONError("Failed to load town from Django: {derr}", 500) onerr discard
         return
     log.Info("Loaded town {idInt} from Django: {mapx.Str(townData, "name")}")
-    var layoutData any
+    var layoutData: any
     if v, vok := townData["layout_data"]; vok
         layoutData = v
     else
@@ -333,7 +333,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
                     closestDist = d
                     closestIdx = i
         if closestIdx >= 0 and closestDist < geometry.DeleteProximityThreshold
-            var deletedID any = ""
+            var deletedID: any = ""
             if arr[closestIdx] is map of string to any as del
                 deletedID = mapx.Str(del, "id")
             newArr := empty list of any

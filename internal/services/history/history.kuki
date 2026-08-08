@@ -18,11 +18,11 @@ const redoKey = "town_redo"
 
 const redisTimeoutNanos = 2_000_000_000
 
-var lock sync.Mutex
+var lock: sync.Mutex
 
-var historyStack list of map of string to any
+var historyStack: list of map of string to any
 
-var redoStack list of map of string to any
+var redoStack: list of map of string to any
 
 func init()
     historyStack = empty list of map of string to any

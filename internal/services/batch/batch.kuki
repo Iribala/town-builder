@@ -15,9 +15,9 @@ import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
 import "github.com/google/uuid"
 
-var batchLock sync.Mutex
+var batchLock: sync.Mutex
 
-var dataVersion int
+var dataVersion: int
 
 func deepCopy(src: map of string to any) map of string to any
     data, err := json.Bytes(src)
@@ -224,7 +224,7 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
 
     for op in operations
         result := executeSingle(townData, op, validate)
-        var success bool
+        var success: bool
         if result["success"] is bool as s
             success = s
         if success

@@ -140,7 +140,7 @@ func SpatialQueryNearest(point: map of string to any, category: string, count: i
 
 func getNestedValue(obj: map of string to any, field: string) any
     parts := strpkg.Split(field, ".")
-    var value any = obj
+    var value: any = obj
     for part in parts
         if value is map of string to any as m
             value = m[part]

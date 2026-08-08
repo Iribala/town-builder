@@ -77,8 +77,8 @@ func newSpatialGrid(cellSize: float64) reference SpatialGrid
 
 func getCellKey(g: reference SpatialGrid, x: float64, y: float64) GridKey
     return GridKey{
-        X: int(math.Floor(x / g.cellSize)),
-        Y: int(math.Floor(y / g.cellSize)),
+        X: math.Floor(x / g.cellSize) as int,
+        Y: math.Floor(y / g.cellSize) as int,
     }
 
 func getCellsForBBox(g: reference SpatialGrid, bbox: BoundingBox) list of GridKey
@@ -384,7 +384,7 @@ func getGridStats(this: js.Value, args: list of js.Value) any
 
     avgObjectsPerCell := 0.0
     if cellCount > 0
-        avgObjectsPerCell = float64(totalObjects) / float64(cellCount)
+        avgObjectsPerCell = totalObjects as float64 / cellCount as float64
 
     result := map of string to any{
         "cellCount": cellCount,

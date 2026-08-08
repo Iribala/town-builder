@@ -68,7 +68,7 @@ func newRouter() reference http.ServeMux
     return router.NewMux()
 
 func doJSON(mux: reference http.ServeMux, method: string, path: string, body: map of string to any) (int, map of string to any)
-    var reader io.Reader
+    var reader: io.Reader
     if body isnt empty
         data, err := json.Bytes(body)
         if err isnt empty
@@ -88,7 +88,7 @@ func doJSON(mux: reference http.ServeMux, method: string, path: string, body: ma
 # ── SaveTown ──────────────────────────────────────────────────────
 
 func TestSaveWithTownIdPatches(t: reference testing.T)
-    var seenMethod string
+    var seenMethod: string
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenMethod = r.Method
         w.WriteHeader(200)
@@ -109,7 +109,7 @@ func TestSaveWithTownIdPatches(t: reference testing.T)
     test.AssertEqual(t, seenMethod, "PATCH")
 
 func TestSaveWithoutIdSearchesThenCreates(t: reference testing.T)
-    var postSeen bool
+    var postSeen: bool
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         if r.Method equals "GET"
             w.WriteHeader(200)
@@ -134,7 +134,7 @@ func TestSaveWithoutIdSearchesThenCreates(t: reference testing.T)
         test.AssertEqual(t, townID as int, 99)
 
 func TestSaveWithoutIdSearchesThenPatches(t: reference testing.T)
-    var patchSeen bool
+    var patchSeen: bool
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         if r.Method equals "GET"
             w.WriteHeader(200)

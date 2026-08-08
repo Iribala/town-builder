@@ -12,7 +12,7 @@ import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
 import "github.com/Iribala/town-builder/internal/services/model_loader"
 
-var indexTmpl reference template.Template
+var indexTmpl: reference template.Template
 
 func titleCase(s: string) string
     if s equals ""
@@ -31,7 +31,7 @@ func loadTemplate() error
         "title": titleCase,
         "displayName": model_display_names.GetModelDisplayName,
     }
-    t, perr := template.New("index.html").Funcs(funcs).Parse(string(raw))
+    t, perr := template.New("index.html").Funcs(funcs).Parse(raw as string)
     if perr isnt empty
         return perr
     indexTmpl = t

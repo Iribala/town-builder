@@ -89,7 +89,7 @@ func PrepareDjangoPayload(requestPayload: map of string to any, normalizedTownDa
     return payload
 
 func doJSON(method: string, fullURL: string, body: map of string to any) (reference http.Response, error)
-    var reader io.Reader
+    var reader: io.Reader
     if body isnt empty
         data, err := json.Bytes(body)
         if err isnt empty
@@ -148,8 +148,8 @@ func SearchTownByName(townName: string) (int, bool, error)
     raw, rerr := io.ReadAll(resp.Body)
     if rerr isnt empty
         return 0, false, rerr
-    var results list of any
-    var parsedAny any
+    var results: list of any
+    var parsedAny: any
     perr := json.ParseInto(raw, reference of parsedAny)
     if perr isnt empty
         return 0, false, perr
@@ -248,7 +248,7 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
             sep = "&"
         fullURL = fullURL + sep + qs.Encode()
 
-    var reader io.Reader
+    var reader: io.Reader
     if body isnt empty and len(body) > 0
         reader = bytes.NewReader(body)
     req, rerr := http.NewRequest(strpkg.ToUpper(methodLower), fullURL, reader)

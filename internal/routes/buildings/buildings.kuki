@@ -72,9 +72,9 @@ func create(response: httphelper.Response, request: httphelper.Request)
         response.JSONBadRequest("position is required") onerr discard
         return
     buildingID := newID()
-    var posV object.Vec3 = object.Vec3FromAny(body["position"], 0.0, 0.0, 0.0)
-    var rotV object.Vec3 = object.Vec3FromAny(body["rotation"], 0.0, 0.0, 0.0)
-    var sclV object.Vec3 = object.Vec3FromAny(body["scale"], 1.0, 1.0, 1.0)
+    var posV: object.Vec3 = object.Vec3FromAny(body["position"], 0.0, 0.0, 0.0)
+    var rotV: object.Vec3 = object.Vec3FromAny(body["rotation"], 0.0, 0.0, 0.0)
+    var sclV: object.Vec3 = object.Vec3FromAny(body["scale"], 1.0, 1.0, 1.0)
     building := object.ToMap(object.PlacedObject{
         ID: buildingID,
         Model: model,

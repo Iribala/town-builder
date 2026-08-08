@@ -34,7 +34,7 @@ func setupLimits(maxBody: int64, maxOps: int)
     storage.ResetMemory()
 
 func do(handler: http.Handler, method: string, path: string, body: map of string to any) (int, map of string to any)
-    var reader io.Reader
+    var reader: io.Reader
     bodyBytes := empty list of byte
     if body isnt empty
         data, err := json.Bytes(body)

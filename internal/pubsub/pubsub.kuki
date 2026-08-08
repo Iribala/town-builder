@@ -11,11 +11,11 @@ import "github.com/redis/go-redis/v9" as redis
 
 const subscribeTimeoutNanos = 2_000_000_000
 
-var presLock sync.Mutex
+var presLock: sync.Mutex
 
-var connectedUsers map of string to int64
+var connectedUsers: map of string to int64
 
-var userCounts map of string to int
+var userCounts: map of string to int
 
 func init()
     connectedUsers = make(map of string to int64)

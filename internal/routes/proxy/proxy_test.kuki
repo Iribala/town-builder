@@ -33,7 +33,7 @@ func setup(djangoURL: string)
     storage.ResetMemory()
 
 func do(mux: reference http.ServeMux, method: string, path: string, body: map of string to any) (int, list of byte)
-    var reader io.Reader
+    var reader: io.Reader
     if body isnt empty
         data, err := json.Bytes(body)
         if err isnt empty
@@ -48,7 +48,7 @@ func do(mux: reference http.ServeMux, method: string, path: string, body: map of
     return resp.StatusCode, raw
 
 func TestProxyGetForwards(t: reference testing.T)
-    var called bool
+    var called: bool
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         called = true
         w.WriteHeader(200)
@@ -63,7 +63,7 @@ func TestProxyGetForwards(t: reference testing.T)
     test.AssertTrue(t, called)
 
 func TestProxyGetWithPath(t: reference testing.T)
-    var seenPath string
+    var seenPath: string
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenPath = r.URL.Path
         w.WriteHeader(200)
@@ -78,7 +78,7 @@ func TestProxyGetWithPath(t: reference testing.T)
     test.AssertEqual(t, seenPath, "/42/")
 
 func TestProxyPostForwardsBody(t: reference testing.T)
-    var called bool
+    var called: bool
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         called = true
         w.WriteHeader(201)
@@ -93,7 +93,7 @@ func TestProxyPostForwardsBody(t: reference testing.T)
     test.AssertTrue(t, called)
 
 func TestProxyPatchWithPath(t: reference testing.T)
-    var seenMethod string
+    var seenMethod: string
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         seenMethod = r.Method
         w.WriteHeader(200)

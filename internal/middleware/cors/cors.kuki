@@ -6,7 +6,7 @@ import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/config"
 
-var allowedOrigins list of string
+var allowedOrigins: list of string
 
 func Init()
     s := config.Current()

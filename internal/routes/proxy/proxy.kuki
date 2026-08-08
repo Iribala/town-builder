@@ -44,7 +44,7 @@ func handle(response: httphelper.Response, request: httphelper.Request, method: 
     headers := collectHeaders(r.Header)
     params := collectParams(r.URL.Query())
 
-    var body list of byte
+    var body: list of byte
     if r.Body isnt empty
         raw, ierr := io.ReadAll(r.Body)
         if ierr isnt empty

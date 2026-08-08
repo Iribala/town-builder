@@ -28,7 +28,7 @@ func setup()
     storage.ResetMemory()
 
 func do(handler: http.Handler, method: string, path: string, body: map of string to any) (int, map of string to any)
-    var reader io.Reader
+    var reader: io.Reader
     if body isnt empty
         data, err := json.Bytes(body)
         if err isnt empty
@@ -77,7 +77,7 @@ func TestBuildingLifecycle(t: reference testing.T)
     }
     code, created := do(mux, "POST", "/api/buildings", body)
     test.AssertEqual(t, code, 201)
-    var id string
+    var id: string
     if created["id"] is string as createdID
         id = createdID
         test.AssertNotEqual(t, id, "")
