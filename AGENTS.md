@@ -80,7 +80,7 @@ Detailed Kukicha reference (syntax, stdlib, compiler-enforced security checks, g
 <!-- kukicha:start -->
 ## Writing Kukicha
 
-Kukicha is a near-superset of Go: most Go compiles as-is — including `{ }` brace blocks — with a few exceptions (`range`, `case`/`default`, `struct {}`, `chan T`, `goto`, generic `[T]` declarations, parenthesized `const ( ... )`, Go-style `type X interface { ... }` declarations, and C-style `for init; cond; post { }` loops) that have Kukicha replacements. Go-compat forms are for migration, not authoring: **always write Kukicha syntax** (4-space indentation, `and`/`or`/`not`, `list of T`, `onerr`, pipes, enums) and use Kukicha's stdlib (`stdlib/*`) over raw Go packages. Fall back to Go only when Kukicha has no equivalent.
+Kukicha is a near-superset of Go: most Go compiles as-is — including `{ }` brace blocks — with a few exceptions (`case`/`default`, `chan T`, `goto`, generic `[T]` declarations, parenthesized `const ( ... )`, Go-style `type X interface { ... }` declarations, and C-style `for init; cond; post { }` loops) that have Kukicha replacements. Anonymous `struct { ... }` types and literals parse directly (`struct { field: Type }{field: value}`). Go-compat forms are for migration, not authoring: **always write Kukicha syntax** (4-space indentation, `and`/`or`/`not`, `list of T`, `onerr`, pipes, enums) and use Kukicha's stdlib (`stdlib/*`) over raw Go packages. Fall back to Go only when Kukicha has no equivalent.
 
 Comments start with `#` (Go's `//` is not a comment in Kukicha — it parses as two division operators).
 
@@ -121,12 +121,16 @@ func main()
 | `and`, `or`, `not` | `&&`, `\|\|`, `!` |
 | `equals`, `isnt` | `==`, `!=` |
 | `empty` | `nil` |
-| `empty list of T` / `empty map of K to V` | `make([]T, 0)` / `make(map[K]V)` |
+| `empty list of T` | `make([]T, 0)` (lint-enforced) |
+| `empty map of K to V` | `make(map[K]V)` |
 | `list of string` | `[]string` |
 | `map of string to int` | `map[string]int` |
 | `reference User` / `reference of x` | `*User` / `&x` (statically guaranteed non-empty) |
 | `optional reference User` | `*User` (may hold `empty`; must be narrowed with `isnt empty` before `dereference`) |
+| `v is empty` / `v isnt empty` | `len(v) == 0` / `len(v) != 0` (for list, map, channel, string; nil checks for references/interfaces) |
 | `dereference ptr` | `*ptr` |
+| bare value where `reference T` is expected | `&value` (contextual reference literal — compiler inserts `&`) |
+| `list of Point{{x: 1, y: 2}}` / `Config{server: {port: 8080}}` | `[]Point{Point{x: 1, y: 2}}` / `Config{Server{port: 8080}}` (expected-type propagation into nested `{…}`) |
 | `name: Type` (params, receivers, lambdas, struct + variant fields) | `name Type` (bare; parses but warns as deprecated) |
 | `func Method on t: T` | `func (t T) Method()` (accepted as Go-compat input but not idiomatic) |
 | `many args: T` | `args ...T` |
@@ -134,7 +138,7 @@ func main()
 | `send val to ch` / `receive from ch` | `ch <- val` / `<-ch` |
 | `when` / `default` | `case` / `default` |
 | `# comment` | `// comment` |
-| `for item in items` | `for _, item := range items` |
+| `for item in items` / `for i, v := range items` | `for _, item := range items` / `for i, v := range items` |
 | `for i from 0 to 10` | `for i := 0; i < 10; i++` |
 | `for i from 0 through 10` | `for i := 0; i <= 10; i++` |
 | `interface Reader` + indented methods | `type Reader interface { ... }` |
@@ -148,7 +152,7 @@ func main()
 
 ```kukicha
 const PI = 3.14159
-const MaxRetries int = 5
+const MaxRetries: int = 5
 ```
 
 `const` works at the top level or inside a function body (for tunables you want visually flagged as immutable). For a group of related constants, use `enum` instead (see [Enums](#enums)) — the parenthesized `const ( ... )` form and `iota` are Go-only.
@@ -160,8 +164,8 @@ const MaxRetries int = 5
 count := 42           # inferred type
 count = 100           # reassignment
 
-var p reference int   # zero-value declaration — error: must initialize or use optional
-var xs list of string
+var p: reference int   # zero-value declaration — error: must initialize or use optional
+var xs: list of string
 
 func Add(a: int, b: int) int
     return a + b
@@ -177,9 +181,16 @@ func Greet(name: string, greeting: string = "Hello") string
 
 result := Greet("Alice", greeting: "Hi")
 files.Copy(from: src, to: dst)
+
+quantity := 5.0
+unitPrice := 10.0
+discount := 0.2
+total := calculateTotal(quantity: quantity, unitPrice: unitPrice, discount: discount)
 ```
 
 `name: Type` is the canonical form everywhere a name binds to a type — parameters, receivers, lambda parameters, struct fields, and variant-enum payload fields. Bare `name Type` parses for Go compatibility but warns as deprecated (`kukicha fmt -w` rewrites it). `error "message"` constructs an error value (Kukicha's `errors.New`/`fmt.Errorf`); interpolation works inside the string: `error "bad value {x}"`.
+
+Named-argument types are type-checked against their parameter types (a `f(count: "three")` where `count` is `int` is a compile error, not a silent pass). Keep the value explicit even when it has the same name as its label: write `f(count: count)`.
 
 ### Strings and Interpolation
 
@@ -188,36 +199,35 @@ files.Copy(from: src, to: dst)
 ```kukicha
 greeting := "Hello {name}!"          # {expr} interpolation — replaces fmt.Sprintf
 json := "key: \{value\}"             # \{ \} for literal braces
-path := "{dir}\sep{file}"            # \sep → OS path separator at runtime
 
-# Multi-line — auto-dedented to the indent of the closing delimiter
-prompt := """
-    {preamble}
-    Classify GitHub issues. Reply JSON: \{severity:1-5, kind\}
-    """
+# Multi-line with interpolation — "..." with \n escapes keeps {expr}
+prompt := "{preamble}\nClassify GitHub issues. Reply JSON: \{severity:1-5, kind\}\n"
 
-# Escape sequences: \n \t \r \\ \" \' \{ \} \sep \xHH \uHHHH \UHHHHHHHH \0-\377 (octal)
+# Or backticks: bare { } literal, ${expr} interpolates — ideal for HTML/regex/JSON
+html := `<article class="card">${title}</article>`
+
+# OS path separator — use filepath.Join (no \sep escape)
+import "path/filepath"
+path := filepath.Join(dir, file)
+
+# Escape sequences: \n \t \r \\ \" \' \{ \} \xHH \uHHHH \UHHHHHHHH \0-\377 (octal)
 # Number literals: 42, 0xFF, 0o755, 0b1010, 3.14
 ```
 
-**Picking a string form** (all interpolate except backticks; multi-line forms auto-dedent):
-- `"..."` — one-liners. No literal newlines.
-- `` `...` `` — raw: content with literal `{` `}` (regex, JSON templates). No interpolation, no escapes.
-- `"""..."""` — multi-line prose (prompts, markdown, long error messages).
-- `'...'` — content with embedded double quotes (HTML, SQL). Single- or multi-line.
+**Picking a string form** (both interpolate; multi-line via backticks or `\n`):
+- `"..."` — one-liners with `{expr}` interpolation. No literal newlines; use `\n` escapes for multi-line, or reach for backticks.
+- `` `...` `` — raw: content with literal `{` `}` (regex, JSON templates, HTML). Interpolates `${expr}` — bare `{` `}` stay literal. No escape processing. Multi-line.
 
 **`{` always starts interpolation** whenever a matching `}` appears before the string ends — `{a + b}`, `{user.Name}`, `{len(xs)}` all interpolate. Only `{}` (empty), a lone `{`, and partial snippets like `"{\"key\":"` stay literal. Escape intentional literal braces with `\{` `\}`, or use backticks for brace-heavy content — `"{\"k\": \"v\"}"`-style JSON in an interpolating string is a parse error, not literal text. For actual JSON production, use `json.String` / `json.PrettyString` instead of hand-writing JSON text — the codec avoids the interpolation rule entirely. Quoted string literals work *inside* interpolation directly — `print("{row["name"]}")` and `print("{string.ToUpper("hi")}")` both parse, no escaping of the inner quotes needed.
 
-There are no rune literals — `'x'` is a one-character *string*, not a Go `rune`.
-
-`fmt.Sprintf` remains the right tool for format verbs interpolation can't express — width/precision (`%-20s`), zero-padding (`%08d`), scientific notation (`%e`). The `sprintf-interpolation` lint fires on any `fmt.Sprintf` in `.kuki` source to steer plain `%s`/`%d` cases to interpolation; suppress with `--suppress-lint=stdlib-idiom` when a format verb justifies the call.
+There are no rune literals — `'x'` is a one-character *string*, not a Go `rune`. Inline format specifiers are supported directly in string interpolation with `{expr:fmt}` syntax (e.g., `{price:.2f}`, `{count:08d}`, `{name:-20s}`). Use `fmt.Sprintf` only for dynamic format templates where the format string itself is a variable.
 
 ### Types
 
 <!-- check:skip -->
 ```kukicha
 type Repo
-    name: string as "name"            # JSON field alias
+    name: string as "name"            # lowercase with alias -> auto-exported and serialized
     stars: int    as "stargazers_count"
     tags: list of string
 
@@ -248,6 +258,9 @@ interface Validatable
 - `dereference x` on an `optional` reference is an error unless x is narrowed in the current branch (`if x isnt empty`, `if x equals empty: return`, or Go-style `!= nil` / `== nil`).
 - `var p reference T` without an initializer is rejected — initialize immediately or use `optional reference T`.
 - Struct literals must initialize `reference T` fields (`semantic/zero-ref-uninit`). Exception: a literal returned alongside a non-empty trailing error is exempt — `return Log{}, error "boom"` is fine because the value is dead on the error path. `return Log{}, empty` is still rejected.
+- Nested fields may use Kukicha's flattened literal keys: `Config{server.port: 8080}` lowers to `Config{server: Server{port: 8080}}` before Go code generation. Sibling paths merge (`server.host` + `server.port`); do not mix a direct field (`server: value`) with one of its nested paths.
+- **Contextual reference literals**: when the expected type is `reference T`, write a bare value — the compiler inserts `&`. So `reference of task` → `task` inside `list of reference Task{...}`, and `list of reference Task{t1, t2}` (not `list of reference Task{reference of t1, reference of t2}`). Drop the `reference of` whenever the surrounding type pins the reference-ness.
+- **Expected-type nested literals**: the compiler threads the expected type into nested `{…}` literals, so you can drop redundant inner type prefixes — `list of Point{{x: 1, y: 2}}` (not `list of Point{Point{x: 1, y: 2}}`) and `Config{server: {port: 8080}}` (not `Config{server: Server{port: 8080}}`). Keep the prefix only when the inner literal's type genuinely differs from the expected one.
 - **Calling a `reference func(...)` field needs no `dereference`** — after narrowing, write the bare call `wh.on_connect(args)`; the compiler inserts the pointer deref. `dereference wh.on_connect(args)` binds to the *receiver*, not the function pointer, and breaks on value receivers.
 - **Constructors that store a closure (or `reference of local.field`) capturing the local they return must return `reference T`, not `T`** — the value return hands the caller a copy whose closure still points at the discarded original. Compile error `semantic/value-ctor-capture`; `kukicha explain semantic/value-ctor-capture` has the recipe.
 
@@ -275,6 +288,12 @@ enum Status
     NotFound = 404
     Error = 500
 
+# An explicit integer raw type declares an internal ordinal sequence.
+enum Phase: int
+    Queued      # 0
+    Running     # 1
+    Complete    # 2
+
 func example()
     status := Status.OK    # dot access → transpiles to StatusOK
 
@@ -293,7 +312,7 @@ enum Bump: string
 b := ParseBump(raw) onerr panic "{error}"   # error names the bad value + the valid set
 ```
 
-- Underlying type (int or string) inferred from the values; all must match. Integer enums warn if no case has value 0; duplicate raw string values are a compile error.
+- Underlying type (int or string) is inferred from explicit values; all values must match. Use `enum Name: int` (or another integer type such as `int64`) for an ordinal sequence with omitted values. Without an explicit integer raw type, every value-enum case needs `= value`. Keep values explicit for database, protocol, and persisted data. Integer enums warn if no case has value 0; duplicate raw string values are a compile error.
 - Auto-generated: a `String()` method, an `All<Name>() list of <Name>` iterator in declaration order (`for s in AllStatus()`; declaring your own `All<Name>` is a compile error), and — for string-valued enums — a package-level `Parse<Name>(s string) (<Name>, error)` that composes with `onerr` and auto-propagation.
 - The `: string` annotation only changes `String()` to return the raw value (`"patch"`) instead of the case name (`"Patch"`); `Parse<Name>`/`All<Name>` are generated either way. It does not make the enum string-valued — the `= "json"` values do that.
 - The enum *type name itself is not a value* — `x := Status` is rejected (use `Status.OK` or a conversion `Status(200)`). Same rule for plain type names and package names (`y := fmt` is rejected).
@@ -350,6 +369,29 @@ func divide(a: int, b: int) Result of int and string
 - Bindings substitute through automatically: in `if r is Ok as o`, `o.Value` has the concrete instantiated type.
 - Cross-package variants use qualified names — `import "stdlib/result"` gives `result.Result of int and string`, `result.Ok{Value: 5}`, `r is result.Ok as o`.
 
+### Generic Functions
+
+Top-level functions declare type parameters with `of T` (single) or `of T and U` (multiple, `and`-separated — never commas). An optional `: Constraint` follows a type-param name; constraints reuse Go's names (`comparable`, `cmp.Ordered`), no English aliases:
+
+```kukicha
+func Map of T and R(items: list of T, transform: func(T) R) list of R
+    out := empty list of R
+    for item in items
+        out = append(out, transform(item))
+    return out
+
+func SortedKeys of K: comparable(m: map of K to any) list of K
+    keys := empty list of K
+    for k in m
+        keys = append(keys, k)
+    return keys
+```
+
+- Call sites infer type args from arguments in the common case (`nums |> slice.Map((x) => x * 2)` infers `T=int`, `R=int`).
+- Use `f of T from x` for explicit instantiation when inference is ambiguous: `parse.JSON of User from data` (single type arg), `slice.Map of int and string from nums` (multiple).
+- Go 1.27 generic methods on concrete receivers are supported: `func Method of U on r: Stack of T(...)`. The concrete-types-only caveat is inherited from Go — no interface dispatch or reflection on methods declaring their own type params.
+- The stdlib is fully migrated: `slice.Map`, `slice.Filter`, `maps.Keys`, `set.From`, `sort.By`, and ~75 other functions declare real type parameters. You get back `list of int` from `nums |> slice.Map(...)`, not `list of any`.
+
 ### Methods
 
 <!-- check:skip -->
@@ -394,7 +436,9 @@ if err isnt empty
 ```kukicha
 region := env.GetOr("AWS_REGION", "us-east-1")             # expected absence → *Or
 apiKey := env.Get("GITHUB_TOKEN") onerr panic "{error}"    # required secret → onerr
-n      := parse.Int(raw) onerr 0                           # parse can actually fail
+n      := parse.Int(raw) onerr return                      # parse can actually fail → propagate
+# when a default makes sense, use the *Or variant:
+n      := parse.IntOr(raw, 0)
 ```
 
 The caught error is always `{error}` — **never** `{err}`. Use `onerr as e` to rename.
@@ -446,12 +490,13 @@ resp := fetch.Get(url) |> fetch.CheckStatus() onerr panic "{error}"
 
 # Piped switch — expression-only (RHS of assignment or return, never a bare
 # statement; use statement-form `switch x` for side-effect dispatch).
-# Arms yield their value with `return`
+# A single-expression arm yields its value bare; `return` is required for
+# multi-statement and multi-value arms.
 role := user.Role |> switch
     when "admin"
-        return "admin"
+        "admin"
     default
-        return "user"
+        "user"
 
 # On a variant enum — exhaustiveness-checked; `as v` names the piped value
 area := shape |> switch as v
@@ -471,8 +516,13 @@ func parseKind(s: string) (string, error)
         default
             return "", error "unknown"
 
-# Shorthand .Field / .Method() — pipe context only
+# Shorthand .Field / .Method() — pipe receiver
 name := user |> .Name
+
+# The same shorthand is an accessor lambda when a function-typed context
+# supplies the receiver and result types.
+names := slice.Map(users, .name)                 # u => u.name
+active := slice.Filter(users, .IsActive())       # u => u.IsActive()
 
 # Shorthand .Method() on collections dispatches to the matching stdlib
 # package based on the piped value's type kind:
@@ -610,7 +660,48 @@ func example3()
     }
 ```
 
-Inference works in return statements, `onerr` handlers, function arguments, assignments, and typed list elements.
+Inference works in return statements, `onerr` handlers, function arguments, assignments, and typed list elements. Idiomatic Kukicha uses named `type` declarations (`type User \n    name: string`) and untyped literals (`{name: "Alice"}`). Anonymous struct types (`struct { name: string }`) and explicit literals parse for Go compatibility and interop.
+
+Struct literal field values are explicit, including when the local has the same name: `User{name: name, age: age}`. This keeps the source self-contained and mirrors named arguments.
+
+### Comprehensions
+
+`map of K to V for X in XS [if COND]` is the one comprehension form. It builds a map by computing a key and value for each element — the only collection transformation with no pipe equivalent.
+
+<!-- check:skip -->
+```kukicha
+type User
+    name: string
+    active: bool
+    id: int
+
+func comprehensionExample(users: list of User)
+    # map of K to V for X in XS
+    byID := map of u.id to u.name for u in users
+
+    # map of K to V for X in XS if COND  (filtered)
+    activeByID := map of u.id to u.name for u in users if u.active
+    print(byID)
+    print(activeByID)
+```
+
+For filter+map over a slice (the former `list of EXPR for X in XS`), use a pipe chain — it reads left-to-right and the result is typed `list of T`, not `list of any`:
+
+<!-- check:skip -->
+```kukicha
+import "stdlib/slice"
+import "stdlib/set"
+
+func pipeExample(users: list of User)
+    names := users |> slice.Map((u) => u.name)
+    activeNames := users |> slice.Filter((u) => u.active) |> slice.Map((u) => u.name)
+    uniqueNames := set.From(users |> slice.Map((u) => u.name))
+    print(names)
+    print(activeNames)
+    print(uniqueNames)
+```
+
+The map-comprehension desugar reuses the generic stdlib — `map of K to V for X in XS` becomes `slice.ToMap(XS, (X) => K, (X) => V)`, so the result is `map of K to V`, not `map of any to any`. `stdlib/slice` is auto-imported; you don't need an explicit `import "stdlib/slice"` to use a map comprehension. The formatter prints the desugared `slice.ToMap` form, not the comprehension syntax — a known tradeoff of parser-level desugar.
 
 ### Variadic Arguments (`many`)
 
@@ -693,7 +784,8 @@ defer resource.Close()
 
 # Block form (emits defer func() { ... }())
 defer
-    if r := recover(); r isnt empty
+    r := recover()
+    if r isnt empty
         tx.Rollback()
         panic(r)
 ```
@@ -789,7 +881,7 @@ The stdlib is extracted to `.kukicha/stdlib/` on `kukicha init` — **read the `
 
 **Collections & strings.** `stdlib/slice` (`Filter`/`Map`/`Reject`/`Partition`/`Sort`/`First`/`FindOr`/`Sum`/`Min`/`Max`…), `stdlib/maps`, `stdlib/set`, `stdlib/sort` (`By`/`ByKey`), `stdlib/string` as `strpkg`, `stdlib/regex` (`MustCompile` + `*Compiled` variants), `stdlib/iterator` (lazy `iter.Seq`), `stdlib/cast` (`SmartInt`/`SmartBool`/`IsNil`…), `stdlib/math` (`Abs`/`Round`/`Clamp` — reach for Go's `math` for `Sqrt`/`Pow`/…).
 
-**Data & encoding.** `stdlib/json` as `jsonpkg` (`String`/`PrettyString` for JSON production — prefer over hand-written JSON strings that hit the interpolation rule; `Bytes`/`PrettyBytes` for `[]byte`; naming-aware `Codec` for tag-free JSON — `NewCodec(json.SnakeCase).Omit("Password") |> EncodeWith(v)`; `c |> DecodeStringWith of T from data`), `stdlib/parse` (typed `parse.JSON of T from text`, also YAML/Form/Env/CSV/Int/URL — auto-runs `Validate()`), `stdlib/encoding` (base64/hex), `stdlib/template`, `stdlib/markdown` (CommonMark+GFM, pair with `http.SafeHTML` for untrusted input).
+**Data & encoding.** `stdlib/json` as `jsonpkg` (`String`/`PrettyString` for JSON production — prefer over hand-written JSON strings that hit the interpolation rule; `Bytes`/`PrettyBytes` for `[]byte`; naming-aware `Codec` for tag-free JSON — `NewCodec(json.SnakeCase).Omit("Password") |> EncodeWith(v)`; `c |> DecodeStringWith of T from data`; two decode shapes — `ParseString of T` returns a fresh zero-based value for complete documents, while `ParseStringInto`/`ParseInto`/`ReadInto` decode *into* a pre-populated target so fields absent from the JSON keep their existing values — use the `*Into` family when layering a config file over `Config{...}` defaults), `stdlib/parse` (typed `parse.JSON of T from text`, also YAML/Form/Env/CSV/Int/URL — auto-runs `Validate()`), `stdlib/encoding` (base64/hex), `stdlib/template`, `stdlib/markdown` (CommonMark+GFM, pair with `http.SafeHTML` for untrusted input).
 
 **I/O & files.** `stdlib/files` (`Read`/`Write`/`Copy`/`List`/`Watch`/…), `stdlib/archive` (zip+tar.gz, zip-slip + decompression-bomb safe), `stdlib/sandbox` (filesystem jail for HTTP handlers), `stdlib/shell` (`Output`/`Lines`/`Capture` + `shell.New |> .Dir |> .Env |> .Stdin |> .Output()` builder), `stdlib/blob` (unified S3-compatible object storage client — AWS S3, Cloudflare R2, GCS, MinIO, Backblaze B2, Wasabi; `OpenEnv`/`Put`/`Get`/`ListAll`).
 
@@ -807,7 +899,6 @@ The stdlib is extracted to `.kukicha/stdlib/` on `kukicha init` — **read the `
 
 **AI & agents.** `stdlib/content` (unified `Content` variant enum re-exported by mcp + llm — Text/Thinking/Image/Audio/Link/Embedded/ToolUse/ToolResult/Reasoning; construct arms via `content.Text{...}`), `stdlib/llm` (shared schema builders + unified `StreamEvent` variant across providers), `stdlib/llm/chat`, `stdlib/llm/responses`, `stdlib/llm/anthropic` (same builder shape: `New |> System/User/Assistant |> Temperature/MaxTokens/Stream/Retry/AddTool |> Ask/Send/SendRaw`; chat-only: `AskJSON of T from prompt`, `AskStream`/`SendStream`), `stdlib/llm/embeddings` (OpenAI-compatible), `stdlib/llm/safe` (prompt-injection-resistant wrapping for adversarial input), `stdlib/llm/era` (LLM Empirical Research Assistant — LLM rewrite + Flat UCB Tree Search for problems that reduce to a numeric score, with built-in compile/run/bench scorers), `stdlib/mcp` (server + client; schema builders `Prop`/`Schema`/`Required`; `ToolWithOpts` for annotation hints — `ReadOnly`, `Destructive`, `Idempotent`, `OpenWorldHint`, `Title`; set `Enum` on a `SchemaProperty` to restrict allowed values), `stdlib/agentevent` (cross-agent normalized event shape — `AgentEvent` variant enum + `DecodeGooseEvent`/`DecodeClaudeCodeEvent` for goose + claude-code hook JSON; opencode bridges live in the host application).
 
-**ML & inference.** `stdlib/infer` (smart inference fallback chain orchestrator — wraps `stdlib/ort` and `stdlib/webinfer` with automatic fallback; `Init()` tries native ORT first then browser-based), `stdlib/ort` (pipe-friendly ONNX Runtime wrapper — CPU and hardware-accelerated execution providers: CUDA, TensorRT, CoreML, OpenVINO, DirectML, QNN; dlopen at runtime), `stdlib/webinfer` (ONNX inference via headless Chromium + `onnxruntime-web` — cross-platform NPU/GPU/CPU acceleration through browser's WebNN/WebGPU providers, no native ORT library needed).
 
 **Education & games.** `stdlib/game` (beginner-friendly 2D game library wrapping Ebitengine — `Window`/`OnUpdate`/`OnDraw`/`Run`, keyboard input, drawing primitives for browser-based tutorials).
 
@@ -825,13 +916,13 @@ c := chat.New("openai:gpt-4o-mini")
     |> chat.User("Weather in Paris?")
 comp := c |> chat.SendRaw onerr panic "{error}"
 if chat.HasToolCalls(comp)
-    handlers := make(map of string to func(string) string)
+    handlers := empty map of string to func(string) string
     handlers["get_weather"] = (args: string) => "Sunny, 22°C"
     c = chat.ExecuteToolCalls(c, comp, handlers) onerr panic "{error}"
 
 # MCP server tool with typed args
 mcp.Tool of PriceArgs(server, "get_price", "Get stock price", schema,
-    func(args: PriceArgs) (any, error)
+    (args: PriceArgs) =>
         return lookupPrice(args.Symbol), empty)
 
 # ToolWithOpts — annotation hints + enum-restricted property
@@ -840,11 +931,11 @@ schema2 := mcp.Schema(list of mcp.SchemaProperty{
 }) |> mcp.Required(list of string{"direction"})
 mcp.ToolWithOpts of SortArgs(server, "sort_items", "Sort a list", schema2,
     mcp.ToolOpts{ReadOnly: true, Title: "Sort Items"},
-    func(args: SortArgs) (any, error)
+    (args: SortArgs) =>
         return sortItems(args.Direction), empty)
 ```
 
-**External packages** (separate Go modules, abstracted behind stdlib wrappers): `codeberg.org/kukichalang/blob` (S3 SDK deps, surfaced via `stdlib/blob`), `codeberg.org/kukichalang/game` (Ebitengine, surfaced via `stdlib/game`), `codeberg.org/kukichalang/infer` (ONNX Runtime + headless Chromium, surfaced via `stdlib/infer`/`stdlib/ort`/`stdlib/webinfer`). The stdlib wrappers import these modules, so a `go mod tidy` after `kukicha init` fetches them automatically.
+**External packages** (separate Go modules, abstracted behind stdlib wrappers): `kukicha.org/blob` (S3 SDK deps, surfaced via `stdlib/blob`), `kukicha.org/game` (Ebitengine, surfaced via `stdlib/game`). The stdlib wrappers import these modules, so a `go mod tidy` after `kukicha init` fetches them automatically.
 
 ---
 
@@ -946,7 +1037,7 @@ go test ./internal/foo/...                                     # or go test ./..
 | `use {error} not {err} inside onerr` | Change `{err}` to `{error}`, or use `onerr as e` |
 | `variable 'x' not used` | Remove the variable, or use it; never use `_ = x` to suppress — remove the dead code instead |
 | `function must declare return type` | Add explicit return type: `func F() int` |
-| `undefined: result` / `undefined: key` (from a `go build` of a piped bare lambda) | A stdlib generic placeholder leaked into the lambda's param type — inference couldn't thread the element type through the pipe. Annotate the param: `(x: T) => …` |
+| `lambda parameter 'n' has no type annotation and no type could be inferred from context` | Annotate the param: `(n: int) => ...` or pass the lambda where its signature is known (pipe to `slice.Filter`, etc.) |
 | `SSRF risk` / `path traversal` / `command injection` / `XSS risk` | See Security table above |
 | `expected INDENT` | Check 4-space indentation (no tabs) |
 | `expected 'when' or 'default'` | Use `when`/`default` |
