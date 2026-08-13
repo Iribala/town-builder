@@ -80,7 +80,7 @@ Detailed Kukicha reference (syntax, stdlib, compiler-enforced security checks, g
 <!-- kukicha:start -->
 ## Writing Kukicha
 
-Kukicha is a near-superset of Go: most Go compiles as-is — including `{ }` brace blocks — with a few exceptions (`case`/`default`, `chan T`, `goto`, generic `[T]` declarations, parenthesized `const ( ... )`, Go-style `type X interface { ... }` declarations, and C-style `for init; cond; post { }` loops) that have Kukicha replacements. Anonymous `struct { ... }` types and literals parse directly (`struct { field: Type }{field: value}`). Go-compat forms are for migration, not authoring: **always write Kukicha syntax** (4-space indentation, `and`/`or`/`not`, `list of T`, `onerr`, pipes, enums) and use Kukicha's stdlib (`stdlib/*`) over raw Go packages. Fall back to Go only when Kukicha has no equivalent.
+Kukicha is a near-superset of Go: most Go compiles as-is — including `{ }` brace blocks and range loops — with a few exceptions (`case`/`default`, `chan T`, `goto`, generic `[T]` declarations, parenthesized `const ( ... )`, Go-style `type X interface { ... }` declarations, and C-style `for init; cond; post { }` loops) that have Kukicha replacements. Go-style range loops parse for migration, but `kukicha fmt` rewrites them to `for ... in`. Anonymous `struct { ... }` types and literals parse directly (`struct { field: Type }{field: value}`). Go-compat forms are for migration, not authoring: **always write Kukicha syntax** (4-space indentation, `and`/`or`/`not`, `list of T`, `onerr`, pipes, enums) and use Kukicha's stdlib (`stdlib/*`) over raw Go packages. Fall back to Go only when Kukicha has no equivalent.
 
 Comments start with `#` (Go's `//` is not a comment in Kukicha — it parses as two division operators).
 
@@ -138,7 +138,7 @@ func main()
 | `send val to ch` / `receive from ch` | `ch <- val` / `<-ch` |
 | `when` / `default` | `case` / `default` |
 | `# comment` | `// comment` |
-| `for item in items` / `for i, v := range items` | `for _, item := range items` / `for i, v := range items` |
+| `for item in items` / `for i, v in items` | `for _, item := range items` / `for i, v := range items` |
 | `for i from 0 to 10` | `for i := 0; i < 10; i++` |
 | `for i from 0 through 10` | `for i := 0; i <= 10; i++` |
 | `interface Reader` + indented methods | `type Reader interface { ... }` |
@@ -380,7 +380,7 @@ func Map of T and R(items: list of T, transform: func(T) R) list of R
         out = append(out, transform(item))
     return out
 
-func SortedKeys of K: comparable(m: map of K to any) list of K
+func SortedKeys of K: cmp.Ordered(m: map of K to any) list of K
     keys := empty list of K
     for k in m
         keys = append(keys, k)
@@ -736,7 +736,7 @@ ok := v is int                        # bool form, no binding
 # Type switch for 3+ alternatives (see Control Flow)
 ```
 
-Narrowing works on `any`, `error`, and interface-typed values; on a variant enum the same syntax is a case check. Go's assertion forms (`value.(string)`, `v, ok := value.(string)`) parse as Go-compat input but `is ... as` is what you write — it never panics and the binding is scoped to the branch. The two-value cast (`v, ok := x as T`) **warns as deprecated** — write `if x is T as v`.
+Narrowing works on `any`, `error`, and interface-typed values; on a variant enum the same syntax is a case check. Go's assertion forms (`value.(string)`, `v, ok := value.(string)`) parse as Go-compat input but `is ... as` is what you write — it never panics and the binding is scoped to the branch. The two-value cast (`v, ok := x as T`) is a **compile error** — write `if x is T as v`.
 
 `as` has two jobs, recognizable by what follows it. Followed by a **fresh name**, it means "…and call it that": `import "p" as q`, `is Circle as c`, `onerr as e` (`as` names a value that doesn't have a name yet). Followed by a **type or string**, it means "treated/known as": conversion (`x as int`) and the JSON field alias (`stars: int as "stargazers_count"`).
 
@@ -887,7 +887,7 @@ The stdlib is extracted to `.kukicha/stdlib/` on `kukicha init` — **read the `
 
 **HTTP & networking.** `stdlib/fetch` (client with builder, auth, retry, SSRF — `Get`/`SafeGet`/`GetJSON of T from url`), `stdlib/http` as `httphelper` (`JSON*` responders, `SafeRedirect`, `SafeHTML`, `TrustedHosts` middleware, `RealIP` for client-IP behind a proxy), `stdlib/html` (auto-escaping components; `html.Raw` for pre-rendered trusted HTML like `markdown.ToHTML` output), `stdlib/netguard` (SSRF guards), `stdlib/url` (parse/build/encode, `MustParse` for startup, `CleanPath`/`IsSubpath` for traversal-safe paths), `stdlib/shellguard` (subprocess allowlist for agent ops, fail-closed), `stdlib/policy` (approval-gate variant for agent ops, fail-closed).
 
-**CLI & system.** `stdlib/cli` (flag/subcommand parser — prefer typed `BoolFlag`/`IntFlag`/`StringFlag` over generic `AddFlag`), `stdlib/input` (`Prompt`/`Confirm`/`Choose`, `NewForm`), `stdlib/table`, `stdlib/color`, `stdlib/term` (**single source of truth for tty/color/width — `IsTTY`/`VisibleWidth`/`PadRightVisible`**), `stdlib/log` (leveled structured logger), `stdlib/env` (`Get`/`GetOr`/`GetInt`/`GetBool`), `stdlib/must` (panic-on-error startup), `stdlib/signal` (`WaitFor`/`Context` with English signal names).
+**CLI & system.** `stdlib/cli` (flag/subcommand parser — prefer typed `BoolFlag`/`IntFlag`/`StringFlag` over generic `AddFlag`), `stdlib/input` (`ReadLine`/`ReadPassword`/`Confirm`/`Choose`, `NewForm`), `stdlib/table`, `stdlib/color`, `stdlib/term` (**single source of truth for tty/color/width — `IsTTY`/`VisibleWidth`/`PadRightVisible`**), `stdlib/log` (leveled structured logger), `stdlib/env` (`Get`/`GetOr`/`GetInt`/`GetIntOr`/`GetBool`/`GetBoolOr`/`GetFloat`/`GetFloatOr`/`GetList`/`GetListOr`; typed `*Or` variants never fail — they default on absence *or* an invalid value), `stdlib/must` (panic-on-error startup), `stdlib/signal` (`WaitFor`/`Context` with English signal names).
 
 **Concurrency & resilience.** `stdlib/concurrent` (`Parallel`/`Map`/`ParallelE`/`MapE` + `*WithLimit` and `*Ctx` variants), `stdlib/bus` (in-process pub/sub with per-subscriber Observer flag: load-bearing subs propagate backpressure errors, observers silently drop and track a `Dropped` counter), `stdlib/ctx` as `ctxpkg`, `stdlib/retry` (backoff + circuit breaker via `NewBudget`/`BudgetExceeded`), `stdlib/datetime`.
 
