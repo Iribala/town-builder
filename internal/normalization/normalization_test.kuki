@@ -51,14 +51,14 @@ func TestCanonicalDictPassthrough(t: reference testing.T)
         test.AssertEqual(t, len(buildings), 1)
         bld := buildings[0]
         test.AssertEqual(t, bld["model"], "house.glb")
-        pos, _ := bld["position"].(normalization.Vec3)
-        test.AssertEqual(t, pos.X, 10.0)
-        test.AssertEqual(t, pos.Y, 0.0)
-        test.AssertEqual(t, pos.Z, 5.0)
-        rot, _ := bld["rotation"].(normalization.Vec3)
-        test.AssertEqual(t, rot.Y, 1.57)
-        scale, _ := bld["scale"].(normalization.Vec3)
-        test.AssertEqual(t, scale.X, 1.0)
+        if bld["position"] is normalization.Vec3 as pos
+            test.AssertEqual(t, pos.X, 10.0)
+            test.AssertEqual(t, pos.Y, 0.0)
+            test.AssertEqual(t, pos.Z, 5.0)
+        if bld["rotation"] is normalization.Vec3 as rot
+            test.AssertEqual(t, rot.Y, 1.57)
+        if bld["scale"] is normalization.Vec3 as scale
+            test.AssertEqual(t, scale.X, 1.0)
 
 func TestAllCategoriesPresent(t: reference testing.T)
     result := normalization.Normalize(sampleDict())
@@ -125,10 +125,10 @@ func TestPositionArrayToDict(t: reference testing.T)
     }
     result := normalization.Normalize(data)
     if result["buildings"] is list of map of string to any as buildings
-        pos, _ := buildings[0]["position"].(normalization.Vec3)
-        test.AssertEqual(t, pos.X, 1.0)
-        test.AssertEqual(t, pos.Y, 2.0)
-        test.AssertEqual(t, pos.Z, 3.0)
+        if buildings[0]["position"] is normalization.Vec3 as pos
+            test.AssertEqual(t, pos.X, 1.0)
+            test.AssertEqual(t, pos.Y, 2.0)
+            test.AssertEqual(t, pos.Z, 3.0)
 
 func TestPositionDictPreserved(t: reference testing.T)
     data := map of string to any{
@@ -141,10 +141,10 @@ func TestPositionDictPreserved(t: reference testing.T)
     }
     result := normalization.Normalize(data)
     if result["buildings"] is list of map of string to any as buildings
-        pos, _ := buildings[0]["position"].(normalization.Vec3)
-        test.AssertEqual(t, pos.X, 5.0)
-        test.AssertEqual(t, pos.Y, 6.0)
-        test.AssertEqual(t, pos.Z, 7.0)
+        if buildings[0]["position"] is normalization.Vec3 as pos
+            test.AssertEqual(t, pos.X, 5.0)
+            test.AssertEqual(t, pos.Y, 6.0)
+            test.AssertEqual(t, pos.Z, 7.0)
 
 func TestMissingPositionDefaultsZero(t: reference testing.T)
     data := map of string to any{
@@ -152,10 +152,10 @@ func TestMissingPositionDefaultsZero(t: reference testing.T)
     }
     result := normalization.Normalize(data)
     if result["buildings"] is list of map of string to any as buildings
-        pos, _ := buildings[0]["position"].(normalization.Vec3)
-        test.AssertEqual(t, pos.X, 0.0)
-        test.AssertEqual(t, pos.Y, 0.0)
-        test.AssertEqual(t, pos.Z, 0.0)
+        if buildings[0]["position"] is normalization.Vec3 as pos
+            test.AssertEqual(t, pos.X, 0.0)
+            test.AssertEqual(t, pos.Y, 0.0)
+            test.AssertEqual(t, pos.Z, 0.0)
 
 func TestMissingScaleDefaultsOne(t: reference testing.T)
     data := map of string to any{
@@ -163,10 +163,10 @@ func TestMissingScaleDefaultsOne(t: reference testing.T)
     }
     result := normalization.Normalize(data)
     if result["buildings"] is list of map of string to any as buildings
-        scale, _ := buildings[0]["scale"].(normalization.Vec3)
-        test.AssertEqual(t, scale.X, 1.0)
-        test.AssertEqual(t, scale.Y, 1.0)
-        test.AssertEqual(t, scale.Z, 1.0)
+        if buildings[0]["scale"] is normalization.Vec3 as scale
+            test.AssertEqual(t, scale.X, 1.0)
+            test.AssertEqual(t, scale.Y, 1.0)
+            test.AssertEqual(t, scale.Z, 1.0)
 
 func TestModelNameNormalizedToModel(t: reference testing.T)
     data := map of string to any{
