@@ -16,21 +16,21 @@ type BoundingBox
 
 type CategoryMask = uint32
 
-const CategoryUnknown CategoryMask = 1
+const CategoryUnknown: CategoryMask = 1
 
-const CategoryVehicle CategoryMask = 2
+const CategoryVehicle: CategoryMask = 2
 
-const CategoryBuilding CategoryMask = 4
+const CategoryBuilding: CategoryMask = 4
 
-const CategoryTerrain CategoryMask = 8
+const CategoryTerrain: CategoryMask = 8
 
-const CategoryProp CategoryMask = 16
+const CategoryProp: CategoryMask = 16
 
-const CategoryRoad CategoryMask = 32
+const CategoryRoad: CategoryMask = 32
 
-const CategoryTree CategoryMask = 64
+const CategoryTree: CategoryMask = 64
 
-const CategoryPark CategoryMask = 128
+const CategoryPark: CategoryMask = 128
 
 func categoryFromString(category: string) CategoryMask
     switch category
