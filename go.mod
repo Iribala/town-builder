@@ -1,6 +1,6 @@
 module github.com/Iribala/town-builder
 
-go 1.27rc2
+go 1.27rc3
 
 // This module leverages Go 1.26 features:
 // - Swiss Tables: 30-60% faster map operations
@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.17.9
 	github.com/redis/go-redis/v9 v9.7.0
-	kukicha.org/kukicha/stdlib v0.78.1
+	kukicha.org/kukicha/stdlib v0.78.2
 )
 
 require (
