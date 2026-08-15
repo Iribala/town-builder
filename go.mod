@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/klauspost/compress v1.17.9
 	github.com/redis/go-redis/v9 v9.7.0
-	kukicha.org/kukicha/stdlib v0.80.0
+	kukicha.org/kukicha/stdlib v0.80.1
 )
 
 require (
