@@ -66,7 +66,7 @@ func deepCopyMap(src: map of string to any) map of string to any
     if err isnt empty
         return defaultTownData()
     out := make(map of string to any)
-    perr := json.ParseInto(data, reference of out)
+    perr := json.ParseBytesInto(data, reference of out)
     if perr isnt empty
         return defaultTownData()
     return out
@@ -87,7 +87,7 @@ func Get() (map of string to any, error)
                 log.Warn("Failed to decompress town data: {derr}")
                 return snapshotMemory(), empty
             out := make(map of string to any)
-            perr := json.ParseInto(decompressed, reference of out)
+            perr := json.ParseBytesInto(decompressed, reference of out)
             if perr isnt empty
                 log.Warn("Failed to parse stored town data: {perr}")
                 return snapshotMemory(), empty

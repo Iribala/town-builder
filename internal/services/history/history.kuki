@@ -86,7 +86,7 @@ func GetHistory(limit: int) list of map of string to any
             out := empty list of map of string to any
             for entry in entries
                 obj := make(map of string to any)
-                perr := json.ParseInto(entry as list of byte, reference of obj)
+                perr := json.ParseBytesInto(entry as list of byte, reference of obj)
                 if perr equals empty
                     out = append(out, obj)
             return slice.Reverse(out)
@@ -130,7 +130,7 @@ func GetLastEntry() (map of string to any, bool)
         entry, err := client.LIndex(h.Ctx, historyKey, -1).Result()
         if err equals empty and entry isnt ""
             obj := make(map of string to any)
-            perr := json.ParseInto(entry as list of byte, reference of obj)
+            perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
                 return obj, true
         else if err isnt empty and err isnt redis.Nil
@@ -149,7 +149,7 @@ func PopLastEntry() (map of string to any, bool)
         entry, err := client.RPop(h.Ctx, historyKey).Result()
         if err equals empty and entry isnt ""
             obj := make(map of string to any)
-            perr := json.ParseInto(entry as list of byte, reference of obj)
+            perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
                 return obj, true
         else if err isnt empty and err isnt redis.Nil
@@ -188,7 +188,7 @@ func PopRedoEntry() (map of string to any, bool)
         entry, err := client.RPop(h.Ctx, redoKey).Result()
         if err equals empty and entry isnt ""
             obj := make(map of string to any)
-            perr := json.ParseInto(entry as list of byte, reference of obj)
+            perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
                 return obj, true
         else if err isnt empty and err isnt redis.Nil

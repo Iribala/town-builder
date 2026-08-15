@@ -24,7 +24,7 @@ func deepCopy(src: map of string to any) map of string to any
     if err isnt empty
         return make(map of string to any)
     out := make(map of string to any)
-    perr := json.ParseInto(data, reference of out)
+    perr := json.ParseBytesInto(data, reference of out)
     if perr isnt empty
         return make(map of string to any)
     return out

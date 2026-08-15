@@ -109,7 +109,7 @@ func CreateSnapshot(townData: map of string to any, name: string, description: s
         oldestEntry, oerr := client.LIndex(h.Ctx, snapshotsKey, 0).Result()
         if oerr equals empty and oldestEntry isnt ""
             oldestMeta := make(map of string to any)
-            perr := json.ParseInto(oldestEntry as list of byte, reference of oldestMeta)
+            perr := json.ParseBytesInto(oldestEntry as list of byte, reference of oldestMeta)
             if perr equals empty
                 if oldestMeta["id"] is string as oid
                     client.Del(h.Ctx, snapshotDataPrefix + oid)
@@ -134,7 +134,7 @@ func ListSnapshots() list of map of string to any
     out := empty list of map of string to any
     for entry in entries
         obj := make(map of string to any)
-        perr := json.ParseInto(entry as list of byte, reference of obj)
+        perr := json.ParseBytesInto(entry as list of byte, reference of obj)
         if perr equals empty
             out = append(out, obj)
     return slice.Reverse(out)
@@ -160,7 +160,7 @@ func GetSnapshot(snapshotID: string) (map of string to any, bool)
         log.Error("Failed to decompress snapshot {snapshotID}: {derr}")
         return empty, false
     obj := make(map of string to any)
-    perr := json.ParseInto(decompressed, reference of obj)
+    perr := json.ParseBytesInto(decompressed, reference of obj)
     if perr isnt empty
         return empty, false
     return obj, true
@@ -194,7 +194,7 @@ func DeleteSnapshot(snapshotID: string) bool
     newEntries := empty list of any
     for entry in entries
         meta := make(map of string to any)
-        perr := json.ParseInto(entry as list of byte, reference of meta)
+        perr := json.ParseBytesInto(entry as list of byte, reference of meta)
         if perr isnt empty
             newEntries = append(newEntries, entry)
             continue
@@ -234,7 +234,7 @@ func GetSnapshotMetadata(snapshotID: string) (map of string to any, bool)
         return empty, false
     for entry in entries
         meta := make(map of string to any)
-        perr := json.ParseInto(entry as list of byte, reference of meta)
+        perr := json.ParseBytesInto(entry as list of byte, reference of meta)
         if perr isnt empty
             continue
         if meta["id"] is string as id

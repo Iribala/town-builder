@@ -179,8 +179,8 @@ func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
         when "lte"
             return compareValues(objValue, filterValue) <= 0
         when "contains"
-            objStr, _ := cast.SmartString(objValue)
-            filterStr, _ := cast.SmartString(filterValue)
+            objStr := cast.SmartString(objValue)
+            filterStr := cast.SmartString(filterValue)
             return strpkg.Contains(objStr, filterStr)
         when "in"
             if filterValue is list of any as items

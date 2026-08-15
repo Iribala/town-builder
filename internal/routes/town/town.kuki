@@ -220,7 +220,7 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
         response.JSONError("Failed to read file", 500) onerr discard
         return
     var townData: any
-    jerr := json.ParseInto(raw, reference of townData)
+    jerr := json.ParseBytesInto(raw, reference of townData)
     if jerr isnt empty
         response.JSONError("Failed to parse town data", 500) onerr discard
         return

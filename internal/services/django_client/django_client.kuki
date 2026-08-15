@@ -107,7 +107,7 @@ func decodeJSON(resp: reference http.Response) (map of string to any, error)
     if err isnt empty
         return empty, err
     out := make(map of string to any)
-    perr := json.ParseInto(raw, reference of out)
+    perr := json.ParseBytesInto(raw, reference of out)
     if perr isnt empty
         return empty, perr
     return out, empty
@@ -150,7 +150,7 @@ func SearchTownByName(townName: string) (int, bool, error)
         return 0, false, rerr
     var results: list of any
     var parsedAny: any
-    perr := json.ParseInto(raw, reference of parsedAny)
+    perr := json.ParseBytesInto(raw, reference of parsedAny)
     if perr isnt empty
         return 0, false, perr
     if parsedAny is list of any as arr
