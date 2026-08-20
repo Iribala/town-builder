@@ -1,0 +1,102 @@
+petiole kibigia_auth
+
+import "bytes"
+import "io"
+import "net/http"
+import "stdlib/json"
+import "stdlib/log"
+import "stdlib/string" as strpkg
+import "time"
+
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/utils/security"
+
+# ExchangeResponse is the JSON body returned by kibigia's
+# /issues/town-builder/exchange/ endpoint.
+type ExchangeResponse
+    Token: string as "token"
+    TownBuilderURL: string as "town_builder_url"
+    ExpiresIn: int as "expires_in"
+
+# maxBodyBytes caps how much of the exchange response we read off the wire.
+const maxBodyBytes: int64 = 64 * 1024
+
+func httpClient() reference http.Client
+    return reference of http.Client{Timeout: 10 * time.Second}
+
+# ResolveToken returns the JWT the browser should use for authenticated API
+# calls. It implements both flows kibigia supports:
+#
+#   - Auth-code flow (preferred): kibigia redirects to ?code=<single-use-code>;
+#     town-builder POSTs to KIBIGIA_EXCHANGE_URL with the X-TownBuilder-Secret
+#     header to redeem it for a JWT. The code is single-use and expires in 60s.
+#   - Direct-token flow (fallback): ?token=<jwt> is passed straight through.
+#     Used by kibigia's get_town_builder_token API endpoint for iframe embedding.
+#
+# If neither parameter is present (or the exchange fails), an empty string is
+# returned; the UI renders with window.__TOKEN = null and the user sees auth
+# errors on the first authenticated call — the same behaviour as before this
+# flow existed, never worse.
+func ResolveToken(authCode: string, directToken: string) string
+    if authCode isnt ""
+        token, err := ExchangeCode(authCode)
+        if err isnt empty
+            log.Error("kibigia auth-code exchange failed: {err}")
+            if directToken isnt ""
+                log.Warn("Falling back to direct ?token= parameter")
+                return directToken
+            return ""
+        return token
+    return directToken
+
+# ExchangeCode POSTs the single-use authorization code to kibigia's exchange
+# endpoint and returns the JWT from the response body. The shared secret
+# (KIBIGIA_EXCHANGE_SECRET) is sent in the X-TownBuilder-Secret header; kibigia
+# rejects the request without a constant-time match.
+func ExchangeCode(authCode: string) (string, error)
+    s := config.Current()
+    if s equals empty
+        return "", error "config not loaded"
+    if strpkg.TrimSpace(s.KibigiaExchangeSecret) equals ""
+        return "", error "KIBIGIA_EXCHANGE_SECRET is not set; cannot redeem auth code"
+    exchangeURL := s.KibigiaExchangeURL
+    if not strpkg.HasPrefix(exchangeURL, "http://") and not strpkg.HasPrefix(exchangeURL, "https://")
+        return "", error "KIBIGIA_EXCHANGE_URL must be an absolute http(s) URL"
+    if not security.ValidateApiURL(exchangeURL)
+        return "", error "exchange URL host is not in ALLOWED_DOMAINS: {exchangeURL}"
+
+    body := map of string to string{"code": authCode}
+    payload, err := json.Bytes(body)
+    if err isnt empty
+        return "", err
+
+    req, rerr := http.NewRequest("POST", exchangeURL, bytes.NewReader(payload))
+    if rerr isnt empty
+        return "", rerr
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("X-TownBuilder-Secret", s.KibigiaExchangeSecret)
+    req.Header.Set("Accept", "application/json")
+
+    log.Debug("Redeeming kibigia auth code at {exchangeURL}")
+    resp, derr := httpClient().Do(req)
+    if derr isnt empty
+        return "", derr
+    defer resp.Body.Close()
+
+    raw, rerr := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
+    if rerr isnt empty
+        return "", rerr
+
+    if resp.StatusCode >= 400
+        snippet := raw as string
+        if len(snippet) > 200
+            snippet = snippet[:200]
+        return "", error "kibigia exchange returned status {resp.StatusCode}: {snippet}"
+
+    var result: ExchangeResponse
+    perr := json.ParseBytesInto(raw, reference of result)
+    if perr isnt empty
+        return "", perr
+    if result.Token equals ""
+        return "", error "kibigia exchange response did not contain a token"
+    return result.Token, empty

@@ -1,0 +1,192 @@
+petiole kibigia_auth_test
+
+import "io"
+import "net/http"
+import "net/http/httptest"
+import "stdlib/json"
+import "stdlib/string" as strpkg
+import "stdlib/test"
+import "testing"
+
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/services/kibigia_auth"
+
+func setup(exchangeURL: string, secret: string)
+    s := reference of config.Settings{
+        KibigiaExchangeURL: exchangeURL,
+        KibigiaExchangeSecret: secret,
+        AllowedDomains: "localhost,127.0.0.1",
+        AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
+    }
+
+    config.SetForTest(s)
+
+func newServer(handler: http.HandlerFunc) reference httptest.Server
+    return httptest.NewServer(handler)
+
+func newExchangeServer(secret: string, token: string) reference httptest.Server
+    return newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        if r.Method isnt "POST"
+            w.WriteHeader(405)
+            return
+        if r.Header.Get("X-TownBuilder-Secret") isnt secret
+            w.WriteHeader(401)
+            w.Write(`{"error": "Unauthorized"}` as list of byte) onerr discard
+            return
+        raw, err := io.ReadAll(r.Body)
+        if err isnt empty
+            w.WriteHeader(400)
+            return
+        body := make(map of string to any)
+        perr := json.ParseBytesInto(raw, reference of body)
+        if perr isnt empty
+            w.WriteHeader(400)
+            w.Write(`{"error": "Authorization code required"}` as list of byte) onerr discard
+            return
+        codeVal, hasCode := body["code"]
+        if not hasCode
+            w.WriteHeader(400)
+            w.Write(`{"error": "Authorization code required"}` as list of byte) onerr discard
+            return
+        if codeVal is string as c
+            if c equals ""
+                w.WriteHeader(400)
+                w.Write(`{"error": "Authorization code required"}` as list of byte) onerr discard
+                return
+        else
+            w.WriteHeader(400)
+            w.Write(`{"error": "Authorization code required"}` as list of byte) onerr discard
+            return
+        resp := map of string to any{
+            "token": token,
+            "town_builder_url": "http://localhost:5001",
+            "expires_in": 28800,
+        }
+        out, _ := json.Bytes(resp)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(out) onerr discard
+    )
+
+# ── ResolveToken ───────────────────────────────────────────────────
+
+func TestResolveTokenPrefersCode(t: reference testing.T)
+    srv := newExchangeServer("secret123", "jwt-from-code")
+    defer srv.Close()
+    setup(srv.URL, "secret123")
+    token := kibigia_auth.ResolveToken("abc-code", "")
+    test.AssertEqual(t, token, "jwt-from-code")
+
+func TestResolveTokenFallsBackToDirectToken(t: reference testing.T)
+    setup("http://127.0.0.1:1/exchange/", "")
+    token := kibigia_auth.ResolveToken("", "direct-jwt")
+    test.AssertEqual(t, token, "direct-jwt")
+
+func TestResolveTokenEmptyWhenBothEmpty(t: reference testing.T)
+    setup("http://127.0.0.1:1/exchange/", "secret123")
+    token := kibigia_auth.ResolveToken("", "")
+    test.AssertEqual(t, token, "")
+
+func TestResolveTokenFallsBackOnExchangeFailure(t: reference testing.T)
+    setup("http://127.0.0.1:1/exchange/", "secret123")
+    token := kibigia_auth.ResolveToken("bad-code", "fallback-jwt")
+    test.AssertEqual(t, token, "fallback-jwt")
+
+# ── ExchangeCode ───────────────────────────────────────────────────
+
+func TestExchangeCodeSuccess(t: reference testing.T)
+    srv := newExchangeServer("s3cret", "the-jwt")
+    defer srv.Close()
+    setup(srv.URL, "s3cret")
+    token, err := kibigia_auth.ExchangeCode("single-use-code")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, token, "the-jwt")
+
+func TestExchangeCodeSendsSecretHeader(t: reference testing.T)
+    var seenSecret: string
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        seenSecret = r.Header.Get("X-TownBuilder-Secret")
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`{"token": "t", "expires_in": 28800}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setup(srv.URL, "the-shared-secret")
+    _, err := kibigia_auth.ExchangeCode("code")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, seenSecret, "the-shared-secret")
+
+func TestExchangeCodeSendsCodeInBody(t: reference testing.T)
+    var sentCode: string
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        raw, _ := io.ReadAll(r.Body)
+        body := make(map of string to any)
+        json.ParseBytesInto(raw, reference of body) onerr discard
+        if body["code"] is string as c
+            sentCode = c
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`{"token": "t", "expires_in": 28800}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setup(srv.URL, "secret")
+    _, err := kibigia_auth.ExchangeCode("the-auth-code")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, sentCode, "the-auth-code")
+
+func TestExchangeCodeWrongSecretReturnsError(t: reference testing.T)
+    srv := newExchangeServer("correct-secret", "jwt")
+    defer srv.Close()
+    setup(srv.URL, "wrong-secret")
+    _, err := kibigia_auth.ExchangeCode("code")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "401"))
+
+func TestExchangeCodeInvalidCodeReturnsError(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(404)
+        w.Write(`{"error": "Invalid or expired authorization code"}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setup(srv.URL, "secret")
+    _, err := kibigia_auth.ExchangeCode("expired")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "404"))
+
+func TestExchangeCodeMissingSecretErrors(t: reference testing.T)
+    setup("http://127.0.0.1:9999/exchange/", "")
+    _, err := kibigia_auth.ExchangeCode("code")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "KIBIGIA_EXCHANGE_SECRET"))
+
+func TestExchangeCodeDisallowedHostErrors(t: reference testing.T)
+    setup("http://evil.com/exchange/", "secret")
+    _, err := kibigia_auth.ExchangeCode("code")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "ALLOWED_DOMAINS"))
+
+func TestExchangeCodeMissingTokenInResponseErrors(t: reference testing.T)
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`{"town_builder_url": "http://x", "expires_in": 28800}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setup(srv.URL, "secret")
+    _, err := kibigia_auth.ExchangeCode("code")
+    test.AssertError(t, err)
+    test.AssertTrue(t, strpkg.Contains(err.Error(), "token"))
+
+func TestExchangeCodeUsesPOST(t: reference testing.T)
+    var seenMethod: string
+    srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
+        seenMethod = r.Method
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(`{"token": "t", "expires_in": 28800}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setup(srv.URL, "secret")
+    _, err := kibigia_auth.ExchangeCode("code")
+    test.AssertNoError(t, err)
+    test.AssertEqual(t, seenMethod, "POST")

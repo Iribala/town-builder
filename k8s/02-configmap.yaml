@@ -8,6 +8,12 @@ data:
   # Replace with the actual URL of your external town API
   TOWN_API_URL: "http://<YOUR_EXTERNAL_API_DOMAIN>/api/towns/"
 
+  # Kibigia auth-code exchange endpoint. kibigia redirects to town-builder with
+  # ?code=<single-use-code>; town-builder POSTs it here (with the shared secret
+  # from the Secret) to redeem for a JWT. The host MUST be listed in
+  # ALLOWED_DOMAINS below, or the SSRF guard rejects the call.
+  KIBIGIA_EXCHANGE_URL: "http://<YOUR_KIBIGIA_DOMAIN>/issues/town-builder/exchange/"
+
   # Redis URL for SSE and caching
   # Format: redis://<service-name>.<namespace>.svc.cluster.local:<port>/<db>
   REDIS_URL: "redis://valkey.<YOUR_NAMESPACE>.svc.cluster.local:6379/0"
@@ -21,6 +27,7 @@ data:
 
   # SSRF Protection - Allowed API domains (comma-separated)
   # Only these domains will be allowed for external API calls (prevents SSRF attacks)
+  # Must include both your Django API host AND the kibigia exchange host.
   # Example: "localhost,127.0.0.1,api.yourdomain.com,django-service.namespace.svc.cluster.local"
   ALLOWED_DOMAINS: "localhost,127.0.0.1,<YOUR_DJANGO_SERVICE_DOMAIN>"
 

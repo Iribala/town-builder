@@ -9,6 +9,7 @@ import "stdlib/string" as strpkg
 import "strconv"
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/services/kibigia_auth"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
 import "github.com/Iribala/town-builder/internal/services/model_loader"
 
@@ -61,10 +62,15 @@ func index(response: httphelper.Response, request: httphelper.Request)
         if n, err := strconv.Atoi(v); err equals empty
             townID = n
 
+    # ?code= from kibigia's auth-code flow; ?token= is the direct-token fallback.
+    authCode := request.URL().Query().Get("code")
+    directToken := request.URL().Query().Get("token")
+    token := kibigia_auth.ResolveToken(authCode, directToken)
+
     data := indexData{
         Models: model_loader.GetAvailableModels(),
         TownID: townID,
-        Token: request.URL().Query().Get("token"),
+        Token: token,
         BasePath: basePath(),
     }
     w := response.Raw()
