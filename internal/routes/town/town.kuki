@@ -35,7 +35,7 @@ func updateTown(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     data := make(map of string to any)
-    err := request.ReadJSON(reference of data)
+    err := httphelper.ReadJSON(request.Raw(), reference of data)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
@@ -110,7 +110,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if not ok
         return
     payload := make(map of string to any)
-    err := request.ReadJSON(reference of payload)
+    err := httphelper.ReadJSON(request.Raw(), reference of payload)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON payload") onerr discard
         return
@@ -134,7 +134,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
         if jerr isnt empty
             response.JSONError("Failed to encode town data", 500) onerr discard
             return
-        werr := sandbox.Write(h.root, bytes, fn)
+        werr := h.root.Write(bytes, fn)
         if werr isnt empty
             response.JSONError("Failed to write file", 500) onerr discard
             return
@@ -203,7 +203,7 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if not ok
         return
     body := make(map of string to any)
-    request.ReadJSON(reference of body) onerr discard
+    httphelper.ReadJSON(request.Raw(), reference of body) onerr discard
     filename := mapx.Str(body, "filename")
     if filename equals ""
         filename = "town_data.json"
@@ -212,10 +212,10 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if perr isnt empty
         response.JSONBadRequest("Invalid filename") onerr discard
         return
-    if not sandbox.Exists(h.root, fn)
+    if not h.root.Exists(fn)
         response.JSONNotFound("File {fn} not found") onerr discard
         return
-    raw, rerr := sandbox.Read(h.root, fn)
+    raw, rerr := h.root.Read(fn)
     if rerr isnt empty
         response.JSONError("Failed to read file", 500) onerr discard
         return
@@ -283,7 +283,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     body := make(map of string to any)
-    err := request.ReadJSON(reference of body)
+    err := httphelper.ReadJSON(request.Raw(), reference of body)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
@@ -362,7 +362,7 @@ func editModel(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     body := make(map of string to any)
-    err := request.ReadJSON(reference of body)
+    err := httphelper.ReadJSON(request.Raw(), reference of body)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return

@@ -40,7 +40,7 @@ type Settings
 var current: reference Settings
 
 func floatOr(key: string, def: float64) float64
-    return env.GetFloatOr(key, def)
+    return env.GetFloatOr(key, def) onerr def
 
 # LoadEnvFile reads a .env file (KEY=VALUE per line, '#' comments, optional
 # surrounding quotes on values) and sets each entry into the process
@@ -77,6 +77,12 @@ func stripQuotes(s: string) string
     return s
 
 func Load() (reference Settings, error)
+    disableJwtAuth := env.GetBoolOr("DISABLE_JWT_AUTH", false) onerr false
+    maxHistory := env.GetIntOr("MAX_HISTORY_SIZE", 100) onerr 100
+    maxSnapshots := env.GetIntOr("MAX_SNAPSHOTS", 50) onerr 50
+    maxRequestBodyBytesInt := env.GetIntOr("MAX_REQUEST_BODY_BYTES", 10 * 1024 * 1024) onerr 10 * 1024 * 1024
+    maxBatch := env.GetIntOr("MAX_BATCH_OPERATIONS", 100) onerr 100
+    maxSse := env.GetIntOr("MAX_SSE_CONNECTIONS_PER_USER", 3) onerr 3
     s := reference of Settings{
         AppTitle: env.GetOr("APP_TITLE", "Town Builder API"),
         AppDescription: env.GetOr(
@@ -87,7 +93,7 @@ func Load() (reference Settings, error)
         Environment: env.GetOr("ENVIRONMENT", "development"),
         JwtSecretKey: env.GetOr("JWT_SECRET_KEY", ""),
         JwtAlgorithm: env.GetOr("JWT_ALGORITHM", "HS256"),
-        DisableJwtAuth: env.GetBoolOr("DISABLE_JWT_AUTH", false),
+        DisableJwtAuth: disableJwtAuth,
         ApiURL: env.GetOr("TOWN_API_URL", "http://localhost:8000/api/towns/"),
         ApiToken: env.GetOr("TOWN_API_JWT_TOKEN", ""),
         KibigiaExchangeURL: env.GetOr("KIBIGIA_EXCHANGE_URL", "http://localhost:8000/issues/town-builder/exchange/"),
@@ -102,11 +108,11 @@ func Load() (reference Settings, error)
         SseTimeout: floatOr("SSE_TIMEOUT", 10.0),
         SseKeepaliveInterval: floatOr("SSE_KEEPALIVE_INTERVAL", 10.0),
         UserActivityTimeout: floatOr("USER_ACTIVITY_TIMEOUT", 30.0),
-        MaxHistorySize: env.GetIntOr("MAX_HISTORY_SIZE", 100),
-        MaxSnapshots: env.GetIntOr("MAX_SNAPSHOTS", 50),
-        MaxRequestBodyBytes: env.GetIntOr("MAX_REQUEST_BODY_BYTES", 10 * 1024 * 1024) as int64,
-        MaxBatchOperations: env.GetIntOr("MAX_BATCH_OPERATIONS", 100),
-        MaxSseConnectionsPerUser: env.GetIntOr("MAX_SSE_CONNECTIONS_PER_USER", 3),
+        MaxHistorySize: maxHistory,
+        MaxSnapshots: maxSnapshots,
+        MaxRequestBodyBytes: maxRequestBodyBytesInt as int64,
+        MaxBatchOperations: maxBatch,
+        MaxSseConnectionsPerUser: maxSse,
         AllowedOrigins: env.GetOr("ALLOWED_ORIGINS", ""),
         AllowedDomains: env.GetOr("ALLOWED_DOMAINS", "localhost,127.0.0.1"),
     }

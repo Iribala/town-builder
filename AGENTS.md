@@ -146,7 +146,7 @@ func main()
 
 `func`/`var`/`const`/`enum` have aliases `function`/`variable`/`constant`/`enumeration`: use the short forms in production code; the long forms are for beginner tutorials only.
 
-**`equals` and `isnt` replace every `==` and `!=` — not just nil/empty checks:** `if count equals 0`, `if name equals "admin"`, `if phase isnt enums.SETUP`. Ordering operators (`<`, `>`, `<=`, `>=`) stay symbolic.
+**`equals` and `isnt` replace every `==` and `!=` — not just nil/empty checks:** `if count equals 0`, `if name equals "admin"`, `if phase isnt enums.SETUP`. Ordering operators (`<`, `>`, `<=`, `>=`) stay symbolic. **Chained ordering comparisons** (`low <= value < high`, `high > value >= low`) are admitted for monotonic ascending (`<`/`<=`) or descending (`>`/`>=`) chains; equality/inequality and mixed-direction chains remain rejected.
 
 ### Constants
 
@@ -238,7 +238,7 @@ type UserID int
 type Handler func(context.Context, string) (string, error)
 
 # Transparent type alias (type X = Y — identical types, cross-package assertions work)
-type TextContent = mcp.TextContent
+type Server = mcp.Server
 
 # Alias long multi-token types: if a type repeats 3+ times in a file or pushes
 # a signature past ~100 columns, name it once.
@@ -249,7 +249,72 @@ func MergeUsers(primary: UserMap, secondary: UserMap, overrides: list of UserMap
 # Interface — methods listed in an indented block (not `type X interface { }`)
 interface Validatable
     Validate() list of FieldError
+
+# Embedded interfaces — compose with Go interfaces or local ones.
+# A bare (possibly qualified) type name on its own line embeds that interface.
+interface ReadCloser2
+    io.Reader
+    Closer
+    Flush() int
 ```
+
+Interfaces are Go interfaces with Kukicha spelling: structural satisfaction
+(no `impl` declarations), `v is Iface as x` narrowing, and use as generic
+constraints (`of T: Stringer`). The semantic pass checks declared method
+calls on interface-typed values and verifies same-package concrete types
+implement same-package interfaces at assign/pass/return sites — a missing
+method or signature mismatch surfaces at `kukicha check`, not `go build`.
+Methods promoted through embedded interfaces and cross-package concrete
+types defer to the Go compiler. Variant enums are the closed-set story
+(sum types); interfaces are the open-method-set story. The Go-style
+`type X interface { ... }` declaration is rejected with a hint pointing at
+the Kukicha form (or `kukicha-blend` for bulk conversion).
+
+### Struct embedding
+
+`embed T` in a struct body creates a Go anonymous embedded field — the
+embedded type's fields and methods are promoted to the outer struct.
+
+```kukicha
+type Base
+    id: int
+
+type User
+    embed Base
+    name: string
+
+# promoted field access
+func example()
+    u := User{id: 7, name: "Mittens"}   # `id` promoted from Base (Go 1.27 promoted-key literal)
+    print(u.id, u.name)                   # 7 Mittens
+
+# promoted methods
+type Logger
+    prefix: string
+
+func Log on l: Logger(msg: string)
+    print("{l.prefix}: {msg}")
+
+type Server
+    embed Logger
+    port: int
+
+func methodExample()
+    s := Server{prefix: "api", port: 8080}
+    s.Log("starting")                     # promoted from Logger
+```
+
+- `embed reference Base` embeds by pointer (`*Base` in Go); initialize via
+  the embedded type's key: `User{Base: reference of b, name: "x"}`.
+- `embed Container of T` embeds a generic instantiation.
+- Direct fields shadow promoted fields (no error); two promoted fields with
+  the same name from different embeddings is an ambiguous-promotion error
+  (`semantic/ambiguous-promotion`).
+- Embedding chains promote transitively: `AuditEntry` embedding `Record`
+  embedding `Timestamp` promotes `Timestamp.created` to `AuditEntry`.
+- `embed` is context-sensitive (like `list`/`map`): `embed: string` is a
+  field named "embed", not an embed directive. `embed.FS` (Go stdlib) works
+  as a type name.
 
 ### Optional references
 
@@ -347,8 +412,9 @@ if s is Circle as c
 ```
 
 - Cannot mix value cases (`= literal`) and variant cases in the same enum
-- `is` for bool checks; `is CaseName as v` binds in `if` blocks (top-level condition only)
+- `is` for bool checks; `is CaseName as v` binds in `if` blocks (top-level condition only); `isnt CaseName` is the negated form (lowers to a type assertion with `!`, no binding — `isnt Case as v` is rejected because the binding would land in the branch where the case is *not* the asserted type)
 - **3+ arms → use `switch x` + `when` arms** (exhaustiveness checking + auto-narrowing). Reserve `if v is X as y` for single-case binding or single-arm filters inside a `for` loop. Sequential `if v is A` / `if v is B` / `if v is C` chains are a code smell — convert to `switch`.
+- Switch bindings belong on the switch, not individual arms. `switch s` auto-narrows `s`; use `switch expression as value` when the subject needs a name or a different name. `when Circle as c` is not binding syntax (in a value arm, `as` remains an ordinary cast).
 
 A variant enum may declare type parameters with `enum Name of T and E` (use `and`, never commas — `enum X of T, E` is a compile error):
 
@@ -368,6 +434,25 @@ func divide(a: int, b: int) Result of int and string
 - Construction (`Ok{Value: 5}`) infers type args from the surrounding return / var-decl / call-argument type; there is no explicit call-site syntax.
 - Bindings substitute through automatically: in `if r is Ok as o`, `o.Value` has the concrete instantiated type.
 - Cross-package variants use qualified names — `import "stdlib/result"` gives `result.Result of int and string`, `result.Ok{Value: 5}`, `r is result.Ok as o`.
+
+### Generic Structs
+
+Structs declare type parameters the same way: `of T` after the name, fields may use them, and methods bind them through the receiver (`reference Box of T` — the receiver's type args are the method's type params, mirroring Go's `func (b *Box[T]) Get() T`):
+
+```kukicha
+type Box of T
+    value: T
+
+func Get on b: reference Box of T() T
+    return b.value
+
+func NewBox of T(initial: T) reference Box of T
+    return reference of Box of T{value: initial}
+```
+
+- Instantiate at use sites: `Box of int` in signatures, `Box of int{value: 42}` / `reference of Box of int{...}` as literals.
+- Methods cannot declare their own type params on a generic receiver (Go has no generic methods), and the receiver must bind type-param names — `reference Box of int` as a receiver is a compile error, as is a bare `reference Box` when `Box` is generic.
+- Constraints work as on functions: `type Sorted of T: comparable`.
 
 ### Generic Functions
 
@@ -430,11 +515,12 @@ if err isnt empty
 - **Return auto-fill:** in a function whose last return is `error`, a `return` with one fewer value auto-fills the trailing `empty` — `return users` in a `(list of User, error)` function compiles; bare `return` works in error-only functions.
 - **Void functions** (no error return slot) do not auto-propagate — bare error-returning calls there are a diagnostic: handle with an explicit `onerr` clause, or `onerr discard`.
 
-`onerr` is for **fallible operations** (I/O, parsing, network, validation). For **expected absence** with a sensible default — env vars, slice index, map key, find-by-predicate, string fallback — prefer the package's `*Or` variant (`env.GetOr`, `slice.GetOr`, `slice.FirstOr`, `slice.FindOr`, `maps.GetOr`, `string.Or`): `pkg.XOr(args, default)` reads as "give me X, or this default"; `onerr default` reads as "do X; on error, fall back" — wrong when there is no real error. `string.Or(x, y)` replaces `if x isnt "" then x else y`; the stdlib-idiom lint (`--suppress-lint=stdlib-idiom` to silence) flags the longer form.
+`onerr` is for **fallible operations** (I/O, parsing, network, validation). For **expected absence** with a sensible default — env vars, slice index, map key, find-by-predicate, string fallback — prefer the package's `*Or` variant (`env.GetOr`, `slice.GetOr`, `slice.FirstOr`, `slice.FindOr`, `maps.GetOr`, `string.Or`): `pkg.XOr(args, default)` reads as "give me X, or this default". Typed env parsers are the deliberate exception to "Or never errors": `env.GetIntOr`, `GetBoolOr`, and `GetFloatOr` use the default when the variable is absent or empty, and return an error when a non-empty value is malformed. `env.GetOr` and `GetListOr` cannot parse-fail and return bare values. `string.Or(x, y)` replaces `if x isnt "" then x else y`; the stdlib-idiom lint (`--suppress-lint=stdlib-idiom` to silence) flags the longer form.
 
 <!-- check:skip -->
 ```kukicha
 region := env.GetOr("AWS_REGION", "us-east-1")             # expected absence → *Or
+workers := env.GetIntOr("WORKERS", 4) onerr panic "invalid WORKERS: {error}"
 apiKey := env.Get("GITHUB_TOKEN") onerr panic "{error}"    # required secret → onerr
 n      := parse.Int(raw) onerr return                      # parse can actually fail → propagate
 # when a default makes sense, use the *Or variant:
@@ -695,13 +781,13 @@ import "stdlib/set"
 func pipeExample(users: list of User)
     names := users |> slice.Map((u) => u.name)
     activeNames := users |> slice.Filter((u) => u.active) |> slice.Map((u) => u.name)
-    uniqueNames := set.From(users |> slice.Map((u) => u.name))
+    uniqueNames := set.From of string(users |> slice.Map((u) => u.name))
     print(names)
     print(activeNames)
     print(uniqueNames)
 ```
 
-The map-comprehension desugar reuses the generic stdlib — `map of K to V for X in XS` becomes `slice.ToMap(XS, (X) => K, (X) => V)`, so the result is `map of K to V`, not `map of any to any`. `stdlib/slice` is auto-imported; you don't need an explicit `import "stdlib/slice"` to use a map comprehension. The formatter prints the desugared `slice.ToMap` form, not the comprehension syntax — a known tradeoff of parser-level desugar.
+The map comprehension lowers to the generic stdlib — `map of K to V for X in XS` becomes `slice.ToMap(XS, (X) => K, (X) => V)`, so the result is `map of K to V`, not `map of any to any`. `stdlib/slice` is auto-imported; you don't need an explicit `import "stdlib/slice"` to use a map comprehension. The comprehension stays in the source AST: `kukicha fmt` round-trips the comprehension syntax, and the lowering to `slice.ToMap` happens after source-facing passes (formatting, summaries, LSP inspection). An explicit alias (`import "stdlib/slice" as sp`) is honored by the lowered calls.
 
 ### Variadic Arguments (`many`)
 
@@ -738,9 +824,21 @@ ok := v is int                        # bool form, no binding
 
 Narrowing works on `any`, `error`, and interface-typed values; on a variant enum the same syntax is a case check. Go's assertion forms (`value.(string)`, `v, ok := value.(string)`) parse as Go-compat input but `is ... as` is what you write — it never panics and the binding is scoped to the branch. The two-value cast (`v, ok := x as T`) is a **compile error** — write `if x is T as v`.
 
+Positive narrowing (`is T as v`) is **branch-scoped**: the binding lives only inside the `if` body. For guard-style control flow — where a failed check bails out and the *continuation* path needs the narrowed type (`if v isnt T ... return` then use `v` below) — `is ... as` would force nesting. There, the Go assertion form is the **sanctioned interop escape hatch**, kept explicit until it can be threaded through the flow analysis:
+
+<!-- check:skip -->
+```kukicha
+schemaMap, ok := schema.(JSONObject)     # Go assertion — accepted for guard-style bail-out
+if not ok
+    return empty
+# ... use schemaMap as JSONObject below
+```
+
+This is raw-Go interop, not idiomatic authoring — reach for it only at unresolved external boundaries (reflection over `any`, typed decoders) and only when the positive form can't express the guard without nesting. Continuation-style narrowing (letting `is ... as` narrow past an early `return`/`continue`/`break`) is explicitly deferred post-1.0.
+
 `as` has two jobs, recognizable by what follows it. Followed by a **fresh name**, it means "…and call it that": `import "p" as q`, `is Circle as c`, `onerr as e` (`as` names a value that doesn't have a name yet). Followed by a **type or string**, it means "treated/known as": conversion (`x as int`) and the JSON field alias (`stars: int as "stargazers_count"`).
 
-Switch binding is unified: `switch s` auto-binds the subject in every form — variant enums, type switches over `any`/interface, and piped switches all narrow the subject in-place when it's a simple identifier. `as` is optional rename sugar: `switch s as v` lets you use a different name in the arms, but you no longer need it. A complex expression subject (`getShape()`) or piped value that isn't a bare identifier uses `as v` or a synthetic `_piped` name, since there's no shadowable name to auto-bind.
+Switch binding is unified: `switch s` auto-binds the subject in every form — variant enums, type switches over `any`/interface, and piped switches all narrow the subject in-place when it's a simple identifier. `as` is optional switch-level rename sugar: `switch s as v` lets you use a different name in the arms, but you no longer need it. A complex expression subject (`getShape()`) or piped value that isn't a bare identifier uses `as v` or a synthetic `_piped` name, since there's no shadowable name to auto-bind. Individual `when` arms never introduce bindings.
 
 ### Concurrency
 
@@ -877,27 +975,27 @@ Brewed standalone *programs* (a file defining `func main()`) get `//go:build ign
 
 The stdlib is extracted to `.kukicha/stdlib/` on `kukicha init` — **read the `.kuki` source for full signatures**. This section gives import paths + one-liners so you know what exists; the examples below show non-obvious idioms.
 
-**Collections & strings.** `stdlib/slice` (`Filter`/`Map`/`Reject`/`Partition`/`Reduce`/`First`/`FindOr`/`Sum`/`Min`/`Max`…), `stdlib/maps`, `stdlib/set`, `stdlib/sort` (`Strings`/`Ints`/`Float64s`/`By`/`ByKey`/`Reverse`), `stdlib/string` as `strpkg`, `stdlib/regex` (`MustCompile` + `*Compiled` variants), `stdlib/iterator` (lazy `iter.Seq`), `stdlib/cast` (`SmartInt`/`SmartBool`/`IsNil`…), `stdlib/math` (`AbsInt`/`Round`/`Clamp` — reach for Go's `math` for `Sqrt`/`Pow`/…).
+**Collections & strings.** `stdlib/slice` (`Filter`/`Map`/`Reject`/`Partition`/`Reduce`/`First`/`FindOr`/`Sum`/`Min`/`Max`…), `stdlib/maps`, `stdlib/set`, `stdlib/sort` (`Strings`/`Ints`/`Float64s`/`By`/`ByKey`/`Reverse`), `stdlib/string` as `strpkg`, `stdlib/regex` (`Find`/`FindGroups` return `FindResult` variants; `MustCompile` + `Pattern` methods `.Match`/`.Find`/`.FindOr`/etc. are the canonical form; safe entry points `IsValid` and `MatchSafe` stay for untrusted patterns), `stdlib/iterator` (lazy `iter.Seq`), `stdlib/cast` (`SmartInt`/`SmartBool`/`IsNil`…), `stdlib/math` (`AbsInt`/`Round`/`Clamp` — reach for Go's `math` for `Sqrt`/`Pow`/…).
 
-**Data & encoding.** `stdlib/json` as `jsonpkg` (`String`/`PrettyString` for JSON production — prefer over hand-written JSON strings that hit the interpolation rule; `Bytes`/`PrettyBytes` for `list of byte`; naming-aware `Codec` for tag-free JSON — `NewCodec(json.SnakeCase).Omit("Password") |> EncodeWith(v)`; `c |> DecodeStringWith of T from data`; two decode shapes — `Parse of T` returns a fresh zero-based value for complete documents, while `ParseInto`/`ParseBytesInto`/`ReadInto` decode *into* a pre-populated target so fields absent from the JSON keep their existing values — use the `*Into` family when layering a config file over `Config{...}` defaults), `stdlib/parse` (`ValidateJSON`/`ValidateYAML` return accumulated validation errors; also Form/Env/CSV/Int), `stdlib/encoding` (base64/hex), `stdlib/template`, `stdlib/markdown` (CommonMark+GFM, pair with `http.SafeHTML` for untrusted input).
+**Data & encoding.** `stdlib/json` as `jsonpkg` (`String`/`PrettyString` for JSON production — prefer over hand-written JSON strings that hit the interpolation rule; `Bytes`/`PrettyBytes` for `list of byte`; path reads via `Lookup` returning a Found/Missing/Invalid variant over `KeyOf`/`IndexOf` segments, or typed `StringAt`/`IntAt`; naming-aware `Codec` for tag-free JSON — `NewCodec(json.SnakeCase).Omit("Password") |> EncodeWith(v)`; `c |> DecodeStringWith of T from data`; two decode shapes — `Parse of T` returns a fresh zero-based value for complete documents, while `ParseInto`/`ParseBytesInto`/`ReadInto` decode *into* a pre-populated target so fields absent from the JSON keep their existing values — use the `*Into` family when layering a config file over `Config{...}` defaults. Note: `json.Codec` builder isolation complete (`Omit`/`Rename`/`OmitEmpty` clone via `maps.Clone`; mutation isolated — `maps.Clone` added to stdlib). The stable `json` core is `Parse`/`String`/`Bytes`/`Lookup`/`StringAt`/`IntAt`/`ParseInto`), `stdlib/parse` (`ValidateJSON`/`ValidateYAML`/`Form`/`Env` return a `ParseResult of T` variant — `Parsed{Value, Violations}` or `Malformed{Error}`; also CSV/Int/Float64/Duration), `stdlib/encoding` (base64/hex), `stdlib/template`, `stdlib/markdown` (CommonMark+GFM, pair with `http.SafeHTML` for untrusted input).
 
-**Which JSON decode?** Default to `json.Parse of T` for a complete document you already hold as a string (`json.ParseBytes of T` for `list of byte`) — it decodes and nothing else. Reach for `parse.ValidateJSON of T from text` only at trust boundaries where the target type carries `# kuki:validate` rules and you want accumulated validation errors alongside the value. `fetch.GetJSON of T from url` fetches, checks the status, and directly decodes the response body into `T` — use it whenever the JSON comes from a URL.
+**Which JSON decode?** Default to `json.Parse of T` for a complete document you already hold as a string (`json.ParseBytes of T` for `list of byte`) — it decodes and nothing else. Reach for `parse.ValidateJSON of T from text` only at trust boundaries where the target type carries `# kuki:validate` rules and you want accumulated validation errors alongside the value (via a `Parsed{Value, Violations}` / `Malformed{Error}` switch). `fetch.GetJSON of T from url` fetches, checks the status, and directly decodes the response body into `T` — use it whenever the JSON comes from a URL.
 
 **I/O & files.** `stdlib/files` (`Read`/`WriteJSON`/`WriteBytes`/`WriteString`/`Copy`/`List`/`Watch`/…), `stdlib/archive` (zip+tar.gz, zip-slip + decompression-bomb safe), `stdlib/sandbox` (filesystem jail for HTTP handlers), `stdlib/shell` (`Output`/`Lines`/`Capture` + `shell.New |> .Dir |> .Env |> .Stdin |> .Output()` builder), `stdlib/blob` (unified S3-compatible object storage client — AWS S3, Cloudflare R2, GCS, MinIO, Backblaze B2, Wasabi; `OpenEnv`/`Put`/`Get`/`ListAll`).
 
-**HTTP & networking.** `stdlib/fetch` (client with builder, auth, retry, SSRF — `Get`/`SafeGet`/`GetJSON of T from url`), `stdlib/http` as `httphelper` (`JSON*` responders, `SafeRedirect`, `SafeHTML`, `TrustedHosts` middleware, `RealIP` for client-IP behind a proxy), `stdlib/html` (auto-escaping components; `html.Raw` for pre-rendered trusted HTML like `markdown.ToHTML` output), `stdlib/netguard` (SSRF guards), `stdlib/url` (**the home for URL parsing** — `Parse` for flat single-value query maps, `ParseMulti` when repeated keys matter, `MustParse` for startup, build/encode via `New |> .Param |> .String`, `CleanPath`/`IsSubpath` for traversal-safe paths), `stdlib/shellguard` (subprocess allowlist for agent ops, fail-closed), `stdlib/policy` (approval-gate variant for agent ops, fail-closed).
+**HTTP & networking.** `stdlib/fetch` (client with builder, auth, retry, SSRF — `Get`/`SafeGet`/`GetJSON of T from url`; builder methods use `fetch.HTTPMethod.POST`, not raw strings), `stdlib/http` as `httphelper` (primary server surface: `http.Handler` with `Request`/`Response` methods; response methods accept typed `http.Status` cases such as `http.Status.BadRequest`, while `Request.Method()` exposes the raw method string and `IsGet`/`IsPost` provide common typed checks; server setup uses hardened `DefaultServerOpts`, and `ValidateServerOpts` preflights custom options before `ServeWith`; older package-level responders are deprecated where receiver forms exist), `stdlib/html` (auto-escaping components; `html.Raw` for pre-rendered trusted HTML like `markdown.ToHTML` output), `stdlib/netguard` (SSRF guards), `stdlib/url` (**the home for URL parsing and building** — `Parse` for flat single-value query maps, `ParseMulti` when repeated keys matter, `MustParse` for startup, build/encode via `New |> .Param |> .String`, template expansion with `URLTemplate`/`SafeURL`, query composition with `URLWithQuery`, escaping via `PathEscape`/`QueryEscape`, traversal-safe paths via `CleanPath`/`IsSubpath`), `stdlib/shellguard` (subprocess allowlist for agent ops, fail-closed), `stdlib/policy` (approval-gate variant for agent ops, fail-closed).
 
-**CLI & system.** `stdlib/cli` (flag/subcommand parser — prefer typed `BoolFlag`/`IntFlag`/`StringFlag` over generic `AddFlag`), `stdlib/input` (`ReadLine`/`ReadPassword`/`Confirm`/`Choose`, `NewForm`), `stdlib/table`, `stdlib/color`, `stdlib/term` (**single source of truth for tty/color/width — `IsTTY`/`VisibleWidth`/`PadRightVisible`**), `stdlib/log` (leveled structured logger), `stdlib/env` (`Get`/`GetOr`/`GetInt`/`GetIntOr`/`GetBool`/`GetBoolOr`/`GetFloat`/`GetFloatOr`/`GetList`/`GetListOr`; typed `*Or` variants never fail — they default on absence *or* an invalid value), `stdlib/must` (panic-on-error startup), `stdlib/signal` (`OnInterrupt`/`WaitFor`/`Context` with English signal names).
+**CLI & system.** `stdlib/cli` (flag/subcommand parser — one `Command` model for root and nested commands; pure `Parse` returns Execute/ShowHelp/ShowVersion/Invalid, validates malformed bool/int values before required checks, and enforces required root flags/args even for a bare invocation; prefer typed `BoolFlag`/`IntFlag`/`StringFlag` over generic `Flag`), `stdlib/input` (`ReadLine`/`ReadPassword`/`Confirm`/`Choose`, `NewForm`), `stdlib/table`, `stdlib/color`, `stdlib/term` (**single source of truth for tty/color/width — `IsTTY`/`VisibleWidth`/`PadRightVisible`**), `stdlib/log` (leveled structured logger — set `Service`/`Environment`/`Component`/`CorrelationID` on a Logger and they ride on every record; time operations with `l.StartTimer("op")` + `.Stop()`/`.Fail(reason)`), `stdlib/env` (`GetOr`/`GetListOr` return bare defaults on absence; typed `GetIntOr`/`GetBoolOr`/`GetFloatOr` return `(T, error)`, default only on absence, and reject malformed present values), `stdlib/must` (panic-on-error startup assertions — `True`/`False`/`NotEmpty`/`NotNil`; typed env access lives in `stdlib/env`), `stdlib/signal` (`OnInterrupt`/`WaitFor`/`Context` with English signal names).
 
-**Concurrency & resilience.** `stdlib/concurrent` (`Parallel`/`Map`/`ParallelE`/`MapE` + `*WithLimit` and `*Ctx` variants), `stdlib/bus` (in-process pub/sub with per-subscriber Observer flag: load-bearing subs propagate backpressure errors, observers silently drop and track a `Dropped` counter), `stdlib/ctx` as `ctxpkg`, `stdlib/retry` (backoff + circuit breaker via `NewBudget`/`BudgetExceeded`), `stdlib/datetime`.
+**Concurrency & resilience.** `stdlib/concurrent` (`Parallel`/`Map`/`ParallelE`/`MapE` + `*WithLimit` and `*Ctx` variants), `stdlib/bus` (in-process pub/sub with per-subscriber Observer flag: load-bearing subs propagate backpressure errors, observers silently drop and track a `Dropped` counter), `stdlib/ctx` as `ctxpkg`, `stdlib/retry` (backoff + circuit breaker via `NewBudget`; `DoBudget` returns a `BudgetResult` variant — `Succeeded`, `CircuitOpen`, `Failed{Err}`), `stdlib/datetime`.
 
-**Data & storage.** `stdlib/db` as `dbpkg` (SQL with struct scanning: `Query |> ScanAll of T`), `stdlib/sqlite` (WAL/foreign-keys defaults; queries go through `stdlib/db`), `stdlib/sqliteext` (register ncruces extensions — process-global, one-shot at startup), `stdlib/audit` (tamper-evident hash-chained ed25519-signed decision log for agents — `audit.Record` for decisions, `log.Info` for breadcrumbs).
+**Data & storage.** `stdlib/db` as `dbpkg` (SQL with struct scanning: `Query |> ScanAll of T`), `stdlib/sqlite` (WAL/foreign-keys defaults; ncruces extension registration at open time via `OpenWithExtensions(path, pragmas, registrars...)` — process-global, one-shot; queries go through `stdlib/db`), `stdlib/audit` (tamper-evident hash-chained ed25519-signed decision log for agents — `audit.Record` for decisions, `log.Info` for breadcrumbs).
 
 **Security & crypto.** `stdlib/crypto` (`SHA256`/`HMAC`/`RandomToken`/`Equal`/`SignMLDSA`), `stdlib/uuid` (`New`/`Parse`), `stdlib/validate` (pipe-style + `# kuki:validate "rules"` tag-driven; pairs with `parse.ValidateJSON of T from body`), `stdlib/random`, `stdlib/errors` as `errs` (`Wrap`/`Opaque`/`NewPublic`/`Public`).
 
-**DevOps.** `stdlib/git` (via `gh`), `stdlib/semver`, `stdlib/obs`.
+**DevOps.** `stdlib/git` (via `gh`), `stdlib/semver`.
 
-**AI & agents.** `stdlib/content` (unified `Content` variant enum re-exported by mcp + llm — Text/Thinking/Image/Audio/Link/Embedded/ToolUse/ToolResult/Reasoning; construct arms via `content.Text{...}`), `stdlib/llm` (shared schema builders + unified `StreamEvent` variant across providers), `stdlib/llm/chat`, `stdlib/llm/responses`, `stdlib/llm/anthropic` (same builder shape: `New |> System/User/Assistant |> Temperature/MaxTokens/Stream/Retry/AddTool |> Ask/Send/SendRaw`; chat-only: `AskJSON of T from prompt`, `AskStream`/`SendStream`), `stdlib/llm/embeddings` (OpenAI-compatible), `stdlib/llm/safe` (prompt-injection-resistant wrapping for adversarial input), `stdlib/llm/era` (LLM Empirical Research Assistant — LLM rewrite + Flat UCB Tree Search for problems that reduce to a numeric score, with built-in compile/run/bench scorers), `stdlib/mcp` (server + client; schema builders `Prop`/`Schema`/`Required`; `ToolWithOpts` for annotation hints — `ReadOnly`, `Destructive`, `Idempotent`, `OpenWorldHint`, `Title`; set `Enum` on a `SchemaProperty` to restrict allowed values), `stdlib/agentevent` (cross-agent normalized event shape — `AgentEvent` variant enum + `DecodeGooseEvent`/`DecodeClaudeCodeEvent` for goose + claude-code hook JSON; opencode bridges live in the host application).
+**AI & agents.** `stdlib/content` is the content-block vocabulary re-exported by MCP and LLM packages: top-level Text/Thinking/Image/Audio/Link/Embedded/ToolUse/ToolResult/Reasoning arms contain nested variants too. `ToolUse.Input` is `ArgsJSON` or `ArgsMap`; `ToolResult.Items` recursively contains `list of Content`; `Image.Source` is `Base64` or `RawSource`; and `Reasoning.Summary` contains `SummaryText` or `SummaryRaw`. Construct arms through `stdlib/content`. `stdlib/jsonschema` provides `Prop`/`Schema`/`Required` and typed `Kind` cases. `stdlib/llm` provides the common `StreamEvent`, but provider clients are intentionally different: `llm/chat` is Chat Completions and uniquely has `AskJSON` plus `AskStream`/`SendStream`; `llm/responses` uses `Developer`, `MaxOutputTokens`, `Store`, response `Output`, and function-call helpers; `llm/anthropic` uses `ToolResult`, `MaxTokens`, thinking controls, and tool-use helpers. `stdlib/llm/embeddings`, `llm/safe`, and `llm/era` cover embeddings, adversarial-input framing, and empirical search. `stdlib/mcp` provides server/client APIs; `ToolWithOpts` accepts approval hints and `Title`, plus `OutputSchema` for structured results (input property enums still live on `jsonschema.Property.Enum`). `stdlib/agentevent` normalizes goose and Claude Code hook events.
 
 
 **Education & games.** `stdlib/game` (beginner-friendly 2D game library wrapping Ebitengine — `Window`/`OnUpdate`/`OnDraw`/`Run`, keyboard input, drawing primitives for browser-based tutorials).
@@ -908,9 +1006,9 @@ The stdlib is extracted to `.kukicha/stdlib/` on `kukicha init` — **read the `
 # Typed JSON decode — `of T from x` is the explicit-type-arg syntax
 repos := fetch.GetJSON of list of Repo from url onerr panic "{error}"
 
-# LLM tool loop — same builder shape across chat/responses/anthropic
-schema := llm.Schema(list of llm.SchemaProperty{llm.Prop("city", "string", "City")})
-    |> llm.Required(list of string{"city"})
+# Chat Completions tool loop; Responses and Anthropic have provider-specific builders
+schema := jsonschema.Schema(list of jsonschema.Property{jsonschema.Prop("city", jsonschema.String, "City")})
+    |> jsonschema.Required(list of string{"city"})
 c := chat.New("openai:gpt-4o-mini")
     |> chat.AddTool("get_weather", "Get weather", schema)
     |> chat.User("Weather in Paris?")
@@ -921,18 +1019,21 @@ if chat.HasToolCalls(comp)
     c = chat.ExecuteToolCalls(c, comp, handlers) onerr panic "{error}"
 
 # MCP server tool with typed args
-mcp.Tool of PriceArgs(server, "get_price", "Get stock price", schema,
+mcp.Tool of PriceArgs and any(server, "get_price", "Get stock price", schema,
     (args: PriceArgs) =>
         return lookupPrice(args.Symbol), empty)
 
 # ToolWithOpts — annotation hints + enum-restricted property
-schema2 := mcp.Schema(list of mcp.SchemaProperty{
-    {Name: "direction", Type: "string", Description: "Sort direction", Enum: list of any{"asc", "desc"}},
-}) |> mcp.Required(list of string{"direction"})
-mcp.ToolWithOpts of SortArgs(server, "sort_items", "Sort a list", schema2,
-    mcp.ToolOpts{ReadOnly: true, Title: "Sort Items"},
+schema2 := jsonschema.Schema(list of jsonschema.Property{
+    {Name: "direction", Type: jsonschema.String, Description: "Sort direction", Enum: list of any{"asc", "desc"}},
+}) |> jsonschema.Required(list of string{"direction"})
+outputSchema := jsonschema.Schema(list of jsonschema.Property{
+    jsonschema.Prop("items", jsonschema.Array, "Sorted items"),
+}) |> jsonschema.Required(list of string{"items"})
+mcp.ToolWithOpts of SortArgs and any(server, "sort_items", "Sort a list", schema2,
+    mcp.ToolOpts{ReadOnly: true, Title: "Sort Items", OutputSchema: outputSchema},
     (args: SortArgs) =>
-        return sortItems(args.Direction), empty)
+        return map of string to any{"items": sortItems(args.Direction)}, empty)
 ```
 
 **External packages** (separate Go modules, abstracted behind stdlib wrappers): `kukicha.org/blob` (S3 SDK deps, surfaced via `stdlib/blob`), `kukicha.org/game` (Ebitengine, surfaced via `stdlib/game`). The stdlib wrappers import these modules, so a `go mod tidy` after `kukicha init` fetches them automatically.
@@ -941,17 +1042,17 @@ mcp.ToolWithOpts of SortArgs(server, "sort_items", "Sort a list", schema2,
 
 ### Security — Compiler-Enforced Checks
 
-The compiler **flags** these patterns in HTTP handlers (functions with `http.ResponseWriter` or the `res: http.Response` wrapper) with `security/*` warning diagnostics — the build still succeeds, but treat them as must-fix (gate on them in CI via `kukicha check --json`):
+The compiler **flags** these patterns in HTTP handlers (functions with `http.ResponseWriter` or the `res: http.Response` wrapper) with `security/*` diagnostics that block `check`/`build`/`run` by default. (Before v0.81.0 these were advisory warnings and the build still succeeded; downgrade back to advisory with `KUKICHA_LINT_SECURITY=0`, or silence with `--suppress-lint=security`.) Treat them as must-fix regardless:
 
 | Pattern | Fix |
 |---------|-----|
-| `httphelper.HTML(w, nonLiteral)` / `res.HTML(nonLiteral)` | `SafeHTML` variant, **or** compose an `html.Fragment` (`html.Escape(userValue)` per untrusted slot) and send it with `res.WriteHTML(f)` — this is the modern path, reaching XSS safety through the fragment builder instead of a blanket escape |
+| `httphelper.HTML(w, nonLiteral)` / `res.HTML(nonLiteral)` | `SafeHTML` variant, **or** compose an `html.Fragment` and send it with `res.WriteHTML(f)` — interpolation inside the fragment is auto-escaped, so `html.Render("<p>{name}</p>")` is already XSS-safe; `html.Raw(...)`/`html.Embed(...)` are the explicit opt-outs for pre-asserted-safe content |
 | `fetch.Get(url)` in handler | `fetch.SafeGet(url)` (or `fetch.NewExternal(url) \|> ... \|> Do()` for builder) |
-| `files.Read(path)` in handler | `url.CleanPath(path)` first to reject `..`/`%2e%2e`/`%2f`, then `sandbox.New(root)` + `sandbox.Read(box, cleaned)` |
+| `files.Read(path)` in handler | `url.CleanPath(path)` first to reject `..`/`%2e%2e`/`%2f`, then `sandbox.New(root)` + `box.Read(cleaned)` |
 | `shell.Run("cmd {var}")` | `shell.Output("cmd", arg)` |
-| `httphelper.Redirect(w, r, nonLiteral)` | `httphelper.SafeRedirect(w, r, url, "host")` |
+| `httphelper.Redirect(w, nonLiteral)` / `res.Redirect(nonLiteral)` | `httphelper.SafeRedirect(w, url, "host")` / `res.SafeRedirect(url, "host")` |
 | `html.Render("<script>...")` | Static `.js` file with `<script src="...">` |
-| `regex.Match(userPattern, ...)` (non-literal pattern) | `regex.MatchSafe(pattern, text)` returns error, or hoist with `regex.MustCompile` at init + `regex.MatchCompiled` |
+| `regex.MustCompile(userPattern)` (non-literal pattern) | `regex.MatchSafe(pattern, text)` returns error, or hoist with `regex.MustCompile` at init + `p.Match(text)` |
 | `notify("https://{r.Host}/...")` / `f(r.Host)` (Host-header forgery) | Wrap handler with `httphelper.TrustedHosts(handler, allowed...)`, or compare `r.Host` to an allowlist before reading it |
 
 `http.SafeRedirect` rejects non-`http`/`https` schemes (`javascript:`, `data:`, `file:`), protocol-relative `//host`, and bare relative paths — only allow-listed hosts on absolute http(s) URLs. `http.TrustedHosts(handler, allowed...)` installs once at the edge and makes `r.Host` trustworthy downstream. `http.RealIP(r, trustedProxies...)` parses `X-Forwarded-For` / `X-Real-Ip` only when `r.RemoteAddr` matches a trusted CIDR. `url.CleanPath` / `url.IsSubpath` normalize user-supplied paths (reject `..`, `%2e%2e`, `%2f`, backslashes, NUL) before they hit a route table or filesystem.

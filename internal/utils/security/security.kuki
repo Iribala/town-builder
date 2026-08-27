@@ -20,7 +20,7 @@ func ValidateFilename(filename: string, allowedExtensions: list of string) (stri
     if strpkg.Contains(filename, "\x00")
         return "", error "invalid filename: null bytes not allowed"
     clean := filepath.Base(filename)
-    if not regex.MatchCompiled(safeNameRe, clean)
+    if not safeNameRe.Match(clean)
         return "", error "invalid filename: only alphanumeric characters, dots, dashes, and underscores allowed"
     if len(allowedExtensions) > 0
         matched := false
@@ -53,9 +53,9 @@ func ValidateModelPath(category: string, modelName: string) (string, string, err
         return "", "", error "invalid category: path traversal attempts are not allowed"
     if modelName equals "" or strpkg.Contains(modelName, "..") or strpkg.Contains(modelName, "/") or strpkg.Contains(modelName, "\\")
         return "", "", error "invalid model name: path traversal attempts are not allowed"
-    if not regex.MatchCompiled(safeNameRe, category)
+    if not safeNameRe.Match(category)
         return "", "", error "invalid category: only alphanumeric characters, dots, dashes, and underscores allowed"
-    if not regex.MatchCompiled(safeNameRe, modelName)
+    if not safeNameRe.Match(modelName)
         return "", "", error "invalid model name: only alphanumeric characters, dots, dashes, and underscores allowed"
     return category, modelName, empty
 
@@ -94,6 +94,6 @@ func ValidateProxyPath(path: string) (string, error)
         return "", error "proxy path must not contain backslashes"
     if strpkg.Contains(path, "\x00")
         return "", error "proxy path must not contain null bytes"
-    if not regex.MatchCompiled(safePathRe, path)
+    if not safePathRe.Match(path)
         return "", error "proxy path contains disallowed characters"
     return strpkg.TrimPrefix(path, "/"), empty
