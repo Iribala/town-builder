@@ -21,7 +21,7 @@ var Categories = list of string{
 type Vec3 = object.Vec3
 
 func normalizeObject(item: map of string to any, category: string) map of string to any
-    out := make(map of string to any)
+    out := empty map of string to any
     for k, v in item
         out[k] = v
     out["category"] = category
@@ -44,7 +44,7 @@ func normalizeList(items: any, category: string) list of map of string to any
     return out
 
 func Normalize(layoutData: any) map of string to any
-    out := make(map of string to any)
+    out := empty map of string to any
 
     if layoutData is map of string to any as inMap
         for category in Categories

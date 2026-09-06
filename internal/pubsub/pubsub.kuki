@@ -1,6 +1,6 @@
 petiole pubsub
 
-import "stdlib/ctx" as ctxpkg
+import "stdlib/ctx"
 import "stdlib/log"
 import "sync"
 import "time"
@@ -9,7 +9,7 @@ import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/redis/go-redis/v9" as redis
 
-const subscribeTimeoutNanos = 2_000_000_000
+var subscribeTimeout = storage.RedisTimeout
 
 var presLock: sync.Mutex
 
@@ -18,20 +18,20 @@ var connectedUsers: map of string to int64
 var userCounts: map of string to int
 
 func init()
-    connectedUsers = make(map of string to int64)
-    userCounts = make(map of string to int)
+    connectedUsers = empty map of string to int64
+    userCounts = empty map of string to int
 
 func nowNanos() int64
     return time.Now().UnixNano()
 
-func activityTimeoutNanos() int64
+func activityTimeout() time.Duration
     s := config.Current()
     if s equals empty
-        return 30_000_000_000 as int64
-    return (s.UserActivityTimeout * 1_000_000_000.0) as int64
+        return 30 * time.Second
+    return s.UserActivityTimeout
 
 func cleanupLocked()
-    cutoff := nowNanos() - activityTimeoutNanos()
+    cutoff := nowNanos() - activityTimeout().Nanoseconds()
     stale := empty list of string
     for name, _ in connectedUsers
         if connectedUsers[name] < cutoff
@@ -101,7 +101,7 @@ func Subscribe() (channel of string, func())
     s := config.Current()
     if s equals empty
         return empty, empty
-    h := ctxpkg.WithTimeout(ctxpkg.Background(), subscribeTimeoutNanos)
+    h := ctx.WithTimeout(ctx.Background(), subscribeTimeout)
     defer h.Cancel()
     sub := client.Subscribe(h.Ctx, s.PubsubChannel)
     out := make(channel of string)

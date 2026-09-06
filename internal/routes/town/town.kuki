@@ -7,7 +7,6 @@ import "stdlib/json"
 import "stdlib/log"
 import "stdlib/sandbox"
 import "stdlib/string" as strpkg
-import "strconv"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/events" as evt
@@ -34,8 +33,8 @@ func updateTown(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    data := make(map of string to any)
-    err := httphelper.ReadJSON(request.Raw(), reference of data)
+    data := empty map of string to any
+    err := request.ReadJSON(reference of data)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
@@ -109,8 +108,8 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    payload := make(map of string to any)
-    err := httphelper.ReadJSON(request.Raw(), reference of payload)
+    payload := empty map of string to any
+    err := request.ReadJSON(reference of payload)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON payload") onerr discard
         return
@@ -134,7 +133,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
         if jerr isnt empty
             response.JSONError("Failed to encode town data", 500) onerr discard
             return
-        werr := h.root.Write(bytes, fn)
+        werr := h.root.WriteString(bytes as string, fn)
         if werr isnt empty
             response.JSONError("Failed to write file", 500) onerr discard
             return
@@ -202,8 +201,8 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    body := make(map of string to any)
-    httphelper.ReadJSON(request.Raw(), reference of body) onerr discard
+    body := empty map of string to any
+    request.ReadJSON(reference of body) onerr discard
     filename := mapx.Str(body, "filename")
     if filename equals ""
         filename = "town_data.json"
@@ -238,7 +237,7 @@ func loadFromDjango(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     idStr := request.PathValue("id")
-    idInt, perr := parseTownID(idStr)
+    idInt, perr := cast.ToInt(idStr)
     if perr isnt empty
         response.JSONBadRequest("Invalid town id") onerr discard
         return
@@ -272,18 +271,12 @@ func loadFromDjango(response: httphelper.Response, request: httphelper.Request)
         "town_info": info,
     }) onerr discard
 
-func parseTownID(s: string) (int, error)
-    n, err := strconv.Atoi(s)
-    if err isnt empty
-        return 0, err
-    return n, empty
-
 func deleteModel(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    body := make(map of string to any)
-    err := httphelper.ReadJSON(request.Raw(), reference of body)
+    body := empty map of string to any
+    err := request.ReadJSON(reference of body)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
@@ -361,8 +354,8 @@ func editModel(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    body := make(map of string to any)
-    err := httphelper.ReadJSON(request.Raw(), reference of body)
+    body := empty map of string to any
+    err := request.ReadJSON(reference of body)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return

@@ -1,0 +1,32 @@
+petiole requestid
+
+import "context"
+import "net/http"
+import "stdlib/uuid"
+
+# headerName is the canonical inbound/outbound request-ID header.
+const headerName = "X-Request-ID"
+
+type contextKey string
+
+const requestIDKey: contextKey = "request_id"
+
+# Wrap assigns a time-ordered request ID (uuid v7) to every request —
+# honoring an inbound X-Request-ID when the caller supplied one — echoes
+# it on the response, and stores it for handlers via FromContext.
+func Wrap(next: http.Handler) http.Handler
+    return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        id := r.Header.Get(headerName)
+        if id equals ""
+            id = uuid.String(uuid.NewV7())
+        w.Header().Set(headerName, id)
+        next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), requestIDKey, id)))
+    )
+
+# FromContext returns the request ID assigned by Wrap, or "" outside a
+# wrapped chain.
+func FromContext(ctx: context.Context) string
+    v := ctx.Value(requestIDKey)
+    if v is string as s
+        return s
+    return ""

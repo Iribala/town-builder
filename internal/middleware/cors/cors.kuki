@@ -1,7 +1,9 @@
 petiole cors
 
 import "net/http"
+import "stdlib/env"
 import "stdlib/log"
+import "stdlib/slice"
 import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/config"
@@ -13,13 +15,7 @@ func Init()
     if s equals empty
         allowedOrigins = empty list of string
         return
-    raw := s.AllowedOrigins
-    parts := strpkg.Split(raw, ",")
-    cleaned := empty list of string
-    for p in parts
-        trimmed := strpkg.TrimSpace(p)
-        if trimmed isnt ""
-            cleaned = append(cleaned, trimmed)
+    cleaned := env.SplitAndTrim(s.AllowedOrigins, ",")
     if len(cleaned) equals 0 and strpkg.EqualFold(s.Environment, "development")
         cleaned = list of string{"http://localhost:3000", "http://localhost:5001", "http://127.0.0.1:5001"}
         log.Warn("Using default development CORS origins. Set ALLOWED_ORIGINS in production!")
@@ -29,10 +25,7 @@ func Init()
 func isAllowed(origin: string) bool
     if origin equals ""
         return false
-    for o in allowedOrigins
-        if o equals origin
-            return true
-    return false
+    return slice.Contains(allowedOrigins, origin)
 
 func Wrap(next: http.Handler) http.Handler
     return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)

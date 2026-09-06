@@ -27,12 +27,6 @@ type PlacedObject
 
 var knownKeys = list of string{"id", "model", "category", "position", "rotation", "scale", "driver"}
 
-func toFloat(v: any, def: float64) float64
-    out, err := cast.SmartFloat64(v)
-    if err isnt empty
-        return def
-    return out
-
 # Vec3FromAny reads a vector from either a {x,y,z} map or a [x,y,z] list
 # (the legacy array layout format), falling back to the given defaults.
 func Vec3FromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
@@ -42,9 +36,17 @@ func Vec3FromAny(values: any, dx: float64, dy: float64, dz: float64) Vec3
         return v
     if values is list of any as arr
         if len(arr) >= 3
-            return Vec3{X: toFloat(arr[0], dx), Y: toFloat(arr[1], dy), Z: toFloat(arr[2], dz)}
+            return Vec3{
+                X: cast.ToFloat64Or(arr[0], dx),
+                Y: cast.ToFloat64Or(arr[1], dy),
+                Z: cast.ToFloat64Or(arr[2], dz),
+            }
     if values is map of string to any as m
-        return Vec3{X: toFloat(m["x"], dx), Y: toFloat(m["y"], dy), Z: toFloat(m["z"], dz)}
+        return Vec3{
+            X: cast.ToFloat64Or(m["x"], dx),
+            Y: cast.ToFloat64Or(m["y"], dy),
+            Z: cast.ToFloat64Or(m["z"], dz),
+        }
     return Vec3{X: dx, Y: dy, Z: dz}
 
 # FromMap converts a raw layout object into a typed PlacedObject. Missing
@@ -59,7 +61,7 @@ func FromMap(m: map of string to any) PlacedObject
         Rotation: Vec3FromAny(m["rotation"], 0.0, 0.0, 0.0),
         Scale: Vec3FromAny(m["scale"], 1.0, 1.0, 1.0),
         Driver: m["driver"],
-        Extra: make(map of string to any),
+        Extra: empty map of string to any,
     }
     for k, v in m
         if k not in knownKeys
@@ -70,7 +72,7 @@ func FromMap(m: map of string to any) PlacedObject
 # first so explicit fields win on any key collision. Category and Driver are
 # omitted when empty, matching how handlers build these maps.
 func ToMap(o: PlacedObject) map of string to any
-    out := make(map of string to any)
+    out := empty map of string to any
     for k, v in o.Extra
         out[k] = v
     out["id"] = o.ID

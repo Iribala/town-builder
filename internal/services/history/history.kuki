@@ -1,22 +1,20 @@
 petiole history
 
-import "stdlib/ctx" as ctxpkg
+import "stdlib/ctx"
 import "stdlib/json"
 import "stdlib/log"
 import "stdlib/slice"
+import "stdlib/uuid"
 import "sync"
 import "time"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/storage"
-import "github.com/google/uuid"
 import "github.com/redis/go-redis/v9" as redis
 
 const historyKey = "town_history"
 
 const redoKey = "town_redo"
-
-const redisTimeoutNanos = 2_000_000_000
 
 var lock: sync.Mutex
 
@@ -34,8 +32,8 @@ func maxSize() int
         return 100
     return s.MaxHistorySize
 
-func newCtx() ctxpkg.Handle
-    return ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+func newCtx() ctx.Handle
+    return ctx.WithTimeout(ctx.Background(), storage.RedisTimeout)
 
 func appendCapped(stack: list of map of string to any, entry: map of string to any, limit: int) list of map of string to any
     stack = append(stack, entry)
@@ -44,8 +42,8 @@ func appendCapped(stack: list of map of string to any, entry: map of string to a
     return stack
 
 func AddEntry(operation: string, category: string, objectID: string, before: map of string to any, after: map of string to any) (string, error)
-    entryID := uuid.New().String()
-    entry := make(map of string to any)
+    entryID := uuid.String(uuid.NewV7())
+    entry := empty map of string to any
     entry["id"] = entryID
     entry["timestamp"] = time.Now().UnixNano() as float64 / 1000000000.0
     entry["operation"] = operation
@@ -85,7 +83,7 @@ func GetHistory(limit: int) list of map of string to any
         if err equals empty
             out := empty list of map of string to any
             for entry in entries
-                obj := make(map of string to any)
+                obj := empty map of string to any
                 perr := json.ParseBytesInto(entry as list of byte, reference of obj)
                 if perr equals empty
                     out = append(out, obj)
@@ -129,7 +127,7 @@ func GetLastEntry() (map of string to any, bool)
         defer h.Cancel()
         entry, err := client.LIndex(h.Ctx, historyKey, -1).Result()
         if err equals empty and entry isnt ""
-            obj := make(map of string to any)
+            obj := empty map of string to any
             perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
                 return obj, true
@@ -148,7 +146,7 @@ func PopLastEntry() (map of string to any, bool)
         defer h.Cancel()
         entry, err := client.RPop(h.Ctx, historyKey).Result()
         if err equals empty and entry isnt ""
-            obj := make(map of string to any)
+            obj := empty map of string to any
             perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
                 return obj, true
@@ -187,7 +185,7 @@ func PopRedoEntry() (map of string to any, bool)
         defer h.Cancel()
         entry, err := client.RPop(h.Ctx, redoKey).Result()
         if err equals empty and entry isnt ""
-            obj := make(map of string to any)
+            obj := empty map of string to any
             perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
                 return obj, true

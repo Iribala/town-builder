@@ -44,20 +44,14 @@ func FloatAt(m: map of string to any, key: string, def: float64) float64
     v, ok := m[key]
     if not ok
         return def
-    f, err := cast.SmartFloat64(v)
-    if err isnt empty
-        return def
-    return f
+    return cast.ToFloat64Or(v, def)
 
 # IntAt returns m[key] coerced to int, or def when absent/uncoercible.
 func IntAt(m: map of string to any, key: string, def: int) int
     v, ok := m[key]
     if not ok
         return def
-    f, err := cast.SmartFloat64(v)
-    if err isnt empty
-        return def
-    return f as int
+    return cast.ToIntOr(v, def)
 
 # AsMap type-asserts an any value to a map.
 func AsMap(v: any) (map of string to any, bool)

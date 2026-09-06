@@ -16,7 +16,7 @@ func getHistory(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    limit := httphelper.GetQueryIntOr(request.Raw(), "limit", 50)
+    limit := request.GetQueryIntOr("limit", 50)
     entries := histsvc.GetHistory(limit)
     response.JSON(map of string to any{
         "status": "success",

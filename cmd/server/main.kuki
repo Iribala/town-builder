@@ -7,6 +7,7 @@ import "stdlib/log"
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/middleware/bodylimit"
 import "github.com/Iribala/town-builder/internal/middleware/cors"
+import "github.com/Iribala/town-builder/internal/middleware/requestid"
 import "github.com/Iribala/town-builder/internal/routes/router"
 import "github.com/Iribala/town-builder/internal/storage"
 
@@ -25,7 +26,7 @@ func main()
     cors.Init()
 
     mux := router.NewMux()
-    handler := httppkg.TrustedHosts(bodylimit.Wrap(cors.Wrap(mux)), many s.AllowedHosts)
+    handler := httppkg.TrustedHosts(requestid.Wrap(bodylimit.Wrap(cors.Wrap(mux))), many s.AllowedHosts)
 
     addr := ":5001"
     log.Info("Listening on {addr}")

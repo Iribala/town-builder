@@ -9,8 +9,8 @@ import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/query" as querysvc
 
 func readBody(request: httphelper.Request) (map of string to any, bool)
-    body := make(map of string to any)
-    err := httphelper.ReadJSON(request.Raw(), reference of body)
+    body := empty map of string to any
+    err := request.ReadJSON(reference of body)
     if err isnt empty
         return empty, false
     return body, true

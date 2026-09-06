@@ -107,8 +107,8 @@ func TestCreatePayloadShape(t: reference testing.T)
     _, err := django_client.CreateTown(req, sampleLayout, "Springfield")
     test.AssertNoError(t, err)
 
-    body := make(map of string to any)
-    json.ParseInto(lastBody, reference of body) onerr discard
+    body := empty map of string to any
+    json.ParseBytesInto(lastBody, reference of body) onerr discard
     test.AssertEqual(t, body["name"], "Springfield")
     _, hasLayout := body["layout_data"]
     test.AssertTrue(t, hasLayout)
@@ -169,8 +169,8 @@ func TestUpdateOmitsName(t: reference testing.T)
     _, err := django_client.UpdateTown(42, empty map of string to any, sampleLayout, "Springfield")
     test.AssertNoError(t, err)
 
-    body := make(map of string to any)
-    json.ParseInto(lastBody, reference of body) onerr discard
+    body := empty map of string to any
+    json.ParseBytesInto(lastBody, reference of body) onerr discard
     _, hasName := body["name"]
     test.AssertFalse(t, hasName)
     _, hasLayout := body["layout_data"]
@@ -286,8 +286,8 @@ func TestProxyPostForwardsBody(t: reference testing.T)
         bodyBytes,
     )
     test.AssertNoError(t, err)
-    body := make(map of string to any)
-    json.ParseInto(lastBody, reference of body) onerr discard
+    body := empty map of string to any
+    json.ParseBytesInto(lastBody, reference of body) onerr discard
     test.AssertEqual(t, body["name"], "Test")
 
 func TestProxyUnsupportedMethod(t: reference testing.T)
@@ -300,7 +300,7 @@ func TestProxyUnsupportedMethod(t: reference testing.T)
         empty,
     )
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "Unsupported HTTP method"))
+    test.AssertContains(t, err.Error(), "Unsupported HTTP method")
 
 func TestProxyTraversalRejected(t: reference testing.T)
     setupWithURL("http://localhost:8000/api/towns/")
@@ -312,7 +312,7 @@ func TestProxyTraversalRejected(t: reference testing.T)
         empty,
     )
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), ".."))
+    test.AssertContains(t, err.Error(), "..")
 
 func TestProxySchemeRejected(t: reference testing.T)
     setupWithURL("http://localhost:8000/api/towns/")
@@ -324,7 +324,7 @@ func TestProxySchemeRejected(t: reference testing.T)
         empty,
     )
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "scheme"))
+    test.AssertContains(t, err.Error(), "scheme")
 
 func TestProxyAuthorityRejected(t: reference testing.T)
     setupWithURL("http://localhost:8000/api/towns/")
@@ -336,4 +336,4 @@ func TestProxyAuthorityRejected(t: reference testing.T)
         empty,
     )
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "@"))
+    test.AssertContains(t, err.Error(), "@")

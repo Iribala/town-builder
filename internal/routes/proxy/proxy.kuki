@@ -18,7 +18,7 @@ func shouldSkip(skip: list of string, name: string) bool
     return strpkg.ToLower(name) in skip
 
 func collectHeaders(src: map of string to list of string) map of string to string
-    out := make(map of string to string)
+    out := empty map of string to string
     for k in mapspkg.Keys(src)
         if shouldSkip(skipRequestHeaders, k)
             continue
@@ -28,7 +28,7 @@ func collectHeaders(src: map of string to list of string) map of string to strin
     return out
 
 func collectParams(values: map of string to list of string) map of string to string
-    out := make(map of string to string)
+    out := empty map of string to string
     for k in mapspkg.Keys(values)
         vs := values[k]
         if len(vs) > 0

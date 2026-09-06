@@ -29,7 +29,7 @@ func stats(response: httphelper.Response, request: httphelper.Request)
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
-    out := make(map of string to any)
+    out := empty map of string to any
     if name, nok := data["townName"]; nok
         out["town_name"] = name
     else

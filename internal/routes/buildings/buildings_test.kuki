@@ -40,9 +40,9 @@ func do(handler: http.Handler, method: string, path: string, body: map of string
     handler.ServeHTTP(rec, req)
     resp := rec.Result()
     raw, _ := io.ReadAll(resp.Body)
-    out := make(map of string to any)
+    out := empty map of string to any
     if len(raw) > 0
-        json.ParseInto(raw, reference of out) onerr discard
+        json.ParseBytesInto(raw, reference of out) onerr discard
     return resp.StatusCode, out
 
 func TestCreateBuildingTypedShape(t: reference testing.T)

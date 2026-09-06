@@ -12,8 +12,8 @@ func executeOps(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    body := make(map of string to any)
-    err := httphelper.ReadJSON(request.Raw(), reference of body)
+    body := empty map of string to any
+    err := request.ReadJSON(reference of body)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return

@@ -34,7 +34,7 @@ func httpClient() reference http.Client
     return reference of http.Client{Timeout: 10 * time.Second}
 
 func getHeaders() map of string to string
-    h := make(map of string to string)
+    h := empty map of string to string
     h["Content-Type"] = "application/json"
     s := config.Current()
     if s isnt empty and strpkg.TrimSpace(s.ApiToken) isnt ""
@@ -60,8 +60,8 @@ func applyHeaders(req: reference http.Request, headers: map of string to string)
 func PrepareDjangoPayload(requestPayload: map of string to any, normalizedTownData: map of string to any, townName: string, isUpdate: bool) map of string to any
     currentLayoutData := normalizedTownData
     if currentLayoutData equals empty
-        currentLayoutData = make(map of string to any)
-    payload := make(map of string to any)
+        currentLayoutData = empty map of string to any
+    payload := empty map of string to any
     payload["layout_data"] = currentLayoutData
 
     effectiveName := townName
@@ -106,7 +106,7 @@ func decodeJSON(resp: reference http.Response) (map of string to any, error)
     raw, err := io.ReadAll(resp.Body)
     if err isnt empty
         return empty, err
-    out := make(map of string to any)
+    out := empty map of string to any
     perr := json.ParseBytesInto(raw, reference of out)
     if perr isnt empty
         return empty, perr
@@ -116,7 +116,7 @@ func GetTownByID(townID: int) (map of string to any, error)
     baseURL, err := GetBaseURL()
     if err isnt empty
         return empty, err
-    fullURL := "{baseURL}{townID}/"
+    fullURL := url.JoinPath(baseURL, "{townID}/")
     log.Info("Fetching town {townID} from Django: {fullURL}")
     resp, herr := doJSON("GET", fullURL, empty)
     if herr isnt empty
@@ -166,13 +166,10 @@ func SearchTownByName(townName: string) (int, bool, error)
         idVal, idOk := first["id"]
         if not idOk
             return 0, false, empty
-        switch idVal as v
-            when float64
-                townID = v as int
-            when int
-                townID = v
-            default
-                return 0, false, empty
+        tid, terr := cast.ToInt(idVal)
+        if terr isnt empty
+            return 0, false, empty
+        townID = tid
     else
         return 0, false, empty
 
@@ -198,7 +195,7 @@ func CreateTown(requestPayload: map of string to any, normalizedTownData: map of
     data, derr := decodeJSON(resp)
     if derr isnt empty
         return empty, derr
-    out := make(map of string to any)
+    out := empty map of string to any
     out["status"] = "success"
     out["town_id"] = data["id"]
     out["response"] = data
@@ -208,7 +205,7 @@ func UpdateTown(townID: int, requestPayload: map of string to any, normalizedTow
     baseURL, err := GetBaseURL()
     if err isnt empty
         return empty, err
-    fullURL := "{baseURL}{townID}/"
+    fullURL := url.JoinPath(baseURL, "{townID}/")
     payload := PrepareDjangoPayload(requestPayload, normalizedTownData, townName, true)
     resp, herr := doJSON("PATCH", fullURL, payload)
     if herr isnt empty
@@ -218,7 +215,7 @@ func UpdateTown(townID: int, requestPayload: map of string to any, normalizedTow
         return empty, error "django returned status {resp.StatusCode}"
     resp.Body.Close()
     log.Info("Town layout successfully updated via PATCH to Django backend for town_id: {townID}")
-    out := make(map of string to any)
+    out := empty map of string to any
     out["status"] = "success"
     out["town_id"] = townID
     return out, empty
@@ -230,7 +227,7 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
     safePath, serr := security.ValidateProxyPath(path)
     if serr isnt empty
         return empty, serr
-    fullURL := baseURL + safePath
+    fullURL := url.JoinPath(baseURL, safePath)
     if not security.ValidateApiURL(fullURL)
         return empty, error "Constructed proxy URL is not allowed: {fullURL}"
 

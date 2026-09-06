@@ -6,7 +6,7 @@ import "stdlib/string" as strpkg
 import "github.com/Iribala/town-builder/internal/services/auth"
 
 func ExtractToken(request: httphelper.Request) string
-    h := httphelper.GetHeader(request.Raw(), "Authorization")
+    h := request.GetHeader("Authorization")
     if h equals ""
         return ""
     if strpkg.HasPrefix(h, "Bearer ")

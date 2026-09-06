@@ -1,9 +1,9 @@
 petiole query
 
 import "math"
-import "sort"
 import "stdlib/cast"
 import "stdlib/log"
+import "stdlib/sort"
 import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/mapx"
@@ -19,31 +19,18 @@ func getAllCategories(townData: map of string to any) list of string
             keys = append(keys, k)
     return keys
 
-func sortLess(items: list of map of string to any, field: string, reverse: bool, i: int, j: int) bool
-    a := getNestedValue(items[i], field)
-    b := getNestedValue(items[j], field)
-    cmp := compareValues(a, b)
-    if reverse
-        return cmp > 0
-    return cmp < 0
-
-func distanceLess(items: list of map of string to any, i: int, j: int) bool
-    a, _ := cast.SmartFloat64(items[i]["distance"])
-    b, _ := cast.SmartFloat64(items[j]["distance"])
-    return a < b
-
 func sortByDistance(items: list of map of string to any)
-    sort.Slice(items, (i: int, j: int) => distanceLess(items, i, j))
+    sort.ByKey(items, (it: map of string to any) => cast.ToFloat64Or(it["distance"], 0.0))
 
 func cloneWithCat(obj: map of string to any, cat: string) map of string to any
-    out := make(map of string to any)
+    out := empty map of string to any
     for k, v in obj
         out[k] = v
     out["category"] = cat
     return out
 
 func SpatialQueryRadius(center: map of string to any, radius: float64, category: string, limit: int) list of map of string to any
-    townData, _ := storage.Get()
+    townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt ""
@@ -85,7 +72,7 @@ func isWithinBounds(point: map of string to any, minPoint: map of string to any,
     return mnx <= px and px <= mxx and mny <= py and py <= mxy and mnz <= pz and pz <= mxz
 
 func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string to any, category: string, limit: int) list of map of string to any
-    townData, _ := storage.Get()
+    townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt ""
@@ -110,7 +97,7 @@ func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string 
     return results
 
 func SpatialQueryNearest(point: map of string to any, category: string, count: int, maxDistance: float64, hasMaxDistance: bool) list of map of string to any
-    townData, _ := storage.Get()
+    townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt ""
@@ -149,8 +136,8 @@ func getNestedValue(obj: map of string to any, field: string) any
     return value
 
 func compareValues(a: any, b: any) int
-    af, aerr := cast.SmartFloat64(a)
-    bf, berr := cast.SmartFloat64(b)
+    af, aerr := cast.ToFloat64(a)
+    bf, berr := cast.ToFloat64(b)
     if aerr equals empty and berr equals empty
         if af < bf
             return -1
@@ -179,8 +166,8 @@ func evaluateCondition(objValue: any, operator: string, filterValue: any) bool
         when "lte"
             return compareValues(objValue, filterValue) <= 0
         when "contains"
-            objStr := cast.SmartString(objValue)
-            filterStr := cast.SmartString(filterValue)
+            objStr := cast.ToString(objValue)
+            filterStr := cast.ToString(filterValue)
             return strpkg.Contains(objStr, filterStr)
         when "in"
             if filterValue is list of any as items
@@ -208,7 +195,7 @@ func matchesFilters(obj: map of string to any, filters: list of map of string to
     return true
 
 func AdvancedQuery(category: string, filters: list of map of string to any, sortBy: string, sortOrder: string, limit: int, offset: int) list of map of string to any
-    townData, _ := storage.Get()
+    townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt ""
@@ -232,8 +219,19 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
                     results = append(results, entry)
 
     if sortBy isnt ""
-        reverse := sortOrder equals "desc"
-        sort.Slice(results, (i: int, j: int) => sortLess(results, sortBy, reverse, i, j))
+        # sort_by is client-supplied and may be a string field, so the
+        # comparator keeps the mixed-type compareValues rather than a
+        # single ordered key.
+        if sortOrder equals "desc"
+            results = sort.ByDesc(
+                results,
+                (a: map of string to any, b: map of string to any) => compareValues(getNestedValue(a, sortBy), getNestedValue(b, sortBy)) > 0,
+            )
+        else
+            results = sort.By(
+                results,
+                (a: map of string to any, b: map of string to any) => compareValues(getNestedValue(a, sortBy), getNestedValue(b, sortBy)) < 0,
+            )
 
     total := len(results)
     if offset > 0 and offset < len(results)

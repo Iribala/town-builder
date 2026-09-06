@@ -3,10 +3,10 @@ petiole ui
 import "html/template"
 import "net/http"
 import "os"
+import "stdlib/cast"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 import "stdlib/string" as strpkg
-import "strconv"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/services/kibigia_auth"
@@ -57,10 +57,7 @@ func index(response: httphelper.Response, request: httphelper.Request)
             response.JSONError("template load failed", 500) onerr discard
             return
 
-    townID := 0
-    if v := request.URL().Query().Get("town_id"); v isnt ""
-        if n, err := strconv.Atoi(v); err equals empty
-            townID = n
+    townID := cast.ToIntOr(request.URL().Query().Get("town_id"), 0)
 
     # ?code= from kibigia's auth-code flow; ?token= is the direct-token fallback.
     authCode := request.URL().Query().Get("code")

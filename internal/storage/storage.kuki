@@ -1,9 +1,10 @@
 petiole storage
 
-import "stdlib/ctx" as ctxpkg
+import "stdlib/ctx"
 import "stdlib/json"
 import "stdlib/log"
 import "sync"
+import "time"
 
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/klauspost/compress/zstd"
@@ -11,7 +12,9 @@ import "github.com/redis/go-redis/v9" as redis
 
 const townKey = "town_data"
 
-const redisTimeoutNanos = 2_000_000_000
+# RedisTimeout bounds a single Redis round-trip; shared by every
+# service that talks to the cache.
+var RedisTimeout = 2 * time.Second
 
 var client: reference redis.Client
 
@@ -24,7 +27,7 @@ var encoder: reference zstd.Encoder
 var decoder: reference zstd.Decoder
 
 func defaultTownData() map of string to any
-    out := make(map of string to any)
+    out := empty map of string to any
     for cat in normalization.Categories
         out[cat] = empty list of map of string to any
     return out
@@ -44,7 +47,7 @@ func Initialize(redisURL: string) error
         log.Warn("Redis URL parse failed, using in-memory storage: {err}")
         return empty
     c := redis.NewClient(opts)
-    h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+    h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
     defer h.Cancel()
     _, perr := c.Ping(h.Ctx).Result()
     if perr isnt empty
@@ -65,7 +68,7 @@ func deepCopyMap(src: map of string to any) map of string to any
     data, err := json.Bytes(src)
     if err isnt empty
         return defaultTownData()
-    out := make(map of string to any)
+    out := empty map of string to any
     perr := json.ParseBytesInto(data, reference of out)
     if perr isnt empty
         return defaultTownData()
@@ -78,7 +81,7 @@ func snapshotMemory() map of string to any
 
 func Get() (map of string to any, error)
     if client isnt empty and decoder isnt empty
-        h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+        h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
         defer h.Cancel()
         data, err := client.Get(h.Ctx, townKey).Bytes()
         if err equals empty
@@ -86,7 +89,7 @@ func Get() (map of string to any, error)
             if derr isnt empty
                 log.Warn("Failed to decompress town data: {derr}")
                 return snapshotMemory(), empty
-            out := make(map of string to any)
+            out := empty map of string to any
             perr := json.ParseBytesInto(decompressed, reference of out)
             if perr isnt empty
                 log.Warn("Failed to parse stored town data: {perr}")
@@ -107,7 +110,7 @@ func Set(data: map of string to any) error
             log.Warn("Town data serialize failed: {err}")
             return empty
         compressed := encoder.EncodeAll(raw, empty)
-        h := ctxpkg.WithTimeout(ctxpkg.Background(), redisTimeoutNanos)
+        h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
         defer h.Cancel()
         serr := client.Set(h.Ctx, townKey, compressed, 0).Err()
         if serr isnt empty

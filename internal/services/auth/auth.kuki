@@ -54,7 +54,7 @@ func GetCurrentUser(token: string) (reference UserInfo, error)
         return empty, error "config not loaded"
     if s.DisableJwtAuth
         log.Warn("JWT authentication is DISABLED - development mode only!")
-        payload := make(map of string to any)
+        payload := empty map of string to any
         payload["sub"] = "dev-user"
         return reference of UserInfo{Username: "dev-user", Payload: payload}, empty
     if token equals ""

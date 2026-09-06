@@ -37,7 +37,7 @@ func newExchangeServer(secret: string, token: string) reference httptest.Server
         if err isnt empty
             w.WriteHeader(400)
             return
-        body := make(map of string to any)
+        body := empty map of string to any
         perr := json.ParseBytesInto(raw, reference of body)
         if perr isnt empty
             w.WriteHeader(400)
@@ -119,7 +119,7 @@ func TestExchangeCodeSendsCodeInBody(t: reference testing.T)
     var sentCode: string
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
         raw, _ := io.ReadAll(r.Body)
-        body := make(map of string to any)
+        body := empty map of string to any
         json.ParseBytesInto(raw, reference of body) onerr discard
         if body["code"] is string as c
             sentCode = c
@@ -139,7 +139,7 @@ func TestExchangeCodeWrongSecretReturnsError(t: reference testing.T)
     setup(srv.URL, "wrong-secret")
     _, err := kibigia_auth.ExchangeCode("code")
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "401"))
+    test.AssertContains(t, err.Error(), "401")
 
 func TestExchangeCodeInvalidCodeReturnsError(t: reference testing.T)
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
@@ -151,19 +151,19 @@ func TestExchangeCodeInvalidCodeReturnsError(t: reference testing.T)
     setup(srv.URL, "secret")
     _, err := kibigia_auth.ExchangeCode("expired")
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "404"))
+    test.AssertContains(t, err.Error(), "404")
 
 func TestExchangeCodeMissingSecretErrors(t: reference testing.T)
     setup("http://127.0.0.1:9999/exchange/", "")
     _, err := kibigia_auth.ExchangeCode("code")
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "KIBIGIA_EXCHANGE_SECRET"))
+    test.AssertContains(t, err.Error(), "KIBIGIA_EXCHANGE_SECRET")
 
 func TestExchangeCodeDisallowedHostErrors(t: reference testing.T)
     setup("http://evil.com/exchange/", "secret")
     _, err := kibigia_auth.ExchangeCode("code")
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "ALLOWED_DOMAINS"))
+    test.AssertContains(t, err.Error(), "ALLOWED_DOMAINS")
 
 func TestExchangeCodeMissingTokenInResponseErrors(t: reference testing.T)
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
@@ -175,7 +175,7 @@ func TestExchangeCodeMissingTokenInResponseErrors(t: reference testing.T)
     setup(srv.URL, "secret")
     _, err := kibigia_auth.ExchangeCode("code")
     test.AssertError(t, err)
-    test.AssertTrue(t, strpkg.Contains(err.Error(), "token"))
+    test.AssertContains(t, err.Error(), "token")
 
 func TestExchangeCodeUsesPOST(t: reference testing.T)
     var seenMethod: string

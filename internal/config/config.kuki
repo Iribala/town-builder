@@ -4,6 +4,7 @@ import "os"
 import "stdlib/env"
 import "stdlib/files"
 import "stdlib/string" as strpkg
+import "time"
 
 type Settings
     AppTitle: string
@@ -24,9 +25,9 @@ type Settings
     TemplatesPath: string
     DataPath: string
     RootPath: string
-    SseTimeout: float64
-    SseKeepaliveInterval: float64
-    UserActivityTimeout: float64
+    SseTimeout: time.Duration
+    SseKeepaliveInterval: time.Duration
+    UserActivityTimeout: time.Duration
     MaxHistorySize: int
     MaxSnapshots: int
     MaxRequestBodyBytes: int64
@@ -39,8 +40,14 @@ type Settings
 
 var current: reference Settings
 
-func floatOr(key: string, def: float64) float64
-    return env.GetFloatOr(key, def) onerr def
+func durationOr(key: string, def: time.Duration) time.Duration
+    # explicit capture — the onerr value-form on GetDurationOr emits a
+    # typed IIFE referencing the stdlib source package alias, which does
+    # not resolve in user code (compiler bug, filed separately)
+    d, err := env.GetDurationOr(key, def)
+    if err isnt empty
+        return def
+    return d
 
 # LoadEnvFile reads a .env file (KEY=VALUE per line, '#' comments, optional
 # surrounding quotes on values) and sets each entry into the process
@@ -105,9 +112,9 @@ func Load() (reference Settings, error)
         TemplatesPath: env.GetOr("TEMPLATES_PATH", "./templates"),
         DataPath: env.GetOr("DATA_PATH", "./data"),
         RootPath: env.GetOr("ROOT_PATH", ""),
-        SseTimeout: floatOr("SSE_TIMEOUT", 10.0),
-        SseKeepaliveInterval: floatOr("SSE_KEEPALIVE_INTERVAL", 10.0),
-        UserActivityTimeout: floatOr("USER_ACTIVITY_TIMEOUT", 30.0),
+        SseTimeout: durationOr("SSE_TIMEOUT", 10 * time.Second),
+        SseKeepaliveInterval: durationOr("SSE_KEEPALIVE_INTERVAL", 10 * time.Second),
+        UserActivityTimeout: durationOr("USER_ACTIVITY_TIMEOUT", 30 * time.Second),
         MaxHistorySize: maxHistory,
         MaxSnapshots: maxSnapshots,
         MaxRequestBodyBytes: maxRequestBodyBytesInt as int64,

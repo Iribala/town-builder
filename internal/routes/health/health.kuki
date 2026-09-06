@@ -1,7 +1,7 @@
 petiole health
 
 import "net/http"
-import "stdlib/ctx" as ctxpkg
+import "stdlib/ctx"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
@@ -11,13 +11,13 @@ func livez(response: httphelper.Response, request: httphelper.Request)
     response.JSON(map of string to any{"status": "ok"}) onerr discard
 
 func readyz(response: httphelper.Response, request: httphelper.Request)
-    checks := make(map of string to any)
+    checks := empty map of string to any
     status := "ok"
     client := storage.Client()
     if client equals empty
         checks["redis"] = "unavailable"
     else
-        h := ctxpkg.WithTimeout(ctxpkg.Background(), 2_000_000_000)
+        h := ctx.WithTimeout(ctx.Background(), storage.RedisTimeout)
         defer h.Cancel()
         perr := client.Ping(h.Ctx).Err()
         if perr isnt empty

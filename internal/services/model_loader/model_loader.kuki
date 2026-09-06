@@ -8,7 +8,7 @@ import "stdlib/string" as strpkg
 import "github.com/Iribala/town-builder/internal/config"
 
 func GetAvailableModels() map of string to list of string
-    out := make(map of string to list of string)
+    out := empty map of string to list of string
     s := config.Current()
     if s equals empty
         return out

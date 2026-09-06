@@ -5,6 +5,7 @@ import "stdlib/cast"
 import "stdlib/json"
 import "stdlib/log"
 import "stdlib/string" as strpkg
+import "stdlib/uuid"
 import "sync"
 
 import "github.com/Iribala/town-builder/internal/events" as evt
@@ -13,7 +14,6 @@ import "github.com/Iribala/town-builder/internal/services/history"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
-import "github.com/google/uuid"
 
 var batchLock: sync.Mutex
 
@@ -22,15 +22,15 @@ var dataVersion: int
 func deepCopy(src: map of string to any) map of string to any
     data, err := json.Bytes(src)
     if err isnt empty
-        return make(map of string to any)
-    out := make(map of string to any)
+        return empty map of string to any
+    out := empty map of string to any
     perr := json.ParseBytesInto(data, reference of out)
     if perr isnt empty
-        return make(map of string to any)
+        return empty map of string to any
     return out
 
 func opResult(success: bool, op: string, message: string, data: map of string to any) map of string to any
-    out := make(map of string to any)
+    out := empty map of string to any
     out["success"] = success
     out["op"] = op
     out["message"] = message
@@ -53,20 +53,20 @@ func createObject(townData: map of string to any, op: map of string to any, vali
     category := mapx.Str(op, "category")
     data, _ := mapx.AsMap(op["data"])
     if data equals empty
-        data = make(map of string to any)
+        data = empty map of string to any
     if category equals ""
         return opResult(false, "create", "Missing category", empty)
     _, ok := townData[category]
     if not ok
         townData[category] = empty list of any
     if _, idOk := data["id"]; not idOk
-        data["id"] = uuid.NewString()
+        data["id"] = uuid.String(uuid.NewV7())
     if validate and not validateObject(data)
         return opResult(false, "create", "Object validation failed", empty)
     items, _ := mapx.AsList(townData[category])
     items = append(items, data)
     townData[category] = items
-    result := make(map of string to any)
+    result := empty map of string to any
     result["id"] = data["id"]
     result["category"] = category
     return opResult(true, "create", "Created object in {category}", result)
@@ -76,7 +76,7 @@ func updateObject(townData: map of string to any, op: map of string to any, vali
     objectID := mapx.Str(op, "id")
     data, _ := mapx.AsMap(op["data"])
     if data equals empty
-        data = make(map of string to any)
+        data = empty map of string to any
     if category equals "" or objectID equals ""
         return opResult(false, "update", "Missing category or id", empty)
     catVal, ok := townData[category]
@@ -94,7 +94,7 @@ func updateObject(townData: map of string to any, op: map of string to any, vali
                 obj[k] = v
             items[i] = obj
             townData[category] = items
-            result := make(map of string to any)
+            result := empty map of string to any
             result["id"] = objectID
             result["category"] = category
             return opResult(true, "update", "Updated object {objectID} in {category}", result)
@@ -123,7 +123,7 @@ func deleteObject(townData: map of string to any, op: map of string to any, vali
             if mapx.Str(obj, "id") equals objectID
                 items = append(items[:i], many items[i + 1:])
                 townData[category] = items
-                result := make(map of string to any)
+                result := empty map of string to any
                 result["id"] = objectID
                 result["category"] = category
                 return opResult(true, "delete", "Deleted object {objectID} from {category}", result)
@@ -145,7 +145,7 @@ func deleteObject(townData: map of string to any, op: map of string to any, vali
     if closestIndex >= 0 and closestDistance < geometry.DeleteProximityThreshold
         items = append(items[:closestIndex], many items[closestIndex + 1:])
         townData[category] = items
-        result := make(map of string to any)
+        result := empty map of string to any
         result["id"] = closestID
         result["category"] = category
         result["distance"] = closestDistance
@@ -183,7 +183,7 @@ func editObject(townData: map of string to any, op: map of string to any, valida
                 changesMade = append(changesMade, "scale")
             items[i] = obj
             townData[category] = items
-            result := make(map of string to any)
+            result := empty map of string to any
             result["id"] = objectID
             result["category"] = category
             result["changes"] = changesMade
@@ -218,7 +218,7 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
     failed := 0
     townData := storage.Get() onerr
         log.Error("batch.ExecuteOperations: storage.Get failed: {error}")
-        fallback make(map of string to any)
+        fallback empty map of string to any
 
     originalTownData := deepCopy(townData)
 
@@ -235,7 +235,7 @@ func ExecuteOperations(operations: list of map of string to any, validate: bool)
 
     if failed equals 0
         dataVersion = dataVersion + 1
-        broadcastData := make(map of string to any)
+        broadcastData := empty map of string to any
         for k, v in townData
             if not strpkg.HasPrefix(k, "_")
                 broadcastData[k] = v

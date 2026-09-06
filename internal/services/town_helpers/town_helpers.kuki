@@ -1,13 +1,13 @@
 petiole town_helpers
 
-import "stdlib/ctx" as ctxpkg
+import "stdlib/ctx"
 import "stdlib/json"
 import "stdlib/log"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/storage"
 
-const publishTimeoutNanos = 2_000_000_000
+var publishTimeout = storage.RedisTimeout
 
 func BroadcastSSE(event: map of string to any)
     client := storage.Client()
@@ -20,7 +20,7 @@ func BroadcastSSE(event: map of string to any)
     if err isnt empty
         log.Warn("Failed to encode SSE event: {err}")
         return
-    h := ctxpkg.WithTimeout(ctxpkg.Background(), publishTimeoutNanos)
+    h := ctx.WithTimeout(ctx.Background(), publishTimeout)
     defer h.Cancel()
     perr := client.Publish(h.Ctx, s.PubsubChannel, msg).Err()
     if perr isnt empty

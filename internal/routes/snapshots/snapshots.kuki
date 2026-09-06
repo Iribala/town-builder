@@ -15,8 +15,8 @@ func create(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    body := make(map of string to any)
-    httphelper.ReadJSON(request.Raw(), reference of body) onerr discard
+    body := empty map of string to any
+    request.ReadJSON(reference of body) onerr discard
     townData, err := storage.Get()
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
