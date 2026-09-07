@@ -148,7 +148,7 @@ func main()
 
 `func`/`var`/`const`/`enum` have aliases `function`/`variable`/`constant`/`enumeration`: use the short forms in production code; the long forms are for beginner tutorials only.
 
-**`equals` and `isnt` replace every `==` and `!=` — not just nil/empty checks:** `if count equals 0`, `if name equals "admin"`, `if phase isnt enums.SETUP`. Ordering operators (`<`, `>`, `<=`, `>=`) stay symbolic. **Chained ordering comparisons** (`low <= value < high`, `high > value >= low`) are admitted for monotonic ascending (`<`/`<=`) or descending (`>`/`>=`) chains; equality/inequality and mixed-direction chains remain rejected. **Evaluation is Python's:** operands evaluate left to right, each middle operand exactly once, and the trailing operand only if every earlier comparison passed — `0 <= i < slice.Last(xs)` does not call `slice.Last` when `i` is negative. Hoist the trailing operand yourself if you need it to run unconditionally.
+**`equals` and `isnt` replace every `==` and `!=` — not just nil/empty checks:** `if count equals 0`, `if name equals "admin"`, `if phase isnt enums.SETUP`. Ordering operators (`<`, `>`, `<=`, `>=`) stay symbolic. **Chained ordering comparisons** (`low <= value < high`, `high > value >= low`) are admitted for monotonic ascending (`<`/`<=`) or descending (`>`/`>=`) chains; equality/inequality and mixed-direction chains remain rejected. **Evaluation is Python's:** operands evaluate left to right, each middle operand exactly once, and the trailing operand only if every earlier comparison passed — `0 <= i < slice.Last(xs)` does not call `slice.Last` when `i` is negative. Hoist the trailing operand yourself if you need it to run unconditionally. **Arithmetic on time values works** — a Kukicha extension, since Go has no `+`/`-` on `time.Time`: through the `datetime.Time`/`datetime.Duration` transparent aliases (or Go's `time.Time`/`time.Duration` directly), `Time + Duration`, `Duration + Time`, and `Time - Duration` yield a `Time`, and `Duration * n` / `Duration / n` with an untyped integer constant stays a `Duration` — package-level constants like `time.Minute` carry their Go types, so `deadline := datetime.Now() + 5 * time.Minute` type-checks.
 
 ### Constants
 
@@ -927,7 +927,7 @@ An alias is only needed when the bare package name would actually collide in you
 ```bash
 kukicha init [module]         # scaffold project + extract stdlib to .kukicha/ (re-run to update after compiler upgrade)
 kukicha check <target>        # validate syntax (no codegen)
-kukicha build <target>        # transpile + compile to binary
+kukicha build <target>        # transpile + compile to binary (binary lands in the current directory, named after the target — same convention as go build; the generated .go lands next to the source)
 kukicha run <target>          # transpile + compile + run (also: kukicha run module@version to download + run)
 kukicha fmt -w <target>       # format in place (use --check in CI)
 kukicha context <target>      # project metadata as JSON (for agents)

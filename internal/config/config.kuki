@@ -41,13 +41,7 @@ type Settings
 var current: reference Settings
 
 func durationOr(key: string, def: time.Duration) time.Duration
-    # explicit capture — the onerr value-form on GetDurationOr emits a
-    # typed IIFE referencing the stdlib source package alias, which does
-    # not resolve in user code (compiler bug, filed separately)
-    d, err := env.GetDurationOr(key, def)
-    if err isnt empty
-        return def
-    return d
+    return env.GetDurationOr(key, def) onerr def
 
 # LoadEnvFile reads a .env file (KEY=VALUE per line, '#' comments, optional
 # surrounding quotes on values) and sets each entry into the process
