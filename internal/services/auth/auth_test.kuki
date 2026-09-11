@@ -93,7 +93,7 @@ func TestExpiredTokenRejected(t: reference testing.T)
     setupAuthEnabled()
     claims := jwtpkg.MapClaims{
         "username": "x",
-        "exp": time.Now().Add(-time.Hour).Unix(),
+        "exp": (time.Now() - time.Hour).Unix(),
     }
     tok := signToken(claims, TestJwtSecret)
     _, err := auth.VerifyTokenString(tok)
