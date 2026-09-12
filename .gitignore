@@ -42,3 +42,4 @@ data/*.json
 .agent/settings.local.json
 .claude/settings.local.json
 .agents/settings.local.json
+.agents/skills/kukicha/SKILL.md
