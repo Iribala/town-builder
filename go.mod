@@ -12,7 +12,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/klauspost/compress v1.17.9
 	github.com/redis/go-redis/v9 v9.7.0
-	kukicha.org/kukicha/stdlib v0.84.7
+	kukicha.org/kukicha/stdlib v0.85.0
 )
 
 require (
