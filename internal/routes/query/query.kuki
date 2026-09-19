@@ -10,7 +10,7 @@ import "github.com/Iribala/town-builder/internal/services/query" as querysvc
 
 func readBody(request: httphelper.Request) (map of string to any, bool)
     body := empty map of string to any
-    err := request.ReadJSON(reference of body)
+    err := request.Decode(reference of body)
     if err isnt empty
         return empty, false
     return body, true

@@ -34,7 +34,7 @@ func updateTown(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     data := empty map of string to any
-    err := request.ReadJSON(reference of data)
+    err := request.Decode(reference of data)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
@@ -109,7 +109,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if not ok
         return
     payload := empty map of string to any
-    err := request.ReadJSON(reference of payload)
+    err := request.Decode(reference of payload)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON payload") onerr discard
         return
@@ -202,7 +202,7 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if not ok
         return
     body := empty map of string to any
-    request.ReadJSON(reference of body) onerr discard
+    request.Decode(reference of body) onerr discard
     filename := mapx.Str(body, "filename")
     if filename equals ""
         filename = "town_data.json"
@@ -276,7 +276,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     body := empty map of string to any
-    err := request.ReadJSON(reference of body)
+    err := request.Decode(reference of body)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
@@ -355,7 +355,7 @@ func editModel(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     body := empty map of string to any
-    err := request.ReadJSON(reference of body)
+    err := request.Decode(reference of body)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return

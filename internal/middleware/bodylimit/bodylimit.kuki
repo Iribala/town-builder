@@ -2,22 +2,12 @@ petiole bodylimit
 
 import "net/http"
 import "stdlib/http" as httphelper
-import "strconv"
 
 import "github.com/Iribala/town-builder/internal/config"
 
 func Wrap(next: http.Handler) http.Handler
-    return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
-        s := config.Current()
-        limit := (10 * 1024 * 1024) as int64
-        if s isnt empty
-            limit = s.MaxRequestBodyBytes
-        cl := r.Header.Get("Content-Length")
-        if cl isnt ""
-            n, err := strconv.ParseInt(cl, 10, 64)
-            if err equals empty and n > limit
-                httphelper.JSONError(w, "Request body too large. Maximum size: {limit} bytes", 413) onerr discard
-                return
-        r.Body = http.MaxBytesReader(w, r.Body, limit)
-        next.ServeHTTP(w, r)
-    )
+    s := config.Current()
+    limit := (10 * 1024 * 1024) as int64
+    if s isnt empty
+        limit = s.MaxRequestBodyBytes
+    return httphelper.BodyLimit(next, limit)
