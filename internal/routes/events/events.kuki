@@ -46,19 +46,20 @@ func broadcastUsers()
         "users": pubsub.OnlineUsers(),
     })
 
-func sse(w: http.ResponseWriter, r: reference http.Request)
+func sse(res: httphelper.Response, req: httphelper.Request)
     s := config.Current()
     if s isnt empty and not s.DisableJwtAuth
-        cookie, err := r.Cookie("auth_token")
+        cookie, err := req.Raw().Cookie("auth_token")
         if err isnt empty or cookie equals empty or cookie.Value equals ""
-            httphelper.JSONUnauthorized(w, "Not authenticated") onerr discard
+            res.JSONUnauthorized("Not authenticated") onerr discard
             return
         _, verr := auth.VerifyTokenString(cookie.Value)
         if verr isnt empty
-            httphelper.JSONUnauthorized(w, "Not authenticated") onerr discard
+            res.JSONUnauthorized("Not authenticated") onerr discard
             return
 
-    playerName := r.URL.Query().Get("name")
+    playerName := req.Raw().URL.Query().Get("name")
+    w := res.Raw()
 
     w.Header().Set("Content-Type", "text/event-stream")
     w.Header().Set("Cache-Control", "no-cache")
@@ -97,7 +98,7 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
         ticker := time.NewTicker(keepaliveInterval)
         defer ticker.Stop()
 
-        ctxDone := r.Context().Done()
+        ctxDone := req.Raw().Context().Done()
 
         for true
             select
@@ -117,8 +118,8 @@ func sse(w: http.ResponseWriter, r: reference http.Request)
                     if not writeRaw(w, flusher, ": keepalive\n\n")
                         return
     else
-        httphelper.JSONError(w, "streaming unsupported", 500) onerr discard
+        res.JSONError("streaming unsupported", httphelper.StatusInternalServerError) onerr discard
         return
 
 func Register(mux: reference http.ServeMux)
-    mux.HandleFunc("GET /events", sse)
+    mux.Handle("GET /events", httphelper.Handler(sse))
