@@ -1,6 +1,5 @@
 petiole scene_description
 
-import "fmt"
 import "stdlib/cast"
 import "stdlib/log"
 import "stdlib/maps" as mapspkg
@@ -55,7 +54,7 @@ func calculateSceneBounds(allPositions: list of list of float64) map of string t
     minObj := empty map of string to any
     maxObj := empty map of string to any
     dims := empty map of string to any
-    if len(allPositions) equals 0
+    if allPositions is empty
         minObj["x"] = 0.0
         minObj["y"] = 0.0
         minObj["z"] = 0.0
@@ -182,7 +181,7 @@ func generateNaturalDescription(analysis: map of string to any) string
             width = cast.ToFloat64Or(dims["width"], 0.0)
             depth = cast.ToFloat64Or(dims["depth"], 0.0)
     if width > 0.0 or depth > 0.0
-        parts = append(parts, fmt.Sprintf("Scene dimensions: %.1f x %.1f units", width, depth))
+        parts = append(parts, "Scene dimensions: {width:.1f} x {depth:.1f} units")
     return strpkg.Join(parts, "\n")
 
 func GenerateSceneDescription(townData: map of string to any) map of string to any

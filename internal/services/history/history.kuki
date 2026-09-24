@@ -135,7 +135,7 @@ func GetLastEntry() (map of string to any, bool)
             log.Warn("Redis get last entry failed: {err}")
     lock.Lock()
     defer lock.Unlock()
-    if len(historyStack) equals 0
+    if historyStack is empty
         return empty, false
     return historyStack[len(historyStack) - 1], true
 
@@ -154,7 +154,7 @@ func PopLastEntry() (map of string to any, bool)
             log.Warn("Redis pop failed, using in-memory storage: {err}")
     lock.Lock()
     defer lock.Unlock()
-    if len(historyStack) equals 0
+    if historyStack is empty
         return empty, false
     entry := historyStack[len(historyStack) - 1]
     historyStack = historyStack[:len(historyStack) - 1]
@@ -193,7 +193,7 @@ func PopRedoEntry() (map of string to any, bool)
             log.Warn("Redis redo pop failed, using in-memory storage: {err}")
     lock.Lock()
     defer lock.Unlock()
-    if len(redoStack) equals 0
+    if redoStack is empty
         return empty, false
     entry := redoStack[len(redoStack) - 1]
     redoStack = redoStack[:len(redoStack) - 1]

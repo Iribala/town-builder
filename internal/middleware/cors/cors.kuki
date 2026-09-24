@@ -16,7 +16,7 @@ func Init()
         allowedOrigins = empty list of string
         return
     cleaned := env.SplitAndTrim(s.AllowedOrigins, ",")
-    if len(cleaned) equals 0 and strpkg.EqualFold(s.Environment, "development")
+    if (cleaned is empty) and strpkg.EqualFold(s.Environment, "development")
         cleaned = list of string{"http://localhost:3000", "http://localhost:5001", "http://127.0.0.1:5001"}
         log.Warn("Using default development CORS origins. Set ALLOWED_ORIGINS in production!")
     allowedOrigins = cleaned

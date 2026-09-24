@@ -158,7 +158,7 @@ func SearchTownByName(townName: string) (int, bool, error)
     else if parsedAny is map of string to any as data
         if data["results"] is list of any as r
             results = r
-    if results equals empty or len(results) equals 0
+    if results is empty
         log.Info("No town found with name '{townName}'")
         return 0, false, empty
     townID := 0

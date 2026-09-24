@@ -36,8 +36,8 @@ func init()
     enc, err := zstd.NewWriter(empty)
     if err equals empty
         encoder = enc
-    dec, err2 := zstd.NewReader(empty)
-    if err2 equals empty
+    dec, err := zstd.NewReader(empty)
+    if err equals empty
         decoder = dec
 
 func maxSnapshots() int
