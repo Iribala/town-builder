@@ -4,6 +4,8 @@ import "math"
 import "slices"
 import "syscall/js"
 
+import "kukicha.org/game/spatial"
+
 # ============================================================================
 # Data Structures
 # ============================================================================
@@ -133,7 +135,10 @@ func gridClear(g: reference SpatialGrid)
 # ============================================================================
 
 func checkAABBCollision(a: BoundingBox, b: BoundingBox) bool
-    return a.MinX <= b.MaxX and a.MaxX >= b.MinX and a.MinY <= b.MaxY and a.MaxY >= b.MinY
+    return spatial.CheckAABBOverlap2D(
+        spatial.NewBox2(a.MinX, a.MinY, a.MaxX, a.MaxY),
+        spatial.NewBox2(b.MinX, b.MinY, b.MaxX, b.MaxY),
+    )
 
 var spatialGrid = newSpatialGrid(10.0)
 
@@ -284,9 +289,7 @@ func findNearestObject(this: js.Value, args: list of js.Value) any
             if not exists or obj.CategoryMask isnt targetMask
                 continue
 
-            dx := obj.X - x
-            dy := obj.Y - y
-            distSq := dx * dx + dy * dy
+            distSq := spatial.DistanceSquared2D(spatial.NewVec2(obj.X, obj.Y), spatial.NewVec2(x, y))
 
             if distSq < nearestDistSq
                 nearestDistSq = distSq
@@ -311,9 +314,7 @@ func findNearestObject(this: js.Value, args: list of js.Value) any
                 obj, exists := objectCache[id]
                 if not exists or obj.CategoryMask isnt targetMask
                     continue
-                dx := obj.X - x
-                dy := obj.Y - y
-                distSq := dx * dx + dy * dy
+                distSq := spatial.DistanceSquared2D(spatial.NewVec2(obj.X, obj.Y), spatial.NewVec2(x, y))
                 if distSq < nearestDistSq
                     nearestDistSq = distSq
                     nearestID = id
@@ -362,14 +363,12 @@ func findObjectsInRadius(this: js.Value, args: list of js.Value) any
         if useFilter and obj.CategoryMask isnt filterMask
             continue
 
-        dx := obj.X - x
-        dy := obj.Y - y
-        distSq := dx * dx + dy * dy
+        distSq := spatial.DistanceSquared2D(spatial.NewVec2(obj.X, obj.Y), spatial.NewVec2(x, y))
 
         if distSq <= radiusSq
             result := map of string to any{
                 "id": id,
-                "distance": math.Sqrt(distSq),
+                "distance": spatial.Distance2D(spatial.NewVec2(obj.X, obj.Y), spatial.NewVec2(x, y)),
             }
             results = append(results, result)
 

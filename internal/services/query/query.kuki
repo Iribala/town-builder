@@ -9,6 +9,7 @@ import "stdlib/string" as strpkg
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
+import "kukicha.org/game/spatial"
 
 func getAllCategories(townData: map of string to any) list of string
     keys := empty list of string
@@ -59,17 +60,21 @@ func SpatialQueryRadius(center: map of string to any, radius: float64, category:
     return results
 
 func isWithinBounds(point: map of string to any, minPoint: map of string to any, maxPoint: map of string to any) bool
+    p := spatial.NewVec3(
+        mapx.FloatAt(point, "x", 0.0),
+        mapx.FloatAt(point, "y", 0.0),
+        mapx.FloatAt(point, "z", 0.0),
+    )
     # Missing/unparseable bounds default to ±Inf, leaving that axis unbounded.
-    px := mapx.FloatAt(point, "x", 0.0)
-    py := mapx.FloatAt(point, "y", 0.0)
-    pz := mapx.FloatAt(point, "z", 0.0)
-    mnx := mapx.FloatAt(minPoint, "x", math.Inf(-1))
-    mny := mapx.FloatAt(minPoint, "y", math.Inf(-1))
-    mnz := mapx.FloatAt(minPoint, "z", math.Inf(-1))
-    mxx := mapx.FloatAt(maxPoint, "x", math.Inf(1))
-    mxy := mapx.FloatAt(maxPoint, "y", math.Inf(1))
-    mxz := mapx.FloatAt(maxPoint, "z", math.Inf(1))
-    return mnx <= px and px <= mxx and mny <= py and py <= mxy and mnz <= pz and pz <= mxz
+    box := spatial.NewBox3(
+        mapx.FloatAt(minPoint, "x", math.Inf(-1)),
+        mapx.FloatAt(minPoint, "y", math.Inf(-1)),
+        mapx.FloatAt(minPoint, "z", math.Inf(-1)),
+        mapx.FloatAt(maxPoint, "x", math.Inf(1)),
+        mapx.FloatAt(maxPoint, "y", math.Inf(1)),
+        mapx.FloatAt(maxPoint, "z", math.Inf(1)),
+    )
+    return spatial.InBounds3D(p, box)
 
 func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string to any, category: string, limit: int) list of map of string to any
     townData := storage.Get() onerr empty

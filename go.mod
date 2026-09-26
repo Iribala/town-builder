@@ -12,6 +12,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/klauspost/compress v1.17.9
 	github.com/redis/go-redis/v9 v9.7.0
+	kukicha.org/game v0.2.0
 	kukicha.org/kukicha/stdlib v0.85.7
 )
 
@@ -23,3 +24,4 @@ require (
 )
 
 replace kukicha.org/kukicha/stdlib => ./.kukicha/stdlib
+replace kukicha.org/game => ../game

@@ -1,13 +1,15 @@
 petiole geometry
 
-import "math"
-
 import "github.com/Iribala/town-builder/internal/mapx"
+import "kukicha.org/game/spatial"
 
 const DeleteProximityThreshold = 2.0
 
+func Vec3FromMap(m: map of string to any) spatial.Vec3
+    return spatial.NewVec3(mapx.FloatAt(m, "x", 0.0), mapx.FloatAt(m, "y", 0.0), mapx.FloatAt(m, "z", 0.0))
+
 func CalculateDistance(p1: map of string to any, p2: map of string to any) float64
-    dx := mapx.FloatAt(p1, "x", 0.0) - mapx.FloatAt(p2, "x", 0.0)
-    dy := mapx.FloatAt(p1, "y", 0.0) - mapx.FloatAt(p2, "y", 0.0)
-    dz := mapx.FloatAt(p1, "z", 0.0) - mapx.FloatAt(p2, "z", 0.0)
-    return math.Sqrt(dx * dx + dy * dy + dz * dz)
+    return spatial.Distance3D(Vec3FromMap(p1), Vec3FromMap(p2))
+
+func CalculateDistanceSquared(p1: map of string to any, p2: map of string to any) float64
+    return spatial.DistanceSquared3D(Vec3FromMap(p1), Vec3FromMap(p2))
