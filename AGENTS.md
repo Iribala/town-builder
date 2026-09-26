@@ -71,12 +71,6 @@ Follow Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `ch
 ### WASM output file
 The physics module outputs to `static/wasm/physics_greentea.wasm` (not `physics.wasm`).
 
-## Writing Kukicha
-
-Detailed Kukicha reference (syntax, stdlib, compiler-enforced security checks, gotchas) lives in the `kukicha` skill at `.agents/skills/kukicha/SKILL.md`. It is auto-loaded when you edit `.kuki` files or use kukicha tooling.
-
-`kukicha init` recreates this section if regenerated — leave the skill as the source of truth and replace the regenerated block with this pointer if it returns.
-
 <!-- kukicha:start -->
 # Kukicha
 
