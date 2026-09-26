@@ -1,4 +1,19 @@
-# Town Builder 
+---
+type: Agent Instructions
+title: AGENTS.md — town-builder repository guide
+description: Architecture, commands, and WASM build constraints for agents working in town-builder.
+tags: [agents, conventions, kukicha, threejs, wasm, town-builder, multiplayer]
+generated: { by: antigravity/gemini-3.8-flash, at: 2026-09-26T12:55:00-04:00 }
+verified:
+stale_after: 2026-12-26T00:00:00Z
+status: stable
+sources:
+  - id: repo-tree
+    resource: /
+    title: Repository source tree
+---
+
+# Town Builder
 
 ## Commands
 
