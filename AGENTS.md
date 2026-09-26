@@ -3,6 +3,18 @@
 ## Commands
 
 ```bash
+# Type check all packages
+kukicha check ./...
+
+# Format check
+kukicha fmt --check --json .
+
+# Auto-format
+kukicha fmt -w .
+
+# Build WASM game module (WASM target required due to syscall/js)
+GOOS=js GOARCH=wasm kukicha build .
+
 # Install Go dependencies
 go mod download
 
@@ -68,8 +80,10 @@ Use `internal/utils/security/` for any new file path operations (path-traversal 
 ### Commit messages
 Follow Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
 
-### WASM output file
-The physics module outputs to `static/wasm/physics_greentea.wasm` (not `physics.wasm`).
+### WASM output file & build gotchas
+- The physics module outputs to `static/wasm/physics_greentea.wasm` (not `physics.wasm`).
+- **WASM Build Constraints**: Direct `kukicha build .` without `GOOS=js GOARCH=wasm` fails with `imports syscall/js: build constraints exclude all Go files...`. Always build with `GOOS=js GOARCH=wasm kukicha build .`.
+- **Artifact Cleanup**: A directory build creates `./town-builder` and `main.go` in the repository root. Delete these artifacts after test builds.
 
 <!-- kukicha:start -->
 # Kukicha
