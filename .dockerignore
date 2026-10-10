@@ -8,7 +8,8 @@ data/
 *_test.kuki
 docs/
 k8s/
-scripts/
+scripts/*
+!scripts/brew.sh
 README.md
 CONTRIBUTING.md
 AGENTS.md
