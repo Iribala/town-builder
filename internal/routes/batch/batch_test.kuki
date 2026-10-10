@@ -44,15 +44,15 @@ func do(handler: http.Handler, method: string, path: string, body: map of string
         reader = bytes.NewReader(data)
     req := httptest.NewRequest(method, path, reader)
     req.Header.Set("Content-Type", "application/json")
-    if len(bodyBytes) > 0
+    if bodyBytes isnt empty
         req.ContentLength = len(bodyBytes) as int64
         req.Header.Set("Content-Length", strconv.Itoa(len(bodyBytes)))
     rec := httptest.NewRecorder()
     handler.ServeHTTP(rec, req)
     resp := rec.Result()
-    raw, _ := io.ReadAll(resp.Body)
+    raw := io.ReadAll(resp.Body) onerr empty
     out := empty map of string to any
-    if len(raw) > 0
+    if raw isnt empty
         json.ParseBytesInto(raw, reference of out) onerr discard
     return resp.StatusCode, out
 

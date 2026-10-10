@@ -44,7 +44,7 @@ func do(mux: reference http.ServeMux, method: string, path: string, body: map of
     rec := httptest.NewRecorder()
     mux.ServeHTTP(rec, req)
     resp := rec.Result()
-    raw, _ := io.ReadAll(resp.Body)
+    raw := io.ReadAll(resp.Body) onerr empty
     return resp.StatusCode, raw
 
 func TestProxyGetForwards(t: reference testing.T)

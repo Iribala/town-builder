@@ -106,7 +106,7 @@ func CanUndo() bool
             return n > 0
     lock.Lock()
     defer lock.Unlock()
-    return len(historyStack) > 0
+    return historyStack isnt empty
 
 func CanRedo() bool
     client := storage.Client()
@@ -118,7 +118,7 @@ func CanRedo() bool
             return n > 0
     lock.Lock()
     defer lock.Unlock()
-    return len(redoStack) > 0
+    return redoStack isnt empty
 
 func GetLastEntry() (map of string to any, bool)
     client := storage.Client()

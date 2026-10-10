@@ -23,7 +23,7 @@ func ValidateFilename(filename: string, allowedExtensions: list of string) (stri
     clean := filepath.Base(filename)
     if not safeNameRe.Match(clean)
         return "", error "invalid filename: only alphanumeric characters, dots, dashes, and underscores allowed"
-    if len(allowedExtensions) > 0
+    if allowedExtensions isnt empty
         matched := false
         for ext in allowedExtensions
             if strpkg.HasSuffix(clean, ext)

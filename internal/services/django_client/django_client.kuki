@@ -236,7 +236,7 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
     if methodLower not in allowed
         return empty, error "Unsupported HTTP method: {method}"
 
-    if len(params) > 0
+    if params isnt empty
         qs := url.Values{}
         for k, v in params
             qs.Set(k, v)
@@ -246,7 +246,7 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
         fullURL = fullURL + sep + qs.Encode()
 
     var reader: io.Reader
-    if body isnt empty and len(body) > 0
+    if body isnt empty
         reader = bytes.NewReader(body)
     req, rerr := http.NewRequest(strpkg.ToUpper(methodLower), fullURL, reader)
     if rerr isnt empty

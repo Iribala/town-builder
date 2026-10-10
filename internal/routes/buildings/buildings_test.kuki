@@ -39,9 +39,9 @@ func do(handler: http.Handler, method: string, path: string, body: map of string
     rec := httptest.NewRecorder()
     handler.ServeHTTP(rec, req)
     resp := rec.Result()
-    raw, _ := io.ReadAll(resp.Body)
+    raw := io.ReadAll(resp.Body) onerr empty
     out := empty map of string to any
-    if len(raw) > 0
+    if raw isnt empty
         json.ParseBytesInto(raw, reference of out) onerr discard
     return resp.StatusCode, out
 

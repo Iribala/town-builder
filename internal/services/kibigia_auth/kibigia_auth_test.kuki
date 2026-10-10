@@ -4,7 +4,6 @@ import "io"
 import "net/http"
 import "net/http/httptest"
 import "stdlib/json"
-import "stdlib/string" as strpkg
 import "stdlib/test"
 import "testing"
 
@@ -62,7 +61,7 @@ func newExchangeServer(secret: string, token: string) reference httptest.Server
             "town_builder_url": "http://localhost:5001",
             "expires_in": 28800,
         }
-        out, _ := json.Bytes(resp)
+        out := json.Bytes(resp) onerr empty
         w.Header().Set("Content-Type", "application/json")
         w.Write(out) onerr discard
     )
@@ -118,7 +117,7 @@ func TestExchangeCodeSendsSecretHeader(t: reference testing.T)
 func TestExchangeCodeSendsCodeInBody(t: reference testing.T)
     var sentCode: string
     srv := newServer(func(w: http.ResponseWriter, r: reference http.Request)
-        raw, _ := io.ReadAll(r.Body)
+        raw := io.ReadAll(r.Body) onerr empty
         body := empty map of string to any
         json.ParseBytesInto(raw, reference of body) onerr discard
         if body["code"] is string as c

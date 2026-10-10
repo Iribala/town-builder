@@ -79,9 +79,9 @@ func doJSON(mux: reference http.ServeMux, method: string, path: string, body: ma
     rec := httptest.NewRecorder()
     mux.ServeHTTP(rec, req)
     resp := rec.Result()
-    raw, _ := io.ReadAll(resp.Body)
+    raw := io.ReadAll(resp.Body) onerr empty
     out := empty map of string to any
-    if len(raw) > 0
+    if raw isnt empty
         json.ParseBytesInto(raw, reference of out) onerr discard
     return resp.StatusCode, out
 
@@ -183,14 +183,14 @@ func TestDjangoErrorReturnsSuccessWithWarning(t: reference testing.T)
     test.AssertEqual(t, status, 200)
     test.AssertEqual(t, body["status"], "success")
     if body["message"] is string as msg
-        test.AssertTrue(t, len(msg) > 0)
+        test.AssertTrue(t, msg isnt empty)
 
 # ── LoadFromDjango ────────────────────────────────────────────────
 
 func TestLoadFromDjangoResponseShape(t: reference testing.T)
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.WriteHeader(200)
-        data, _ := json.Bytes(kibigiaTownResponse)
+        data := json.Bytes(kibigiaTownResponse) onerr empty
         w.Write(data) onerr discard
     )
 
@@ -211,7 +211,7 @@ func TestLoadFromDjangoResponseShape(t: reference testing.T)
 func TestLoadFromDjangoNormalizesLayout(t: reference testing.T)
     srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
         w.WriteHeader(200)
-        data, _ := json.Bytes(kibigiaTownResponse)
+        data := json.Bytes(kibigiaTownResponse) onerr empty
         w.Write(data) onerr discard
     )
 

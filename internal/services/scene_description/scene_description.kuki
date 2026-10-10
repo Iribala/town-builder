@@ -34,7 +34,7 @@ func analyzeCategory(categoryData: list of any, categoryName: string) map of str
             if mv is string as ms
                 model = ms
         modelCounts[model] = modelCounts[model] + 1
-        if d, ok := obj["driver"]; ok and not cast.IsNil(d)
+        if d, dok := obj["driver"]; dok and not cast.IsNil(d)
             driverCount = driverCount + 1
         pos, pok := mapx.AsMap(obj["position"])
         if pok

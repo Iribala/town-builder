@@ -30,17 +30,17 @@ func TestGetReturnsDeepCopy(t: reference testing.T)
     setErr := storage.Set(data)
     test.AssertNoError(t, setErr)
 
-    result, _ := storage.Get()
+    result := storage.Get() onerr empty
     if result["buildings"] is list of any as buildings
         result["buildings"] = append(buildings, map of string to any{"id": "2"})
 
-    fresh, _ := storage.Get()
+    fresh := storage.Get() onerr empty
     if fresh["buildings"] is list of any as freshBuildings
         test.AssertEqual(t, len(freshBuildings), 1)
 
 func TestEmptyInitialState(t: reference testing.T)
     resetForTest()
-    result, _ := storage.Get()
+    result := storage.Get() onerr empty
     for _, key in list of string{"buildings", "vehicles", "terrain"}
         if result[key] is list of any as items
             test.AssertEqual(t, len(items), 0)
@@ -52,7 +52,7 @@ func TestFallbackWhenRedisUnavailable(t: reference testing.T)
         "buildings": list of any{map of string to any{"id": "x"}},
     })
     test.AssertNoError(t, e1)
-    result, _ := storage.Get()
+    result := storage.Get() onerr empty
     if result["buildings"] is list of any as buildings
         test.AssertEqual(t, len(buildings), 1)
 
@@ -66,7 +66,7 @@ func TestOverwriteReplacesData(t: reference testing.T)
         "buildings": list of any{map of string to any{"id": "2"}},
     })
     test.AssertNoError(t, e2)
-    result, _ := storage.Get()
+    result := storage.Get() onerr empty
     if result["buildings"] is list of any as buildings
         test.AssertEqual(t, len(buildings), 1)
         if buildings[0] is map of string to any as first

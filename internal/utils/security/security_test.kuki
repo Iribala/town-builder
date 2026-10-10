@@ -1,6 +1,5 @@
 petiole security_test
 
-import "stdlib/string" as strpkg
 import "stdlib/test"
 import "testing"
 

@@ -7,7 +7,7 @@ WORKDIR /src
 # .go files that go build consumes (scripts/brew.sh). The brewed .go files
 # are gitignored build artifacts, so a fresh checkout has none of them.
 # The module is hosted at kukicha.org (mirroring tangled.org).
-RUN go install kukicha.org/kukicha/cmd/kukicha@v0.85.9
+RUN go install kukicha.org/kukicha/cmd/kukicha@v0.85.10
 
 # Copy module files first for better layer caching, then materialize the
 # stdlib replacement target before `go mod download`.

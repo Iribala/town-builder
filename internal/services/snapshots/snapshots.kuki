@@ -198,7 +198,7 @@ func DeleteSnapshot(snapshotID: string) bool
         newEntries = append(newEntries, entry)
     foundInList := len(newEntries) < len(entries)
     client.Del(h.Ctx, snapshotsKey)
-    if len(newEntries) > 0
+    if newEntries isnt empty
         client.RPush(h.Ctx, snapshotsKey, many newEntries)
     if deletedCount > 0 or foundInList
         log.Info("Deleted snapshot: {snapshotID}")

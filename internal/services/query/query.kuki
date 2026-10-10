@@ -217,7 +217,7 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
                 if not mok
                     continue
                 entry := cloneWithCat(obj, cat)
-                if len(filters) > 0
+                if filters isnt empty
                     if matchesFilters(entry, filters)
                         results = append(results, entry)
                 else
