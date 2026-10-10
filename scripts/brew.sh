@@ -24,9 +24,37 @@ dirs=$(find cmd internal -type f -name '*.kuki' -print0 \
     | xargs -0 -n1 dirname \
     | sort -u)
 
-for d in $dirs; do
-    echo "brew: $d"
-    kukicha brew "$d" > /dev/null
+# Brew in passes until convergence. Cross-package type resolution loads a
+# sibling's brewed .go output, so a package can only brew once its
+# dependencies have been brewed — alphabetical order alone does not
+# guarantee that on a fresh checkout (e.g. normalization uses
+# object.Vec3 fields, but internal/object sorts after it). Each pass
+# brews every package whose dependencies are already on disk and defers
+# the rest; the loop terminates when a pass makes no progress, which
+# means a package genuinely fails to brew.
+remaining="$dirs"
+prev_count=-1
+for attempt in 1 2 3 4 5; do
+    failed=""
+    for d in $remaining; do
+        if kukicha brew "$d" > /dev/null 2>&1; then
+            echo "brew: $d"
+        else
+            failed="$failed $d"
+        fi
+    done
+    [ -z "$failed" ] && break
+    count=$(echo "$failed" | wc -w)
+    if [ "$count" -eq "$prev_count" ]; then
+        echo "❌ no progress brewing:$failed" >&2
+        for d in $failed; do
+            echo "── diagnostics for $d ──" >&2
+            kukicha brew "$d" > /dev/null
+        done
+        exit 1
+    fi
+    prev_count=$count
+    remaining="$failed"
 done
 
 # Top-level WASM file needs a real build tag so go build ignores it but
