@@ -1,12 +1,12 @@
 # Build stage — compile the Kukicha-brewed Go server to a static binary
-FROM golang:1.26 AS builder
+FROM golang:1.27 AS builder
 WORKDIR /src
 
 # Install kukicha so we can extract the stdlib that go.mod references via a
 # `replace` directive. We don't compile any .kuki sources here — the brewed
 # .go files are committed alongside — but go.mod requires the stdlib path to
-# resolve.
-RUN go install github.com/kukichalang/kukicha/cmd/kukicha@v0.54.1
+# resolve. The module is hosted at kukicha.org (mirroring tangled.org).
+RUN go install kukicha.org/kukicha/cmd/kukicha@v0.85.9
 
 # Copy module files first for better layer caching, then materialize the
 # stdlib replacement target before `go mod download`.
