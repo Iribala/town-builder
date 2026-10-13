@@ -13,7 +13,7 @@ require (
 	github.com/klauspost/compress v1.17.9
 	github.com/redis/go-redis/v9 v9.7.0
 	kukicha.org/game v0.2.0
-	kukicha.org/kukicha/stdlib v0.85.10
+	kukicha.org/kukicha/stdlib v0.85.11
 )
 
 require (
