@@ -146,8 +146,7 @@ cat .env
 ./scripts/clean.sh
 
 # Rebuild WASM (if physics_wasm.kuki changed)
-kukicha brew --stdout physics_wasm.kuki > physics_wasm.go
-sed -i 's|^//go:build ignore$|//go:build js \&\& wasm|' physics_wasm.go
+kukicha brew --stdout --build-tag "js && wasm" physics_wasm.kuki > physics_wasm.go
 ./build_wasm.sh
 
 # Check system health

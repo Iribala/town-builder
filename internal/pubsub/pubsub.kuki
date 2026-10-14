@@ -33,7 +33,7 @@ func activityTimeout() time.Duration
 func cleanupLocked()
     cutoff := nowNanos() - activityTimeout().Nanoseconds()
     stale := empty list of string
-    for name, _ in connectedUsers
+    for name in connectedUsers
         if connectedUsers[name] < cutoff
             stale = append(stale, name)
     for name in stale
@@ -42,7 +42,7 @@ func cleanupLocked()
 
 func usersLocked() list of string
     out := empty list of string
-    for name, _ in connectedUsers
+    for name in connectedUsers
         out = append(out, name)
     return out
 

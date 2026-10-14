@@ -1,7 +1,6 @@
 petiole normalization
 
 import "stdlib/cast"
-import "stdlib/maps"
 
 import "github.com/Iribala/town-builder/internal/object"
 
@@ -49,11 +48,9 @@ func Normalize(layoutData: any) map of string to any
     if layoutData is map of string to any as inMap
         for category in Categories
             out[category] = normalizeList(inMap[category], category)
-        keys := maps.Keys(inMap)
-        for i from 0 to len(keys)
-            name := keys[i]
+        for name, value in inMap
             if _, taken := out[name]; not taken
-                out[name] = inMap[name]
+                out[name] = value
         return out
 
     if layoutData is list of any as arr

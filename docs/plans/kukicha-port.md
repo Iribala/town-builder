@@ -75,7 +75,7 @@ Posted as a followup on https://github.com/kukichalang/kukicha/issues/115#issuec
 
 - **Type conversions:** Always `x as T`, never `T(x)`. `T(x)` brews to `T{}(x)` (broken) for `[]byte`, `int64`, `float64`, named types, etc.
 - **Reserved identifiers:** `list`, `as`, `default`, `fallback`, `in`, `error`, `empty` cannot be local var or param names. Use `items`, `astr`, `def`, `arr`, etc.
-- **Map iteration:** `for k in m` iterates values (and the IDE warns); use `for k, _ in m` for keys, or the `maps.Keys()` workaround when both vars are needed across packages.
+- **Map iteration:** bare `for k in m` yields **keys** (matches Go/Python); use `for k, v in m` for both, or `for _k, v in m` when only the value is needed.
 - **Lambdas need single-expression bodies for inference:** multi-statement lambdas inside `sort.Slice` failed return-type inference. Hoist the body into a named func and pass `(i, j) => helper(items, i, j)`.
 - **ctxpkg.WithTimeout returns `Handle` (value), not `*Handle`.** Don't wrap in `reference`.
 - **Type switch syntax** is `switch x as v ... when T`, not `switch v in x`.
@@ -140,21 +140,18 @@ Deferred (revisit later):
 
 ## Build pipeline
 
-Until we automate, manual flow per package:
+`scripts/brew.sh` walks `cmd/` + `internal/`, brews every package (including
+`*_test.kuki`) in one pass, and handles the top-level `physics_wasm.kuki` build
+tag. Cross-package type fields resolve from the sibling's `.kuki` exports, so
+the pass order does not matter.
 
 ```bash
-# Production code (one main.go per package)
-kukicha brew internal/<pkg>/
+./scripts/brew.sh          # after cloning or editing any .kuki file
 
-# Tests — directory brew skips _test.kuki, do per-file
-kukicha brew --stdout internal/<pkg>/<name>_test.kuki > internal/<pkg>/<name>_test.go
-
-# Run
+# Run (tests can also be transpiled on demand with `kukicha test`)
 go test ./internal/...
 go build ./...
 ```
-
-Plan to add `scripts/build.sh` later that walks `internal/`, brews each dir, and brews each `_test.kuki` to `_test.go`. Not blocking.
 
 ## Kukicha tips learned (filed upstream as kukichalang/kukicha#115)
 
@@ -173,20 +170,11 @@ func F() T, error
 func F() (T, error)
 ```
 
-### Map iteration brews wrong
+### Map iteration
 
-```kukicha
-for k, v in someMap      # brews to `for k := range`, k = int — bug
-```
-
-Workaround:
-
-```kukicha
-keys := maps.Keys(someMap)
-for i from 0 to len(keys)
-    k := keys[i]
-    v := someMap[k]
-```
+Bare `for k in someMap` yields keys; `for k, v in someMap` yields both. (The
+old `maps.Keys` + index-loop workaround for the historical value-iteration
+codegen bug is no longer needed.)
 
 ### External package onerr
 
@@ -212,9 +200,9 @@ Without `as redis`, `redis.X` is undefined.
 
 ### Tests live in `<name>_test` petiole
 
-Test files must use `petiole <pkg>_test` and access the package via its **public** API only. Brewing has issues with `_test.kuki`:
+Test files must use `petiole <pkg>_test` and access the package via its **public** API only.
 
-- `kukicha brew dir/` **silently skips** `_test.kuki`. Workaround: `kukicha brew --stdout foo_test.kuki > foo_test.go` per file.
+- `kukicha brew <dir>` transpiles `_test.kuki` alongside the package now, and `kukicha test` re-transpiles stale sources before invoking `go test`.
 - For storage-style tests that need to poke private state, add `ResetForTest` / `SetClient` exported helpers to the production package.
 
 ### `json.Parse` is generic; use `ParseInto` to decode into existing var
@@ -282,8 +270,8 @@ Tests use `httptest.NewServer` against `router.NewMux()` with `config.SetForTest
 `syscall/js` type-checks and brews cleanly in Kukicha. `physics_wasm.go` (626 lines) ported to `physics_wasm.kuki` (493 lines). Ported using:
 - Explicit consts instead of `1 << iota` bit flags (Kukicha enums are sequential only).
 - Module-level funcs taking `reference SpatialGrid` instead of `*T` method receivers.
-- `for k, _ in map` for map iteration; `for i := range length` → `for i from 0 to length`.
+- `for k in map` for keys / `for k, v in map` for pairs; `for i := range length` → `for i from 0 to length`.
 - Local function-scope `const` not supported — use `:=` assignment.
 - No `println` builtin — use `fmt.Println`.
 
-Build flow: `kukicha brew --stdout physics_wasm.kuki > physics_wasm.go`, then sed-replace `//go:build ignore` → `//go:build js && wasm` (kukicha emits `ignore` constraint; WASM build needs the real one), then `./build_wasm.sh`. Output: `static/wasm/physics_greentea.wasm` (2.6 MB).
+Build flow: `kukicha brew --stdout --build-tag "js && wasm" physics_wasm.kuki > physics_wasm.go` (the flag emits the real build constraint), then `./build_wasm.sh`. Output: `static/wasm/physics_greentea.wasm` (2.6 MB).
