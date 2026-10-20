@@ -14,7 +14,7 @@ var safeNameRe = regex.MustCompile("^[a-zA-Z0-9._-]+$")
 var safePathRe = regex.MustCompile("^[a-zA-Z0-9_.~:/?#\\[\\]=&+,;%-]*$")
 
 func ValidateFilename(filename: string, allowedExtensions: list of string) (string, error)
-    if filename equals ""
+    if filename is empty
         return "", error "filename cannot be empty"
     if strpkg.Contains(filename, "..") or strpkg.Contains(filename, "/") or strpkg.Contains(filename, "\\")
         return "", error "invalid filename: path traversal attempts are not allowed"
@@ -50,9 +50,9 @@ func SafeFilepath(filename: string, baseDir: string, allowedExtensions: list of 
     return full, empty
 
 func ValidateModelPath(category: string, modelName: string) (string, string, error)
-    if category equals "" or strpkg.Contains(category, "..") or strpkg.Contains(category, "/") or strpkg.Contains(category, "\\")
+    if (category is empty) or strpkg.Contains(category, "..") or strpkg.Contains(category, "/") or strpkg.Contains(category, "\\")
         return "", "", error "invalid category: path traversal attempts are not allowed"
-    if modelName equals "" or strpkg.Contains(modelName, "..") or strpkg.Contains(modelName, "/") or strpkg.Contains(modelName, "\\")
+    if (modelName is empty) or strpkg.Contains(modelName, "..") or strpkg.Contains(modelName, "/") or strpkg.Contains(modelName, "\\")
         return "", "", error "invalid model name: path traversal attempts are not allowed"
     if not safeNameRe.Match(category)
         return "", "", error "invalid category: only alphanumeric characters, dots, dashes, and underscores allowed"
@@ -65,20 +65,20 @@ func ValidateApiURL(rawURL: string) bool
     if err isnt empty
         return false
     host := parsed.Hostname()
-    if host equals ""
+    if host is empty
         return false
     s := config.Current()
     if s equals empty
         return false
     for allowed in s.AllowedApiDomains
-        if allowed equals ""
+        if allowed is empty
             continue
         if host equals allowed or strpkg.HasSuffix(host, "." + allowed)
             return true
     return false
 
 func ValidateProxyPath(path: string) (string, error)
-    if path equals ""
+    if path is empty
         return "", empty
     if strpkg.Contains(path, "://")
         return "", error "proxy path must not contain a URL scheme"

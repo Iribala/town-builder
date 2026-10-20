@@ -54,16 +54,16 @@ func LoadEnvFile(path: string)
         return
     for line in strpkg.Lines(content)
         trimmed := strpkg.TrimSpace(line)
-        if trimmed equals "" or strpkg.HasPrefix(trimmed, "#")
+        if (trimmed is empty) or strpkg.HasPrefix(trimmed, "#")
             continue
         key, val, found := strpkg.Cut(trimmed, "=")
         if not found
             continue
         key = strpkg.TrimSpace(key)
         val = stripQuotes(strpkg.TrimSpace(val))
-        if key equals ""
+        if key is empty
             continue
-        if os.Getenv(key) isnt ""
+        if os.Getenv(key) isnt empty
             continue
         # os.Setenv is an external call (no onerr); check its error explicitly.
         if serr := os.Setenv(key, val); serr isnt empty
@@ -121,7 +121,7 @@ func Load() (reference Settings, error)
     s.AllowedApiDomains = env.SplitAndTrim(s.AllowedDomains, ",")
     s.AllowedHosts = env.SplitAndTrim(env.GetOr("ALLOWED_HOSTS", "localhost,127.0.0.1"), ",")
 
-    if not s.DisableJwtAuth and s.JwtSecretKey equals ""
+    if not s.DisableJwtAuth and (s.JwtSecretKey is empty)
         return empty, error "JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development."
 
     current = s

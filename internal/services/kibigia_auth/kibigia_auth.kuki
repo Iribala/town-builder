@@ -38,11 +38,11 @@ func httpClient() reference http.Client
 # errors on the first authenticated call — the same behaviour as before this
 # flow existed, never worse.
 func ResolveToken(authCode: string, directToken: string) string
-    if authCode isnt ""
+    if authCode isnt empty
         token, err := ExchangeCode(authCode)
         if err isnt empty
             log.Error("kibigia auth-code exchange failed: {err}")
-            if directToken isnt ""
+            if directToken isnt empty
                 log.Warn("Falling back to direct ?token= parameter")
                 return directToken
             return ""
@@ -57,7 +57,7 @@ func ExchangeCode(authCode: string) (string, error)
     s := config.Current()
     if s equals empty
         return "", error "config not loaded"
-    if strpkg.TrimSpace(s.KibigiaExchangeSecret) equals ""
+    if strpkg.TrimSpace(s.KibigiaExchangeSecret) is empty
         return "", error "KIBIGIA_EXCHANGE_SECRET is not set; cannot redeem auth code"
     exchangeURL := s.KibigiaExchangeURL
     if not strpkg.HasPrefix(exchangeURL, "http://") and not strpkg.HasPrefix(exchangeURL, "https://")
@@ -97,6 +97,6 @@ func ExchangeCode(authCode: string) (string, error)
     perr := json.ParseBytesInto(raw, reference of result)
     if perr isnt empty
         return "", perr
-    if result.Token equals ""
+    if result.Token is empty
         return "", error "kibigia exchange response did not contain a token"
     return result.Token, empty

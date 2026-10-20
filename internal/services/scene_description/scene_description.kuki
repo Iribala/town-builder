@@ -136,7 +136,7 @@ func generateNaturalDescription(analysis: map of string to any) string
     parts := empty list of string
     townName := "Unnamed Town"
     if analysis["town_name"] is string as tv
-        if tv isnt ""
+        if tv isnt empty
             townName = tv
     parts = append(parts, "Scene: " + townName)
     total := 0
@@ -202,7 +202,7 @@ func GenerateSceneDescription(townData: map of string to any) map of string to a
     bounds := calculateSceneBounds(allPositions)
     townName := "Unnamed Town"
     if townData["townName"] is string as tn
-        if tn isnt ""
+        if tn isnt empty
             townName = tn
     analysis := empty map of string to any
     analysis["town_name"] = townName

@@ -7,7 +7,7 @@ import "github.com/Iribala/town-builder/internal/services/auth"
 
 func ExtractToken(request: httphelper.Request) string
     h := request.GetHeader("Authorization")
-    if h equals ""
+    if h is empty
         return ""
     if strpkg.HasPrefix(h, "Bearer ")
         return h[7:]

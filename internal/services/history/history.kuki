@@ -126,7 +126,7 @@ func GetLastEntry() (map of string to any, bool)
         h := newCtx()
         defer h.Cancel()
         entry, err := client.LIndex(h.Ctx, historyKey, -1).Result()
-        if err equals empty and entry isnt ""
+        if err equals empty and entry isnt empty
             obj := empty map of string to any
             perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
@@ -145,7 +145,7 @@ func PopLastEntry() (map of string to any, bool)
         h := newCtx()
         defer h.Cancel()
         entry, err := client.RPop(h.Ctx, historyKey).Result()
-        if err equals empty and entry isnt ""
+        if err equals empty and entry isnt empty
             obj := empty map of string to any
             perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty
@@ -184,7 +184,7 @@ func PopRedoEntry() (map of string to any, bool)
         h := newCtx()
         defer h.Cancel()
         entry, err := client.RPop(h.Ctx, redoKey).Result()
-        if err equals empty and entry isnt ""
+        if err equals empty and entry isnt empty
             obj := empty map of string to any
             perr := json.ParseBytesInto(entry as list of byte, reference of obj)
             if perr equals empty

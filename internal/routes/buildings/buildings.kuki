@@ -62,11 +62,11 @@ func create(response: httphelper.Response, request: httphelper.Request)
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
     model := mapx.Str(body, "model")
-    if model equals ""
+    if model is empty
         response.JSONBadRequest("model is required") onerr discard
         return
     category := mapx.Str(body, "category")
-    if category equals ""
+    if category is empty
         category = "buildings"
     if _, pok := mapx.MapAt(body, "position"); not pok
         response.JSONBadRequest("position is required") onerr discard
@@ -106,7 +106,7 @@ func list(response: httphelper.Response, request: httphelper.Request)
         return
     cat := request.URL().Query().Get("category")
     cats := normalization.Categories
-    if cat isnt ""
+    if cat isnt empty
         cats = list of string{cat}
     out := empty list of map of string to any
     for c in cats
@@ -163,10 +163,10 @@ func update(response: httphelper.Response, request: httphelper.Request)
         current["rotation"] = rot
     if scl, sok := mapx.MapAt(body, "scale"); sok
         current["scale"] = scl
-    if m := mapx.Str(body, "model"); m isnt ""
+    if m := mapx.Str(body, "model"); m isnt empty
         current["model"] = m
     newCat := mapx.Str(body, "category")
-    if newCat isnt "" and newCat isnt cat
+    if newCat isnt empty and newCat isnt cat
         # Remove from current category
         newArr := empty list of any
         for i from 0 to len(arr)

@@ -92,7 +92,7 @@ func advanced(response: httphelper.Response, request: httphelper.Request)
                 if item is map of string to any as mm
                     filters = append(filters, mm)
     sortOrder := mapx.Str(body, "sort_order")
-    if sortOrder equals ""
+    if sortOrder is empty
         sortOrder = "asc"
     results := querysvc.AdvancedQuery(
         mapx.Str(body, "category"),

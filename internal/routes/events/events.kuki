@@ -50,7 +50,7 @@ func sse(res: httphelper.Response, req: httphelper.Request)
     s := config.Current()
     if s isnt empty and not s.DisableJwtAuth
         cookie, err := req.Raw().Cookie("auth_token")
-        if err isnt empty or cookie equals empty or cookie.Value equals ""
+        if err isnt empty or cookie equals empty or (cookie.Value is empty)
             res.JSONUnauthorized("Not authenticated") onerr discard
             return
         _, verr := auth.VerifyTokenString(cookie.Value)
@@ -66,7 +66,7 @@ func sse(res: httphelper.Response, req: httphelper.Request)
     w.Header().Set("Connection", "keep-alive")
 
     if w is http.Flusher as flusher
-        if playerName isnt "" and not pubsub.CanConnect(playerName)
+        if playerName isnt empty and not pubsub.CanConnect(playerName)
             writeEventMap(w, flusher, map of string to any{
                 "type": "error",
                 "message": "Connection limit reached",
@@ -74,7 +74,7 @@ func sse(res: httphelper.Response, req: httphelper.Request)
             return
         defer pubsub.Disconnect(playerName)
 
-        if playerName isnt ""
+        if playerName isnt empty
             broadcastUsers()
 
         townData, terr := storage.Get()
@@ -104,7 +104,7 @@ func sse(res: httphelper.Response, req: httphelper.Request)
             select
                 when receive from ctxDone
                     log.Info("SSE client disconnected: {playerName}")
-                    if playerName isnt ""
+                    if playerName isnt empty
                         broadcastUsers()
                     return
                 when payload := receive from msgs
@@ -113,7 +113,7 @@ func sse(res: httphelper.Response, req: httphelper.Request)
                     pubsub.Touch(playerName)
                 when receive from ticker.C
                     pubsub.Touch(playerName)
-                    if playerName isnt ""
+                    if playerName isnt empty
                         broadcastUsers()
                     if not writeRaw(w, flusher, ": keepalive\n\n")
                         return

@@ -37,7 +37,7 @@ func getHeaders() map of string to string
     h := empty map of string to string
     h["Content-Type"] = "application/json"
     s := config.Current()
-    if s isnt empty and strpkg.TrimSpace(s.ApiToken) isnt ""
+    if s isnt empty and strpkg.TrimSpace(s.ApiToken) isnt empty
         h["Authorization"] = "Token " + s.ApiToken
     return h
 
@@ -65,17 +65,17 @@ func PrepareDjangoPayload(requestPayload: map of string to any, normalizedTownDa
     payload["layout_data"] = currentLayoutData
 
     effectiveName := townName
-    if effectiveName equals ""
+    if effectiveName is empty
         if currentLayoutData["townName"] is string as v
-            if v isnt ""
+            if v isnt empty
                 effectiveName = v
-        if effectiveName equals ""
+        if effectiveName is empty
             if currentLayoutData["name"] is string as v
-                if v isnt ""
+                if v isnt empty
                     effectiveName = v
 
     if not isUpdate
-        if effectiveName isnt ""
+        if effectiveName isnt empty
             payload["name"] = effectiveName
         else
             log.Warn("Name is missing for a create operation. Django will likely reject this.")
@@ -254,7 +254,7 @@ func ProxyRequest(method: string, path: string, headers: map of string to string
     for k, v in headers
         req.Header.Set(k, v)
     s := config.Current()
-    if s isnt empty and s.ApiToken isnt ""
+    if s isnt empty and s.ApiToken isnt empty
         req.Header.Set("Authorization", "Token " + s.ApiToken)
     log.Debug("Proxying {method} request to {fullURL}")
     resp, derr := httpClient().Do(req)

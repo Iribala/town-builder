@@ -16,7 +16,7 @@ import "github.com/Iribala/town-builder/internal/services/model_loader"
 var indexTmpl: reference template.Template
 
 func titleCase(s: string) string
-    if s equals ""
+    if s is empty
         return s
     return strpkg.ToUpper(s[:1]) + s[1:]
 

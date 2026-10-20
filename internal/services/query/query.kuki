@@ -34,7 +34,7 @@ func SpatialQueryRadius(center: map of string to any, radius: float64, category:
     townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
-    if category isnt ""
+    if category isnt empty
         cats = list of string{category}
     else
         cats = getAllCategories(townData)
@@ -80,7 +80,7 @@ func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string 
     townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
-    if category isnt ""
+    if category isnt empty
         cats = list of string{category}
     else
         cats = getAllCategories(townData)
@@ -105,7 +105,7 @@ func SpatialQueryNearest(point: map of string to any, category: string, count: i
     townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
-    if category isnt ""
+    if category isnt empty
         cats = list of string{category}
     else
         cats = getAllCategories(townData)
@@ -203,7 +203,7 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
     townData := storage.Get() onerr empty
     results := empty list of map of string to any
     cats := empty list of string
-    if category isnt ""
+    if category isnt empty
         cats = list of string{category}
     else
         cats = getAllCategories(townData)
@@ -223,7 +223,7 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
                 else
                     results = append(results, entry)
 
-    if sortBy isnt ""
+    if sortBy isnt empty
         # sort_by is client-supplied and may be a string field, so the
         # comparator keeps the mixed-type compareValues rather than a
         # single ordered key.

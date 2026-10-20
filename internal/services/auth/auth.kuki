@@ -41,10 +41,10 @@ func VerifyTokenString(token: string) (reference UserInfo, error)
     for key in list of string{"username", "sub"}
         if v, vok := payload[key]; vok
             if v is string as str
-                if str isnt ""
+                if str isnt empty
                     username = str
                     break
-    if username equals ""
+    if username is empty
         return empty, error "Invalid authentication credentials"
     return reference of UserInfo{Username: username, Payload: payload}, empty
 
@@ -57,7 +57,7 @@ func GetCurrentUser(token: string) (reference UserInfo, error)
         payload := empty map of string to any
         payload["sub"] = "dev-user"
         return reference of UserInfo{Username: "dev-user", Payload: payload}, empty
-    if token equals ""
+    if token is empty
         return empty, error "Not authenticated"
     return VerifyTokenString(token)
 

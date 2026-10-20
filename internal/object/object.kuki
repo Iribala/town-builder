@@ -77,7 +77,7 @@ func ToMap(o: PlacedObject) map of string to any
         out[k] = v
     out["id"] = o.ID
     out["model"] = o.Model
-    if o.Category isnt ""
+    if o.Category isnt empty
         out["category"] = o.Category
     out["position"] = o.Position
     out["rotation"] = o.Rotation

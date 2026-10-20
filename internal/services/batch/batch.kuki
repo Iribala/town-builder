@@ -54,7 +54,7 @@ func createObject(townData: map of string to any, op: map of string to any, vali
     data, _ := mapx.AsMap(op["data"])
     if data equals empty
         data = empty map of string to any
-    if category equals ""
+    if category is empty
         return opResult(false, "create", "Missing category", empty)
     _, ok := townData[category]
     if not ok
@@ -77,7 +77,7 @@ func updateObject(townData: map of string to any, op: map of string to any, vali
     data, _ := mapx.AsMap(op["data"])
     if data equals empty
         data = empty map of string to any
-    if category equals "" or objectID equals ""
+    if (category is empty) or (objectID is empty)
         return opResult(false, "update", "Missing category or id", empty)
     catVal, ok := townData[category]
     if not ok
@@ -104,9 +104,9 @@ func deleteObject(townData: map of string to any, op: map of string to any, vali
     category := mapx.Str(op, "category")
     objectID := mapx.Str(op, "id")
     position, hasPos := mapx.AsMap(op["position"])
-    if category equals ""
+    if category is empty
         return opResult(false, "delete", "Missing category", empty)
-    if objectID equals "" and not hasPos
+    if (objectID is empty) and not hasPos
         return opResult(false, "delete", "Missing both id and position", empty)
     catVal, ok := townData[category]
     if not ok
@@ -115,7 +115,7 @@ func deleteObject(townData: map of string to any, op: map of string to any, vali
     if not lok
         return opResult(false, "delete", "Category {category} not found", empty)
 
-    if objectID isnt ""
+    if objectID isnt empty
         for i from 0 to len(items)
             obj, mok := mapx.AsMap(items[i])
             if not mok
@@ -158,7 +158,7 @@ func editObject(townData: map of string to any, op: map of string to any, valida
     position, hasPos := op["position"]
     rotation, hasRot := op["rotation"]
     scale, hasScale := op["scale"]
-    if category equals "" or objectID equals ""
+    if (category is empty) or (objectID is empty)
         return opResult(false, "edit", "Missing category or id", empty)
     catVal, ok := townData[category]
     if not ok

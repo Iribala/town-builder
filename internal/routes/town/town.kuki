@@ -118,12 +118,12 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
         response.JSONBadRequest("data is required") onerr discard
         return
     filename := mapx.Str(payload, "filename")
-    if filename equals "" and not mapx.Has(payload, "filename")
+    if (filename is empty) and not mapx.Has(payload, "filename")
         filename = "town_data.json"
     townName := mapx.Str(payload, "townName")
     canonical := normalization.Normalize(rawData)
     localMsg := ""
-    if filename isnt ""
+    if filename isnt empty
         fn := normalizeFilename(filename)
         _, perr := security.SafeFilepath(fn, h.dataPath, list of string{".json"})
         if perr isnt empty
@@ -158,12 +158,12 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
             djangoMsg = " Town updated in Django backend (ID: {idInt})."
     else
         searchName := townName
-        if searchName equals ""
+        if searchName is empty
             if rawData is map of string to any as m
                 searchName = mapx.Str(m, "townName")
-                if searchName equals ""
+                if searchName is empty
                     searchName = mapx.Str(m, "name")
-        if searchName isnt ""
+        if searchName isnt empty
             existingID, found, serr := django_client.SearchTownByName(searchName)
             if serr equals empty and found
                 _, uerr := django_client.UpdateTown(existingID, payload, canonical, townName)
@@ -204,7 +204,7 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     body := empty map of string to any
     request.Decode(reference of body) onerr discard
     filename := mapx.Str(body, "filename")
-    if filename equals ""
+    if filename is empty
         filename = "town_data.json"
     fn := normalizeFilename(filename)
     _, perr := security.SafeFilepath(fn, h.dataPath, list of string{".json"})
@@ -283,7 +283,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
     category := mapx.Str(body, "category")
     modelID := mapx.Str(body, "id")
     pos, hasPos := mapx.MapAt(body, "position")
-    if category equals "" or modelID equals "" and not hasPos
+    if (category is empty) or (modelID is empty) and not hasPos
         response.JSONBadRequest("Missing required parameters") onerr discard
         return
     townData, gerr := storage.Get()
@@ -295,7 +295,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
         response.JSONNotFound("Model not found") onerr discard
         return
     if v is list of any as arr
-        if modelID isnt ""
+        if modelID isnt empty
             for i from 0 to len(arr)
                 if arr[i] is map of string to any as entry
                     if mapx.Str(entry, "id") equals modelID
@@ -361,7 +361,7 @@ func editModel(response: httphelper.Response, request: httphelper.Request)
         return
     category := mapx.Str(body, "category")
     modelID := mapx.Str(body, "id")
-    if category equals "" or modelID equals ""
+    if (category is empty) or (modelID is empty)
         response.JSONBadRequest("Missing required parameters") onerr discard
         return
     townData, gerr := storage.Get()

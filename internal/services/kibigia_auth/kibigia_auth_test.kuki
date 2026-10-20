@@ -48,7 +48,7 @@ func newExchangeServer(secret: string, token: string) reference httptest.Server
             w.Write(`{"error": "Authorization code required"}` as list of byte) onerr discard
             return
         if codeVal is string as c
-            if c equals ""
+            if c is empty
                 w.WriteHeader(400)
                 w.Write(`{"error": "Authorization code required"}` as list of byte) onerr discard
                 return

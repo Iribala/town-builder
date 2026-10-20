@@ -62,7 +62,7 @@ func CreateSnapshot(townData: map of string to any, name: string, description: s
 
     metadata := empty map of string to any
     metadata["id"] = snapshotID
-    if name equals ""
+    if name is empty
         name = "Snapshot " + time.Now().Format("2006-01-02 15:04:05")
     metadata["name"] = name
     metadata["description"] = description
@@ -106,7 +106,7 @@ func CreateSnapshot(townData: map of string to any, name: string, description: s
     length, lerr := client.LLen(h.Ctx, snapshotsKey).Result()
     if lerr equals empty and length > maxSnapshots() as int64
         oldestEntry, oerr := client.LIndex(h.Ctx, snapshotsKey, 0).Result()
-        if oerr equals empty and oldestEntry isnt ""
+        if oerr equals empty and oldestEntry isnt empty
             oldestMeta := empty map of string to any
             perr := json.ParseBytesInto(oldestEntry as list of byte, reference of oldestMeta)
             if perr equals empty
