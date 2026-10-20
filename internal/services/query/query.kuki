@@ -3,6 +3,7 @@ petiole query
 import "math"
 import "stdlib/cast"
 import "stdlib/log"
+import "stdlib/maps"
 import "stdlib/sort"
 import "stdlib/string" as strpkg
 
@@ -24,9 +25,7 @@ func sortByDistance(items: list of map of string to any)
     sort.ByKey(items, (it: map of string to any) => cast.ToFloat64Or(it["distance"], 0.0))
 
 func cloneWithCat(obj: map of string to any, cat: string) map of string to any
-    out := empty map of string to any
-    for k, v in obj
-        out[k] = v
+    out := maps.Merge(obj)
     out["category"] = cat
     return out
 

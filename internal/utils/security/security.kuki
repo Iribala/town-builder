@@ -2,7 +2,6 @@ petiole security
 
 import "net/url"
 import "path/filepath"
-import "stdlib/errors" as errs
 import "stdlib/files"
 import "stdlib/regex"
 import "stdlib/string" as strpkg
@@ -37,7 +36,7 @@ func SafeFilepath(filename: string, baseDir: string, allowedExtensions: list of 
     clean, err := ValidateFilename(filename, allowedExtensions)
     if err isnt empty
         return "", err
-    files.MkDirAll(baseDir) onerr return "", errs.Wrap(error, "failed to create base directory")
+    files.MkDirAll(baseDir) onerr explain "failed to create base directory"
     base, berr := filepath.Abs(baseDir)
     if berr isnt empty
         return "", berr

@@ -1,8 +1,11 @@
 petiole main
 
 import "net/http"
+import "stdlib/env"
+import "stdlib/errors" as errs
 import "stdlib/http" as httppkg
 import "stdlib/log"
+import "stdlib/profile"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/middleware/bodylimit"
@@ -30,6 +33,18 @@ func main()
 
     addr := ":5001"
     log.Info("Listening on {addr}")
-    lerr := http.ListenAndServe(addr, handler)
-    if lerr isnt empty
-        log.Fatal("Server error: {lerr}")
+    serve := func() error
+        lerr := http.ListenAndServe(addr, handler)
+        if lerr isnt empty
+            return errs.Wrap(lerr, "server error")
+        return empty
+    # CPU profiling is opt-in: TOWN_BUILDER_CPU_PROFILE names the output path.
+    profilePath := env.GetOr("TOWN_BUILDER_CPU_PROFILE", "")
+    if profilePath isnt empty
+        log.Info("CPU profile enabled", "path", profilePath)
+        profile.CPU(profilePath, serve) onerr
+            log.Fatal("Server error: {error}")
+
+        return
+    serve() onerr
+        log.Fatal("Server error: {error}")
