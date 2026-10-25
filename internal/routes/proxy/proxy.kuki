@@ -45,12 +45,12 @@ func handle(response: httphelper.Response, request: httphelper.Request, method: 
     params := collectParams(r.URL.Query())
 
     var body: list of byte
-    if r.Body isnt empty
-        raw, ierr := io.ReadAll(r.Body)
-        if ierr isnt empty
-            response.JSONBadRequest("Failed to read request body") onerr discard
-            return
+    raw, ierr := request.ReadBody()
+    if ierr equals empty
         body = raw
+    else if r.Body isnt empty
+        response.JSONBadRequest("Failed to read request body") onerr discard
+        return
 
     resp, perr := django_client.ProxyRequest(method, path, headers, params, body)
     if perr isnt empty
