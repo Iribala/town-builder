@@ -16,7 +16,7 @@ const townKey = "town_data"
 # service that talks to the cache.
 var RedisTimeout = 2 * time.Second
 
-var client: reference redis.Client
+var client: optional reference redis.Client
 
 var lock: sync.RWMutex
 
@@ -122,8 +122,8 @@ func ResetMemory()
     defer lock.Unlock()
     memory = defaultTownData()
 
-func SetClient(c: reference redis.Client)
+func SetClient(c: optional reference redis.Client)
     client = c
 
-func Client() reference redis.Client
+func Client() optional reference redis.Client
     return client
