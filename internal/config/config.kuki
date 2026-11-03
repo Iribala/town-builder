@@ -130,5 +130,6 @@ func Load() (reference Settings, error)
 func Current() reference Settings
     return current
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func SetForTest(s: reference Settings)
     current = s

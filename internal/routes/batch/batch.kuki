@@ -55,5 +55,6 @@ func executeOps(response: httphelper.Response, request: httphelper.Request)
         response.JSONBadRequest("operations must be a list") onerr discard
         return
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("POST /api/batch/operations", httphelper.Handler(executeOps))

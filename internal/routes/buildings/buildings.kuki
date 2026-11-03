@@ -226,6 +226,7 @@ func remove(response: httphelper.Response, request: httphelper.Request)
         "message": "Building {id} deleted successfully",
     }) onerr discard
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("POST /api/buildings", httphelper.Handler(create))
     mux.Handle("GET /api/buildings", httphelper.Handler(list))

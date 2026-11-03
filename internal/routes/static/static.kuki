@@ -35,11 +35,13 @@ func mimeFor(p: string) string
 type mimeHandler
     next: http.Handler
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func ServeHTTP on h: reference mimeHandler(w: http.ResponseWriter, r: reference http.Request)
     if m := mimeFor(r.URL.Path); m isnt empty
         w.Header().Set("Content-Type", m)
     h.next.ServeHTTP(w, r)
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     fs := http.FileServer(http.Dir("./static"))
     handler := http.StripPrefix("/static/", fs)

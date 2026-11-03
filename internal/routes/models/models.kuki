@@ -55,6 +55,7 @@ func fileExists(path: string) bool
     _, err := os.Stat(path)
     return err equals empty
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("GET /api/models", httphelper.Handler(listModels))
     mux.Handle(`GET /api/model/{category}/{model_name}`, httphelper.Handler(getModel))

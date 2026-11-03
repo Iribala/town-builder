@@ -46,6 +46,7 @@ func stats(response: httphelper.Response, request: httphelper.Request)
     log.Info("Scene stats requested: {total} total objects")
     response.JSON(map of string to any{"status": "success", "data": out}) onerr discard
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("GET /api/scene/description", httphelper.Handler(description))
     mux.Handle("GET /api/scene/stats", httphelper.Handler(stats))

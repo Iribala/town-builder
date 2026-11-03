@@ -32,6 +32,7 @@ func readyz(response: httphelper.Response, request: httphelper.Request)
     }
     response.JSON(body) onerr discard
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("GET /healthz", httphelper.Handler(livez))
     mux.Handle("GET /readyz", httphelper.Handler(readyz))

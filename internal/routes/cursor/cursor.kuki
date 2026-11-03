@@ -35,5 +35,6 @@ func update(response: httphelper.Response, request: httphelper.Request)
     town_helpers.BroadcastSSE(event)
     response.JSON(map of string to any{"status": "success", "message": "Cursor position updated"}) onerr discard
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("POST /api/cursor/update", httphelper.Handler(update))

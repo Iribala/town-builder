@@ -90,6 +90,7 @@ func patch(response: httphelper.Response, request: httphelper.Request)
 func remove(response: httphelper.Response, request: httphelper.Request)
     handle(response, request, "DELETE")
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("GET /api/proxy/towns/\{path...}", httphelper.Handler(get))
     mux.Handle("POST /api/proxy/towns/\{path...}", httphelper.Handler(post))

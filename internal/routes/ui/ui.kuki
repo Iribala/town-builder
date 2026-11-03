@@ -82,6 +82,7 @@ func favicon(response: httphelper.Response, request: httphelper.Request)
         return
     response.ServeFile(request, path)
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("GET /\{$\}", httphelper.Handler(index))
     mux.Handle("GET /favicon.ico", httphelper.Handler(favicon))

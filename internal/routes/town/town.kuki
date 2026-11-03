@@ -407,6 +407,7 @@ func getConfig(response: httphelper.Response, request: httphelper.Request)
         "user": u.Username,
     }) onerr discard
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     h := newTownRouter()
     if h.initErr isnt empty

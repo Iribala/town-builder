@@ -92,6 +92,7 @@ func clearHist(response: httphelper.Response, request: httphelper.Request)
     histsvc.ClearHistory()
     response.JSON(map of string to any{"status": "success", "message": "History cleared"}) onerr discard
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("GET /api/history", httphelper.Handler(getHistory))
     mux.Handle("POST /api/history/undo", httphelper.Handler(undo))

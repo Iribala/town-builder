@@ -121,5 +121,6 @@ func sse(res: httphelper.Response, req: httphelper.Request)
         res.JSONError("streaming unsupported", httphelper.StatusInternalServerError) onerr discard
         return
 
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
     mux.Handle("GET /events", httphelper.Handler(sse))
