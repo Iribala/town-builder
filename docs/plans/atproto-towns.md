@@ -3,6 +3,10 @@
 Tie a town to an atproto (Bluesky) account, room-style. Research notes first (what
 flo-bit and tangled.sh actually do), then a concrete plan for this repo.
 
+Related: [`place-grounded-towns.md`](./place-grounded-towns.md) maps the
+worldstrike.fun OSM/multiplayer teardown onto this roadmap — what to steal, what
+to reject, and where a town's real-place geometry belongs in the phases below.
+
 ## Prior art surveyed
 
 | Project | Pattern | Stack |
