@@ -88,6 +88,23 @@ Cleans:
 - Optional: WASM builds (commented out)
 - Optional: Saved towns (commented out, requires confirmation)
 
+### `test-js.sh`
+**Run frontend JavaScript unit tests**
+
+Runs the `node:test` suites in `tests/js/` using Node's built-in test runner.
+No dependencies, bundler or browser required (requires Node.js 20+).
+
+```bash
+./scripts/test-js.sh
+# or directly:
+node --test tests/js/
+```
+
+What it covers:
+- SSE event dispatch (`full`, `edit`, `delete`, `driver`, `name`, `cursor`, `users`, `error`)
+- Full-snapshot reconciliation with and without stable object IDs
+- Duplicate prevention and serialized back-to-back snapshots
+
 ## Making Scripts Executable
 
 Before first use, make the scripts executable:

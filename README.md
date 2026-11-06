@@ -126,6 +126,11 @@ See `docs/ARCHITECTURE.md` for technical details.
 go test ./...
 ```
 
+Frontend JavaScript tests (Node's built-in runner, no dependencies):
+```bash
+./scripts/test-js.sh   # or: node --test tests/js/
+```
+
 ### Building WASM Modules
 ```bash
 # Edit physics_wasm.kuki, then:

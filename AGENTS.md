@@ -90,6 +90,7 @@ Use `internal/utils/security/` for any new file path operations (path-traversal 
 - `config.SetForTest(s)` injects settings; `storage.SetClient(empty)` + `storage.ResetMemory()` give a clean in-memory store.
 - `httptest.NewServer` against `router.NewMux()` is the standard pattern for route integration tests.
 - Mock external Django API calls with `httptest.NewServer` returning canned JSON.
+- Frontend JS tests are `node:test` files in `tests/js/` (`*.test.cjs`); run with `./scripts/test-js.sh` (or `node --test tests/js/`). They evaluate the real ES-module sources in a `node:vm` sandbox with stubbed DOM/Three.js dependencies, so no browser or bundler is needed. Adding an import to `static/js/network.js` or `static/js/utils/town-layout.js` requires a matching stub in `createHarness()`.
 
 ### Commit messages
 Follow Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
