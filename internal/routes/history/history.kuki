@@ -31,7 +31,7 @@ func restoreState(response: httphelper.Response, entry: map of string to any, st
         response.JSONBadRequest("Cannot {action}: no {stateKey}") onerr discard
         return false
     if sv is map of string to any as state
-        err := storage.Set(state)
+        err := storage.Set("", state)
         if err isnt empty
             response.JSONError("Failed to save state", 500) onerr discard
             return false

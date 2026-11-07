@@ -9,7 +9,10 @@ import { applyCategoryStatuses, createStatusLegend } from './category_status.js'
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
 import {
     setMyName,
-    getCurrentTownId
+    getCurrentTownId,
+    setBasePath,
+    setToken,
+    getToken
 } from './state/app-state.js';
 import { isMobile } from './utils/device-detect.js';
 import mobileUI from './mobile/mobile-ui.js';
@@ -69,6 +72,17 @@ if (!userName) {
     setCookie("userName", userName, 30); // Remember for 30 days
 }
 setMyName(userName);
+
+// Restore base path / auth token embedded by the server template.
+if (window.__BASE_PATH) setBasePath(window.__BASE_PATH);
+if (window.__TOKEN) setToken(window.__TOKEN);
+// Mirror the token into the auth_token cookie so EventSource (which cannot set
+// headers) authenticates against /events even before setupSSE runs.
+const bootstrapToken = getToken();
+if (bootstrapToken) {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `auth_token=${encodeURIComponent(bootstrapToken)}; path=/; SameSite=Strict${secure}`;
+}
 
 
 async function init() {

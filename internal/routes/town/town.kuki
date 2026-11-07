@@ -23,14 +23,14 @@ func getTown(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    data, err := storage.Get()
+    data, err := storage.Get("")
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
     response.JSON(data) onerr discard
 
 func updateTown(response: httphelper.Response, request: httphelper.Request)
-    _, ok := common.CurrentUser(response, request)
+    u, ok := common.CurrentUser(response, request)
     if not ok
         return
     data := empty map of string to any
@@ -38,7 +38,7 @@ func updateTown(response: httphelper.Response, request: httphelper.Request)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
-    townData, gerr := storage.Get()
+    townData, gerr := storage.Get("")
     if gerr isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -46,8 +46,9 @@ func updateTown(response: httphelper.Response, request: httphelper.Request)
         name := mapx.Str(data, "townName")
         townData["townName"] = name
         town_helpers.SaveAndBroadcast(
+            "",
             townData,
-            map of string to any{"type": "name", "townName": name},
+            map of string to any{"type": "name", "townName": name, "actor": u.Username, "did": u.Did},
         ) onerr discard
         log.Info("Updated town name to: {name}")
         response.JSON(map of string to any{"status": "success"}) onerr discard
@@ -67,11 +68,13 @@ func updateTown(response: httphelper.Response, request: httphelper.Request)
                             arr[i] = entry
                             townData[category] = arr
                             updated = true
-                            town_helpers.SaveAndBroadcast(townData, map of string to any{
+                            town_helpers.SaveAndBroadcast("", townData, map of string to any{
                                 "type": "driver",
                                 "category": category,
                                 "id": modelID,
                                 "driver": driver,
+                                "actor": u.Username,
+                                "did": u.Did,
                             }) onerr discard
                             log.Info("Updated driver for {category} id={modelID} to {driver}")
                             break
@@ -81,7 +84,10 @@ func updateTown(response: httphelper.Response, request: httphelper.Request)
         response.JSON(map of string to any{"status": "success"}) onerr discard
         return
     canonical := normalization.Normalize(data)
-    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical)) onerr discard
+    fullEvent := evt.Full(canonical)
+    fullEvent["actor"] = u.Username
+    fullEvent["did"] = u.Did
+    town_helpers.SaveAndBroadcast("", canonical, fullEvent) onerr discard
     response.JSON(map of string to any{"status": "success"}) onerr discard
 
 type townRouter
@@ -105,7 +111,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if h.initErr isnt empty
         response.JSONError("Data directory unavailable", 500) onerr discard
         return
-    _, ok := common.CurrentUser(response, request)
+    u, ok := common.CurrentUser(response, request)
     if not ok
         return
     payload := empty map of string to any
@@ -141,7 +147,9 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
         localMsg = "Town saved locally to {fn}."
     else
         localMsg = "Local save skipped (no filename)."
-    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical)) onerr discard
+    fullEvent := evt.Full(canonical)
+    fullEvent["actor"] = u.Username
+    fullEvent["did"] = u.Did
     djangoMsg := ""
     var townID: any = empty
     if v, vok := payload["town_id"]; vok and not cast.IsNil(v)
@@ -188,6 +196,11 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
                 if v, vok := result["town_id"]; vok
                     townID = v
                 djangoMsg = " Town created in Django backend."
+    townIDStr := ""
+    if not cast.IsNil(townID)
+        townIDStr = cast.ToString(townID)
+    storage.Set(townIDStr, canonical) onerr discard
+    town_helpers.BroadcastSSE(fullEvent)
     response.JSON(map of string to any{
         "status": "success",
         "message": "{localMsg}{djangoMsg}",
@@ -224,7 +237,7 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
         response.JSONError("Failed to parse town data", 500) onerr discard
         return
     canonical := normalization.Normalize(townData)
-    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical)) onerr discard
+    town_helpers.SaveAndBroadcast("", canonical, evt.Full(canonical)) onerr discard
     log.Info("Town loaded from {fn}")
     response.JSON(map of string to any{
         "status": "success",
@@ -252,7 +265,7 @@ func loadFromDjango(response: httphelper.Response, request: httphelper.Request)
     else
         layoutData = empty list of any
     canonical := normalization.Normalize(layoutData)
-    town_helpers.SaveAndBroadcast(canonical, evt.Full(canonical)) onerr discard
+    town_helpers.SaveAndBroadcast(cast.ToString(idInt), canonical, evt.Full(canonical)) onerr discard
     info := map of string to any{
         "id": townData["id"],
         "name": townData["name"],
@@ -286,7 +299,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
     if (category is empty) or (modelID is empty) and not hasPos
         response.JSONBadRequest("Missing required parameters") onerr discard
         return
-    townData, gerr := storage.Get()
+    townData, gerr := storage.Get("")
     if gerr isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -304,7 +317,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
                             if j isnt i
                                 newArr = append(newArr, arr[j])
                         townData[category] = newArr
-                        town_helpers.SaveAndBroadcast(townData, map of string to any{
+                        town_helpers.SaveAndBroadcast("", townData, map of string to any{
                             "type": "delete",
                             "category": category,
                             "id": modelID,
@@ -334,7 +347,7 @@ func deleteModel(response: httphelper.Response, request: httphelper.Request)
                 if j isnt closestIdx
                     newArr = append(newArr, arr[j])
             townData[category] = newArr
-            town_helpers.SaveAndBroadcast(townData, map of string to any{
+            town_helpers.SaveAndBroadcast("", townData, map of string to any{
                 "type": "delete",
                 "category": category,
                 "position": pos,
@@ -364,7 +377,7 @@ func editModel(response: httphelper.Response, request: httphelper.Request)
     if (category is empty) or (modelID is empty)
         response.JSONBadRequest("Missing required parameters") onerr discard
         return
-    townData, gerr := storage.Get()
+    townData, gerr := storage.Get("")
     if gerr isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -384,7 +397,7 @@ func editModel(response: httphelper.Response, request: httphelper.Request)
                         entry["scale"] = scl
                     arr[i] = entry
                     townData[category] = arr
-                    town_helpers.SaveAndBroadcast(townData, map of string to any{
+                    town_helpers.SaveAndBroadcast("", townData, map of string to any{
                         "type": "edit",
                         "category": category,
                         "id": modelID,

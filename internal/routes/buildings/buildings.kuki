@@ -82,14 +82,14 @@ func create(response: httphelper.Response, request: httphelper.Request)
         Rotation: rotV,
         Scale: sclV,
     })
-    townData, gerr := storage.Get()
+    townData, gerr := storage.Get("")
     if gerr isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
     arr := categoryList(townData, category)
     arr = append(arr, building as any)
     setCategory(townData, category, arr)
-    err = town_helpers.SaveAndBroadcast(townData, evt.Full(townData))
+    err = town_helpers.SaveAndBroadcast("", townData, evt.Full(townData))
     if err isnt empty
         response.JSONError("Failed to save", 500) onerr discard
         return
@@ -100,7 +100,7 @@ func list(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    townData, err := storage.Get()
+    townData, err := storage.Get("")
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -125,7 +125,7 @@ func get(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     id := request.PathValue("id")
-    townData, err := storage.Get()
+    townData, err := storage.Get("")
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -145,7 +145,7 @@ func update(response: httphelper.Response, request: httphelper.Request)
     if err isnt empty
         response.JSONBadRequest("Invalid JSON body") onerr discard
         return
-    townData, gerr := storage.Get()
+    townData, gerr := storage.Get("")
     if gerr isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -181,7 +181,7 @@ func update(response: httphelper.Response, request: httphelper.Request)
     else
         arr[idx] = current
         setCategory(townData, cat, arr)
-    err = town_helpers.SaveAndBroadcast(townData, map of string to any{
+    err = town_helpers.SaveAndBroadcast("", townData, map of string to any{
         "type": "edit",
         "category": cat,
         "id": id,
@@ -198,7 +198,7 @@ func remove(response: httphelper.Response, request: httphelper.Request)
     if not ok
         return
     id := request.PathValue("id")
-    townData, err := storage.Get()
+    townData, err := storage.Get("")
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -212,7 +212,7 @@ func remove(response: httphelper.Response, request: httphelper.Request)
         if i isnt idx
             newArr = append(newArr, arr[i])
     setCategory(townData, cat, newArr)
-    serr := town_helpers.SaveAndBroadcast(townData, map of string to any{
+    serr := town_helpers.SaveAndBroadcast("", townData, map of string to any{
         "type": "delete",
         "category": cat,
         "id": id,

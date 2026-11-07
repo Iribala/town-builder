@@ -43,7 +43,7 @@ func setupBatch()
         "roads": empty list of any,
     }
 
-    storage.Set(initial) onerr discard
+    storage.Set("", initial) onerr discard
 
 func TestBatchCreateAddsObject(t: reference testing.T)
     setupBatch()
@@ -63,7 +63,7 @@ func TestBatchCreateAddsObject(t: reference testing.T)
     test.AssertEqual(t, failed, 0)
     if results[0]["success"] is bool as success
         test.AssertTrue(t, success)
-    data := storage.Get() onerr empty
+    data := storage.Get("") onerr empty
     if data["vehicles"] is list of any as vehicles
         test.AssertEqual(t, len(vehicles), 1)
 
@@ -89,7 +89,7 @@ func TestBatchDeleteById(t: reference testing.T)
     }
     _, ok, _ := batch.ExecuteOperations(ops, true)
     test.AssertEqual(t, ok, 1)
-    data := storage.Get() onerr empty
+    data := storage.Get("") onerr empty
     if data["buildings"] is list of any as buildings
         test.AssertEqual(t, len(buildings), 1)
         if buildings[0] is map of string to any as first
@@ -119,7 +119,7 @@ func TestBatchEditPosition(t: reference testing.T)
     }
     _, ok, _ := batch.ExecuteOperations(ops, true)
     test.AssertEqual(t, ok, 1)
-    data := storage.Get() onerr empty
+    data := storage.Get("") onerr empty
     if data["buildings"] is list of any as buildings
         if buildings[0] is map of string to any as first
             if first["position"] is map of string to any as pos

@@ -3,6 +3,7 @@ petiole cursor
 import "net/http"
 import "stdlib/http" as httphelper
 
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
@@ -28,7 +29,9 @@ func update(response: httphelper.Response, request: httphelper.Request)
     cam := readPosition(body["camera_position"])
     event := map of string to any{
         "type": "cursor",
+        "seq": evt.NextSeq(),
         "username": u.Username,
+        "did": u.Did,
         "position": pos,
         "camera_position": cam,
     }

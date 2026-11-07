@@ -5,11 +5,14 @@ import "stdlib/json"
 import "stdlib/log"
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/storage"
 
 var publishTimeout = storage.RedisTimeout
 
 func BroadcastSSE(event: map of string to any)
+    if _, ok := event["seq"]; not ok
+        event["seq"] = evt.NextSeq()
     client := storage.Client()
     if client equals empty
         return
@@ -26,8 +29,8 @@ func BroadcastSSE(event: map of string to any)
     if perr isnt empty
         log.Warn("Failed to broadcast SSE event (Redis unavailable): {perr}")
 
-func SaveAndBroadcast(townData: map of string to any, event: map of string to any) error
-    err := storage.Set(townData)
+func SaveAndBroadcast(townID: string, townData: map of string to any, event: map of string to any) error
+    err := storage.Set(townID, townData)
     if err isnt empty
         return err
     BroadcastSSE(event)

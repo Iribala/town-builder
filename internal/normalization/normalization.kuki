@@ -1,6 +1,7 @@
 petiole normalization
 
 import "stdlib/cast"
+import "stdlib/crypto"
 import "stdlib/maps"
 
 import "github.com/Iribala/town-builder/internal/object"
@@ -23,6 +24,21 @@ type Vec3 = object.Vec3
 func normalizeObject(item: map of string to any, category: string) map of string to any
     out := maps.Merge(item)
     out["category"] = category
+    # Stable server-assigned IDs: preserve an existing non-empty id, otherwise
+    # mint one so saves can be reconciled incrementally across clients.
+    idVal, hasID := out["id"]
+    assignID := false
+    if not hasID
+        assignID = true
+    else if idVal is string as sid
+        if sid is empty
+            assignID = true
+    if assignID
+        raw, err := crypto.RandomToken(8)
+        if err isnt empty
+            out["id"] = "obj_00000000"
+        else
+            out["id"] = "obj_" + raw[:8]
     model, hasModel := item["model"]
     if not hasModel or cast.IsNil(model)
         if alt, ok := item["modelName"]; ok

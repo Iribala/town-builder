@@ -13,7 +13,7 @@ func description(response: httphelper.Response, request: httphelper.Request)
     u, ok := common.CurrentUser(response, request)
     if not ok
         return
-    data, err := storage.Get()
+    data, err := storage.Get("")
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -25,7 +25,7 @@ func stats(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
     if not ok
         return
-    data, err := storage.Get()
+    data, err := storage.Get("")
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return

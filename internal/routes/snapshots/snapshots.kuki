@@ -17,7 +17,7 @@ func create(response: httphelper.Response, request: httphelper.Request)
         return
     body := empty map of string to any
     request.Decode(reference of body) onerr discard
-    townData, err := storage.Get()
+    townData, err := storage.Get("")
     if err isnt empty
         response.JSONError("Failed to load town data", 500) onerr discard
         return
@@ -67,7 +67,7 @@ func restore(response: httphelper.Response, request: httphelper.Request)
     if not dok
         response.JSONNotFound("Snapshot not found") onerr discard
         return
-    err := storage.Set(data)
+    err := storage.Set("", data)
     if err isnt empty
         response.JSONError("Failed to restore", 500) onerr discard
         return

@@ -8,6 +8,7 @@ import "github.com/golang-jwt/jwt/v5" as jwtpkg
 
 type UserInfo
     Username: string
+    Did: string
     Payload: map of string to any
 
 type TokenResponse
@@ -46,7 +47,11 @@ func VerifyTokenString(token: string) (reference UserInfo, error)
                     break
     if username is empty
         return empty, error "Invalid authentication credentials"
-    return reference of UserInfo{Username: username, Payload: payload}, empty
+    did := ""
+    if v, vok := payload["did"]; vok
+        if v is string as str
+            did = str
+    return reference of UserInfo{Username: username, Did: did, Payload: payload}, empty
 
 func GetCurrentUser(token: string) (reference UserInfo, error)
     s := config.Current()

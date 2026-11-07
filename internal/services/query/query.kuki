@@ -30,7 +30,7 @@ func cloneWithCat(obj: map of string to any, cat: string) map of string to any
     return out
 
 func SpatialQueryRadius(center: map of string to any, radius: float64, category: string, limit: int) list of map of string to any
-    townData := storage.Get() onerr empty
+    townData := storage.Get("") onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt empty
@@ -76,7 +76,7 @@ func isWithinBounds(point: map of string to any, minPoint: map of string to any,
     return spatial.InBounds3D(p, box)
 
 func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string to any, category: string, limit: int) list of map of string to any
-    townData := storage.Get() onerr empty
+    townData := storage.Get("") onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt empty
@@ -101,7 +101,7 @@ func SpatialQueryBounds(minPoint: map of string to any, maxPoint: map of string 
     return results
 
 func SpatialQueryNearest(point: map of string to any, category: string, count: int, maxDistance: float64, hasMaxDistance: bool) list of map of string to any
-    townData := storage.Get() onerr empty
+    townData := storage.Get("") onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt empty
@@ -199,7 +199,7 @@ func matchesFilters(obj: map of string to any, filters: list of map of string to
     return true
 
 func AdvancedQuery(category: string, filters: list of map of string to any, sortBy: string, sortOrder: string, limit: int, offset: int) list of map of string to any
-    townData := storage.Get() onerr empty
+    townData := storage.Get("") onerr empty
     results := empty list of map of string to any
     cats := empty list of string
     if category isnt empty

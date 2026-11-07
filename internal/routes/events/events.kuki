@@ -43,6 +43,7 @@ func writeEventMap(w: http.ResponseWriter, flusher: http.Flusher, event: map of 
 func broadcastUsers()
     town_helpers.BroadcastSSE(map of string to any{
         "type": "users",
+        "seq": evt.NextSeq(),
         "users": pubsub.OnlineUsers(),
     })
 
@@ -69,6 +70,7 @@ func sse(res: httphelper.Response, req: httphelper.Request)
         if playerName isnt empty and not pubsub.CanConnect(playerName)
             writeEventMap(w, flusher, map of string to any{
                 "type": "error",
+                "seq": evt.NextSeq(),
                 "message": "Connection limit reached",
             })
             return
@@ -77,7 +79,7 @@ func sse(res: httphelper.Response, req: httphelper.Request)
         if playerName isnt empty
             broadcastUsers()
 
-        townData, terr := storage.Get()
+        townData, terr := storage.Get("")
         if terr equals empty
             writeEventMap(w, flusher, evt.Full(townData))
         writeEventMap(w, flusher, map of string to any{

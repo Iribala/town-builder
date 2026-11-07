@@ -3,6 +3,7 @@ petiole storage
 import "stdlib/ctx"
 import "stdlib/json"
 import "stdlib/log"
+import "stdlib/string" as strpkg
 import "sync"
 import "time"
 
@@ -10,7 +11,7 @@ import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/klauspost/compress/zstd"
 import "github.com/redis/go-redis/v9" as redis
 
-const townKey = "town_data"
+const townKeyPrefix = "town_data"
 
 # RedisTimeout bounds a single Redis round-trip; shared by every
 # service that talks to the cache.
@@ -20,11 +21,23 @@ var client: optional reference redis.Client
 
 var lock: sync.RWMutex
 
-var memory: map of string to any
+# townMemory holds the in-memory fallback for *every* town, keyed by the
+# storage key ("town_data" for the legacy global town, "town_data:<id>"
+# otherwise).
+var townMemory: map of string to map of string to any
+
+# townOwners holds the in-memory town -> DID ownership index.
+var townOwners: map of string to string
 
 var encoder: reference zstd.Encoder
 
 var decoder: reference zstd.Decoder
+
+# townKey converts a (possibly empty) town id into its storage key.
+func townKey(townID: string) string
+    if strpkg.TrimSpace(townID) is empty
+        return townKeyPrefix
+    return townKeyPrefix + ":" + strpkg.TrimSpace(townID)
 
 func defaultTownData() map of string to any
     out := empty map of string to any
@@ -33,7 +46,9 @@ func defaultTownData() map of string to any
     return out
 
 func init()
-    memory = defaultTownData()
+    townMemory = empty map of string to map of string to any
+    townMemory[townKeyPrefix] = defaultTownData()
+    townOwners = empty map of string to string
     enc, err := zstd.NewWriter(empty)
     if err equals empty
         encoder = enc
@@ -74,34 +89,42 @@ func deepCopyMap(src: map of string to any) map of string to any
         return defaultTownData()
     return out
 
-func snapshotMemory() map of string to any
+func snapshotMemory(townID: string) map of string to any
+    key := townKey(townID)
     lock.RLock()
     defer lock.RUnlock()
-    return deepCopyMap(memory)
+    v, present := townMemory[key]
+    if not present
+        return defaultTownData()
+    return deepCopyMap(v)
 
-func Get() (map of string to any, error)
+func Get(townID: string) (map of string to any, error)
+    key := townKey(townID)
     if client isnt empty and decoder isnt empty
         h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
         defer h.Cancel()
-        data, err := client.Get(h.Ctx, townKey).Bytes()
+        data, err := client.Get(h.Ctx, key).Bytes()
         if err equals empty
             decompressed, derr := decoder.DecodeAll(data, empty)
             if derr isnt empty
                 log.Warn("Failed to decompress town data: {derr}")
-                return snapshotMemory(), empty
+                return snapshotMemory(townID), empty
             out := empty map of string to any
             perr := json.ParseBytesInto(decompressed, reference of out)
             if perr isnt empty
                 log.Warn("Failed to parse stored town data: {perr}")
-                return snapshotMemory(), empty
+                return snapshotMemory(townID), empty
             return out, empty
         else if err isnt redis.Nil
             log.Warn("Redis get failed, using in-memory storage: {err}")
-    return snapshotMemory(), empty
+    return snapshotMemory(townID), empty
 
-func Set(data: map of string to any) error
+func Set(townID: string, data: map of string to any) error
+    key := townKey(townID)
     lock.Lock()
-    memory = deepCopyMap(data)
+    if townMemory equals empty
+        townMemory = empty map of string to map of string to any
+    townMemory[key] = deepCopyMap(data)
     lock.Unlock()
 
     if client isnt empty and encoder isnt empty
@@ -112,7 +135,7 @@ func Set(data: map of string to any) error
         compressed := encoder.EncodeAll(raw, empty)
         h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
         defer h.Cancel()
-        serr := client.Set(h.Ctx, townKey, compressed, 0).Err()
+        serr := client.Set(h.Ctx, key, compressed, 0).Err()
         if serr isnt empty
             log.Warn("Redis set failed, data saved to memory only: {serr}")
     return empty
@@ -120,10 +143,43 @@ func Set(data: map of string to any) error
 func ResetMemory()
     lock.Lock()
     defer lock.Unlock()
-    memory = defaultTownData()
+    townMemory = empty map of string to map of string to any
+    townMemory[townKeyPrefix] = defaultTownData()
+    townOwners = empty map of string to string
 
 func SetClient(c: optional reference redis.Client)
     client = c
 
 func Client() optional reference redis.Client
     return client
+
+# Town ownership index (Redis-backed, in-memory fallback).
+
+func ownerKey(townID: string) string
+    return "town_owner:" + strpkg.TrimSpace(townID)
+
+func SetTownOwner(townID: string, did: string) error
+    key := ownerKey(townID)
+    lock.Lock()
+    if townOwners equals empty
+        townOwners = empty map of string to string
+    townOwners[townID] = did
+    lock.Unlock()
+    if client isnt empty
+        h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
+        defer h.Cancel()
+        serr := client.Set(h.Ctx, key, did, 0).Err()
+        if serr isnt empty
+            log.Warn("Redis owner set failed, in-memory only: {serr}")
+    return empty
+
+func GetTownOwner(townID: string) string
+    if client isnt empty
+        h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
+        defer h.Cancel()
+        val, err := client.Get(h.Ctx, ownerKey(townID)).Result()
+        if err equals empty
+            return val
+    lock.RLock()
+    defer lock.RUnlock()
+    return townOwners[townID]

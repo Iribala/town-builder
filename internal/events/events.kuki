@@ -1,5 +1,18 @@
 petiole events
 
+import "sync"
+
+var seqLock: sync.Mutex
+
+var nextSeq: int64
+
+# NextSeq returns a process-wide monotonic sequence number for SSE envelopes.
+func NextSeq() int64
+    seqLock.Lock()
+    defer seqLock.Unlock()
+    nextSeq = nextSeq + 1
+    return nextSeq
+
 # EventType is the closed set of SSE event "type" values that the backend
 # publishes and the frontend consumes. String-backed so the wire value is
 # exactly the case's text.
@@ -17,4 +30,4 @@ enum EventType: string
 # duplicated across the town, buildings, batch, history, snapshots and
 # events handlers.
 func Full(town: any) map of string to any
-    return map of string to any{"type": EventType.Full.String(), "town": town}
+    return map of string to any{"type": EventType.Full.String(), "seq": NextSeq(), "town": town}
