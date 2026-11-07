@@ -166,6 +166,12 @@ export function initScene(container) {
     groundPlane.rotation.x = -Math.PI / 2;
     scene.add(groundPlane);
 
+    // Real-place context grid: immutable backdrop reference for the ground
+    // plane (existing/proposed layer distinction lives on top of this).
+    const groundGrid = new THREE.GridHelper(20, 20, 0x1f5f3f, 0x3a8c5a);
+    groundGrid.position.y = 0.01;
+    scene.add(groundGrid);
+
     // Add lights with enhanced settings for better PBR
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Slightly brighter ambient
     scene.add(ambientLight);
