@@ -23,7 +23,7 @@ import {
     setCurrentTownName
 } from './state/app-state.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
-import { getAtprotoDid } from './atproto.js';
+import { getAtprotoDid, writeTownRecord } from './atproto.js';
 let currentMode = 'place';
 
 // Loading indicator element
@@ -487,7 +487,9 @@ async function onSaveScene() {
         // filename is optional for local save in app.py, can be added if needed:
         // payloadForAppPy.filename = "my_town.json";
 
-        await saveSceneToServer(payloadForAppPy); // Pass the fully constructed payload
+        const saveResult = await saveSceneToServer(payloadForAppPy); // Pass the fully constructed payload
+        const townId = saveResult && saveResult.town_id ? saveResult.town_id : getCurrentTownId();
+        if (townId) writeTownRecord(townId).catch(() => {});
         showNotification('Scene saved successfully', 'success');
     } catch (err) {
         showNotification(err.message, 'error');
