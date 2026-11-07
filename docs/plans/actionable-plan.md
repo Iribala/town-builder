@@ -72,16 +72,14 @@ counts; legacy global town still readable.
 *Optional product track; can run parallel to Phase 2 after Phase 1 storage. The
 OSM backdrop is derived data, not snapshot data (keeps PDS blobs small).*
 
-- [ ] `internal/services/terrain/`: tile key from `town_id`'s lat/long (Web
-      Mercator, z14 or coarser), fetch allowlisted provider, simplify polygons,
-      quantize coords, cache in storage under
-      `terrain:<townID>:<z>/<x>/<y>:v<N>`.
-- [ ] `internal/routes/terrain/`: `GET /api/terrain/{z}/{x}/{y}` with
-      `Cache-Control`, `Vary: Accept-Encoding`, schema version for cache busting;
-      add provider host to `ALLOWED_DOMAINS`; route fetch via
-      `internal/utils/security/`.
-- [ ] `static/js/`: read-only ground layer in `scene/scene.js` (or 2D inset) +
-      visible attribution footer in `templates/index.html` (ODbL/ODbL chain).
+- [x] `internal/services/terrain/`: Web Mercator `TileXY` + allowlisted
+      `FetchTile` with Redis/memory cache and `SchemaVersion`.
+- [x] `internal/routes/terrain/`: `GET /api/terrain/{z}/{x}/{y}` with
+      `Cache-Control`, `Vary: Accept-Encoding`, schema-versioned cache keys and
+      optional allowlisted `src` fetch.
+- [x] Visible OSM attribution footer added in `templates/index.html`.
+- [ ] `static/js/`: read-only ground layer / 2D inset in `scene/scene.js`
+      (rendering integration still pending).
 - [ ] Settle design questions: existing-vs-proposed layer toggle; whether
       `/api/query/spatial/*` upgrades to geographic (metre) units; derived-data
       licensing in public records.
