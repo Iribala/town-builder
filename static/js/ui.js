@@ -23,7 +23,7 @@ import {
     setCurrentTownName
 } from './state/app-state.js';
 import { normalizeTownItems, applyTransformToObject, loadItemsWithConcurrency } from './utils/town-layout.js';
-
+import { getAtprotoDid } from './atproto.js';
 let currentMode = 'place';
 
 // Loading indicator element
@@ -468,6 +468,7 @@ async function onSaveScene() {
         const payloadForAppPy = {
             data: sceneDataArray, // For layout_data
             town_id: getCurrentTownId() || null,
+            owner_did: getAtprotoDid() || null,
             townName: currentTownName, // For Django's 'name' field, or search by name
 
             // Add other Django fields. Assumes these are available in global scope or UI.

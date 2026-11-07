@@ -200,6 +200,11 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if not cast.IsNil(townID)
         townIDStr = cast.ToString(townID)
     storage.Set(townIDStr, canonical) onerr discard
+    ownerDid := mapx.Str(payload, "owner_did")
+    if ownerDid is empty
+        ownerDid = mapx.Str(payload, "ownerDid")
+    if ownerDid isnt empty and townIDStr isnt empty
+        storage.SetTownOwner(townIDStr, ownerDid) onerr discard
     town_helpers.BroadcastSSE(fullEvent)
     response.JSON(map of string to any{
         "status": "success",

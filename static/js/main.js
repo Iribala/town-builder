@@ -1,5 +1,6 @@
 import './api-error-handler.js';
 import { initializeScene, animate, loadModelToScene, placedObjects } from './scene.js';
+import { handleAtprotoCallback } from './atproto.js';
 import { setupSSE, loadTownFromDjango } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
@@ -76,6 +77,8 @@ setMyName(userName);
 // Restore base path / auth token embedded by the server template.
 if (window.__BASE_PATH) setBasePath(window.__BASE_PATH);
 if (window.__TOKEN) setToken(window.__TOKEN);
+// Handle an ATProto OAuth callback if present.
+handleAtprotoCallback().catch(() => {});
 // Mirror the token into the auth_token cookie so EventSource (which cannot set
 // headers) authenticates against /events even before setupSSE runs.
 const bootstrapToken = getToken();
