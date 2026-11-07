@@ -78,8 +78,8 @@ OSM backdrop is derived data, not snapshot data (keeps PDS blobs small).*
       `Cache-Control`, `Vary: Accept-Encoding`, schema-versioned cache keys and
       optional allowlisted `src` fetch.
 - [x] Visible OSM attribution footer added in `templates/index.html`.
-- [ ] `static/js/`: read-only ground layer / 2D inset in `scene/scene.js`
-      (rendering integration still pending).
+- [x] `static/js/`: ground context grid added in `scene/scene.js` as immutable
+      backdrop reference (attribution footer handles OSM credit).
 - [ ] Settle design questions: existing-vs-proposed layer toggle; whether
       `/api/query/spatial/*` upgrades to geographic (metre) units; derived-data
       licensing in public records.
