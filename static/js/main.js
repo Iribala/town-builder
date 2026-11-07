@@ -108,6 +108,50 @@ async function init() {
     const bsStatus = document.getElementById('blueskyStatus');
     const did = getAtprotoDid();
     if (bsStatus && did) bsStatus.textContent = did;
+
+    // get-your-own-town landing modal for anonymous first-time visitors.
+    const bp = getBasePath() || '';
+    const previewBtn = document.getElementById('landingPreview');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', async () => {
+            const handle = (document.getElementById('landingHandle').value || '').trim();
+            const status = document.getElementById('landingPreviewStatus');
+            if (!handle) return;
+            if (status) status.textContent = 'Resolving handle...';
+            try {
+                const res = await fetch(`${bp}/atproto/identity/${encodeURIComponent(handle)}`);
+                if (!res.ok) throw new Error('handle not found');
+                const ident = await res.json();
+                const res2 = await fetch(`${bp}/atproto/towns/${encodeURIComponent(ident.did)}`);
+                const towns = res2.ok ? await res2.json() : { count: 0 };
+                if (status) status.textContent = `${ident.did}: ${towns.count || 0} town(s).`;
+            } catch (e) {
+                if (status) status.textContent = 'Could not resolve handle.';
+            }
+        });
+    }
+    const playAnon = document.getElementById('landingPlayAnonymous');
+    if (playAnon) {
+        playAnon.addEventListener('click', () => {
+            try { localStorage.setItem('landingSeen', '1'); } catch (e) {}
+            const modalEl = document.getElementById('landingModal');
+            if (modalEl && window.bootstrap) {
+                const m = window.bootstrap.Modal.getInstance(modalEl) || new window.bootstrap.Modal(modalEl);
+                m.hide();
+            }
+        });
+    }
+    // Show landing modal once for anonymous visitors with no town id.
+    try {
+        const currentTownId = getCurrentTownId();
+        if (!currentTownId && !localStorage.getItem('landingSeen') && window.bootstrap) {
+            const modalEl = document.getElementById('landingModal');
+            if (modalEl) {
+                const m = new window.bootstrap.Modal(modalEl);
+                m.show();
+            }
+        }
+    } catch (e) {}
     // Initialize mobile modules if on mobile device
     if (isMobile()) {
         console.log('Mobile device detected - initializing mobile UI');

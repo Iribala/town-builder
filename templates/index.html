@@ -419,6 +419,28 @@
     <!-- Load main application after WASM -->
     <script type="module" src="{{.BasePath}}/static/js/main.js"></script>
 
+    <!-- get-your-own-town landing modal -->
+    <div class="modal fade" id="landingModal" tabindex="-1" aria-labelledby="landingModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="landingModalLabel">Get your own town</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Enter a Bluesky handle to preview their town, or play without login.</p>
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" id="landingHandle" placeholder="handle.bsky.social">
+                        <button class="btn btn-outline-secondary" id="landingPreview" type="button">Preview</button>
+                    </div>
+                    <div id="landingPreviewStatus" class="small"></div>
+                    <hr />
+                    <button class="btn btn-primary" id="landingPlayAnonymous" type="button">Play without login</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <footer id="attribution-footer" style="position:fixed;bottom:0;left:0;right:0;padding:4px 8px;font-size:12px;background:rgba(0,0,0,0.6);color:#fff;z-index:9999;">
       Map data &copy; <a href="https://www.openstreetmap.org/copyright" style="color:#9cf;">OpenStreetMap contributors</a> (ODbL). Terrain/backdrop derived from OpenStreetMap and rendered as immutable context.
     </footer>
