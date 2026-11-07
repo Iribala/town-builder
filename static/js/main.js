@@ -1,6 +1,6 @@
 import './api-error-handler.js';
 import { initializeScene, animate, loadModelToScene, placedObjects } from './scene.js';
-import { handleAtprotoCallback } from './atproto.js';
+import { handleAtprotoCallback, getAtprotoDid, signInWithBluesky } from './atproto.js';
 import { setupSSE, loadTownFromDjango } from './network.js';
 import { setupKeyboardControls } from './controls.js';
 import { showNotification, initUI } from './ui.js';
@@ -100,6 +100,14 @@ async function init() {
     setupKeyboardControls();
     initUI();
 
+    // Bluesky sign-in wiring
+    const bsBtn = document.getElementById('blueskySignIn');
+    if (bsBtn) {
+        bsBtn.addEventListener('click', signInWithBluesky);
+    }
+    const bsStatus = document.getElementById('blueskyStatus');
+    const did = getAtprotoDid();
+    if (bsStatus && did) bsStatus.textContent = did;
     // Initialize mobile modules if on mobile device
     if (isMobile()) {
         console.log('Mobile device detected - initializing mobile UI');
