@@ -1,0 +1,83 @@
+petiole atproto
+
+import "net/http"
+import "stdlib/ctx"
+import "stdlib/json"
+import "stdlib/string" as strpkg
+
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/utils/security"
+
+# ResolveHandle resolves a Bluesky handle to a DID via the public API host
+# given by apiBase (defaults to https://public.api.bsky.app if empty).
+func ResolveHandle(handle: string, apiBase: string) (string, error)
+    if apiBase is empty
+        apiBase = "https://public.api.bsky.app"
+    if not security.ValidateApiURL(apiBase)
+        return "", error "disallowed atproto API host"
+    url := apiBase + "/xrpc/com.atproto.identity.resolveHandle?handle=" + handle
+    if not security.ValidateApiURL(url)
+        return "", error "disallowed atproto API host"
+    h := ctx.WithTimeout(ctx.Background(), storage.RedisTimeout)
+    defer h.Cancel()
+    req, rerr := http.NewRequest("GET", url, empty)
+    if rerr isnt empty
+        return "", rerr
+    resp, gerr := http.DefaultClient.Do(req.WithContext(h.Ctx))
+    if gerr isnt empty
+        return "", gerr
+    defer resp.Body.Close()
+    if resp.StatusCode < 200 or resp.StatusCode >= 300
+        return "", error "resolveHandle failed: {resp.StatusCode}"
+    out := empty map of string to any
+    derr := json.Decode(json.NewDecoder(resp.Body), reference of out)
+    if derr isnt empty
+        return "", derr
+    if did, ok := out["did"]; ok
+        if did is string as s
+            return s, empty
+    return "", error "resolveHandle response missing did"
+
+# ResolvePDS resolves a DID document and returns its PDS endpoint.
+func ResolvePDS(did: string) (string, error)
+    docURL := ""
+    if strpkg.HasPrefix(did, "did:plc:")
+        if not security.ValidateApiURL("https://plc.directory/" + did)
+            return "", error "disallowed atproto PLC host"
+        docURL = "https://plc.directory/" + did
+    else if strpkg.HasPrefix(did, "did:web:")
+        host := strpkg.TrimPrefix(did, "did:web:")
+        host = strpkg.ReplaceAll(host, "%3A", ":")
+        docURL = "https://" + host + "/.well-known/did.json"
+        if not security.ValidateApiURL(docURL)
+            return "", error "disallowed atproto web host"
+    else
+        return "", error "unsupported DID method"
+    h := ctx.WithTimeout(ctx.Background(), storage.RedisTimeout)
+    defer h.Cancel()
+    req, rerr := http.NewRequest("GET", docURL, empty)
+    if rerr isnt empty
+        return "", rerr
+    resp, gerr := http.DefaultClient.Do(req.WithContext(h.Ctx))
+    if gerr isnt empty
+        return "", gerr
+    defer resp.Body.Close()
+    if resp.StatusCode < 200 or resp.StatusCode >= 300
+        return "", error "DID document fetch failed: {resp.StatusCode}"
+    doc := empty map of string to any
+    derr := json.Decode(json.NewDecoder(resp.Body), reference of doc)
+    if derr isnt empty
+        return "", derr
+    services, ok := doc["service"]
+    if not ok
+        return "", error "DID document missing service"
+    if services is list of any as arr
+        for item in arr
+            if item is map of string to any as svc
+                t, _ := svc["type"]
+                if t is string as ts
+                    if ts equals "AtprotoPersonalDataServer"
+                        if ep, epok := svc["serviceEndpoint"]; epok
+                            if ep is string as endpoint
+                                return endpoint, empty
+    return "", error "no PDS endpoint in DID document"

@@ -2,6 +2,7 @@ petiole router
 
 import "net/http"
 
+import "github.com/Iribala/town-builder/internal/routes/atproto"
 import "github.com/Iribala/town-builder/internal/routes/auth"
 import "github.com/Iribala/town-builder/internal/routes/batch"
 import "github.com/Iribala/town-builder/internal/routes/buildings"
@@ -15,6 +16,7 @@ import "github.com/Iribala/town-builder/internal/routes/query"
 import "github.com/Iribala/town-builder/internal/routes/scene"
 import "github.com/Iribala/town-builder/internal/routes/snapshots"
 import "github.com/Iribala/town-builder/internal/routes/static" as staticroute
+import "github.com/Iribala/town-builder/internal/routes/terrain" as terrainroute
 import "github.com/Iribala/town-builder/internal/routes/town"
 import "github.com/Iribala/town-builder/internal/routes/towns"
 import "github.com/Iribala/town-builder/internal/routes/ui"
@@ -23,6 +25,7 @@ func NewMux() reference http.ServeMux
     mux := http.NewServeMux()
     health.Register(mux)
     auth.Register(mux)
+    atproto.Register(mux)
     models.Register(mux)
     town.Register(mux)
     towns.Register(mux)
@@ -36,5 +39,6 @@ func NewMux() reference http.ServeMux
     snapshots.Register(mux)
     proxy.Register(mux)
     staticroute.Register(mux)
+    terrainroute.Register(mux)
     ui.Register(mux)
     return mux

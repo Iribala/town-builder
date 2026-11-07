@@ -1,0 +1,41 @@
+petiole atproto
+
+import "net/http"
+import "stdlib/http" as httphelper
+
+import "github.com/Iribala/town-builder/internal/services/atproto" as atproto
+import "github.com/Iribala/town-builder/internal/storage"
+
+func identity(response: httphelper.Response, request: httphelper.Request)
+    handle := request.PathValue("handle")
+    apiBase := request.Raw().URL.Query().Get("api_base")
+    did, err := atproto.ResolveHandle(handle, apiBase)
+    if err isnt empty
+        response.JSONError("Failed to resolve handle: {err}", 404) onerr discard
+        return
+    pds, perr := atproto.ResolvePDS(did)
+    if perr isnt empty
+        pds = ""
+    response.JSON(map of string to any{"did": did, "pds": pds, "handle": handle}) onerr discard
+
+func towns(response: httphelper.Response, request: httphelper.Request)
+    did := request.PathValue("did")
+    ids := storage.TownIDsByOwner(did)
+    towns := empty list of map of string to any
+    for id in ids
+        towns = append(towns, map of string to any{"town_id": id})
+    response.JSON(map of string to any{"did": did, "towns": towns, "count": len(towns)}) onerr discard
+
+func view(response: httphelper.Response, request: httphelper.Request)
+    did := request.PathValue("did")
+    ids := storage.TownIDsByOwner(did)
+    towns := empty list of map of string to any
+    for id in ids
+        towns = append(towns, map of string to any{"town_id": id})
+    response.JSON(map of string to any{"did": did, "towns": towns, "count": len(towns)}) onerr discard
+
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
+func Register(mux: reference http.ServeMux)
+    mux.Handle(`GET /atproto/identity/{handle}`, httphelper.Handler(identity))
+    mux.Handle(`GET /atproto/towns/{did}`, httphelper.Handler(towns))
+    mux.Handle(`GET /atproto/view/{did}`, httphelper.Handler(view))

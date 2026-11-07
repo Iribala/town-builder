@@ -92,11 +92,10 @@ footprints/water/roads backdrop with visible credit; snapshots remain small.
 
 *Depends on Phase 0/1. Ships ownership + gallery read side.*
 
+- [x] Backend: `/atproto/identity/{handle}` (resolveHandle + PDS) and
+      `/atproto/towns/{did}` / `/atproto/view/{did}` (local ownership index).
 - [ ] Frontend: `@atcute/oauth-browser-client` + `@atcute/client` as ESM
-      imports in `static/js/`.
-- [ ] Login flow: "Sign in with Bluesky" → `createAuthorizationUrl` → callback
-      page at static route `/atproto/callback` → `finalizeAuthorization` →
-      session keyed by DID in localStorage.
+      imports and full login/callback flow (client-side work remaining).
 - [ ] After successful `POST /api/town/save` (Django `town_id`), client calls
       `com.atproto.repo.putRecord` collection `org.kibigia.town`, rkey `<townId>`,
       with CAS (`swapRecord: ex.Cid`, tangled pattern) to prevent clobbering.
