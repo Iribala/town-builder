@@ -21,8 +21,8 @@ func getAllCategories(townData: map of string to any) list of string
             keys = append(keys, k)
     return keys
 
-func sortByDistance(items: list of map of string to any)
-    sort.ByKey(items, (it: map of string to any) => cast.ToFloat64Or(it["distance"], 0.0))
+func sortByDistance(items: list of map of string to any) list of map of string to any
+    return items |> sort.ByKey((it: map of string to any) => cast.ToFloat64Or(it["distance"], 0.0))
 
 func cloneWithCat(obj: map of string to any, cat: string) map of string to any
     out := maps.Merge(obj)
@@ -52,7 +52,7 @@ func SpatialQueryRadius(center: map of string to any, radius: float64, category:
                     entry := cloneWithCat(obj, cat)
                     entry["distance"] = distance
                     results = append(results, entry)
-    sortByDistance(results)
+    results = sortByDistance(results)
     if limit > 0 and len(results) > limit
         results = results[:limit]
     log.Info("Radius query: found {len(results)} objects within {radius} units")
@@ -123,7 +123,7 @@ func SpatialQueryNearest(point: map of string to any, category: string, count: i
                     entry := cloneWithCat(obj, cat)
                     entry["distance"] = distance
                     results = append(results, entry)
-    sortByDistance(results)
+    results = sortByDistance(results)
     if count > 0 and len(results) > count
         results = results[:count]
     log.Info("Nearest query: found {len(results)} objects")

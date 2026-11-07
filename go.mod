@@ -12,8 +12,8 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/klauspost/compress v1.20.3
 	github.com/redis/go-redis/v9 v9.7.0
-	kukicha.org/game v0.2.0
-	kukicha.org/kukicha/stdlib v0.86.4
+	kukicha.org/game v0.2.1
+	kukicha.org/stdlib v0.86.7
 )
 
 require (
@@ -24,4 +24,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace kukicha.org/kukicha/stdlib => ./.kukicha/stdlib
+replace kukicha.org/stdlib => ./.kukicha/stdlib
