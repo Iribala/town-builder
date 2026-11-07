@@ -26,6 +26,10 @@ var lock: sync.RWMutex
 # otherwise).
 var townMemory: map of string to map of string to any
 
+# cacheMemory holds arbitrary cached payloads (e.g. terrain tiles) in memory
+# when Redis is unavailable. Keyed by the caller-provided cache key.
+var cacheMemory: map of string to map of string to any
+
 # townOwners holds the in-memory town -> DID ownership index.
 var townOwners: map of string to string
 
@@ -49,6 +53,7 @@ func init()
     townMemory = empty map of string to map of string to any
     townMemory[townKeyPrefix] = defaultTownData()
     townOwners = empty map of string to string
+    cacheMemory = empty map of string to map of string to any
     enc, err := zstd.NewWriter(empty)
     if err equals empty
         encoder = enc
@@ -146,6 +151,7 @@ func ResetMemory()
     townMemory = empty map of string to map of string to any
     townMemory[townKeyPrefix] = defaultTownData()
     townOwners = empty map of string to string
+    cacheMemory = empty map of string to map of string to any
 
 func SetClient(c: optional reference redis.Client)
     client = c
@@ -183,6 +189,40 @@ func GetTownOwner(townID: string) string
     lock.RLock()
     defer lock.RUnlock()
     return townOwners[townID]
+
+# Generic JSON cache (e.g. terrain tiles), keyed by caller-provided string.
+
+func CacheSet(key: string, data: map of string to any) error
+    lock.Lock()
+    if cacheMemory equals empty
+        cacheMemory = empty map of string to map of string to any
+    cacheMemory[key] = deepCopyMap(data)
+    lock.Unlock()
+    if client isnt empty
+        raw, err := json.Bytes(data)
+        if err equals empty
+            h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
+            defer h.Cancel()
+            client.Set(h.Ctx, key, raw, 0)
+    return empty
+
+func CacheGet(key: string) (map of string to any, error)
+    if client isnt empty
+        h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
+        defer h.Cancel()
+        raw, err := client.Get(h.Ctx, key).Bytes()
+        if err equals empty
+            out := empty map of string to any
+            perr := json.ParseBytesInto(raw, reference of out)
+            if perr equals empty
+                return out, empty
+    lock.RLock()
+    defer lock.RUnlock()
+    if v, ok := cacheMemory[key]; ok
+        return deepCopyMap(v), empty
+    return empty map of string to any, error "cache miss"
+
+# TownIDsByOwner implementation follows below.
 
 func TownIDsByOwner(did: string) list of string
     out := empty list of string

@@ -1,0 +1,68 @@
+petiole terrain
+
+import "math"
+import "net/http"
+import "stdlib/cast"
+import "stdlib/ctx"
+import "stdlib/json"
+
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/Iribala/town-builder/internal/utils/security"
+
+const SchemaVersion = 1
+
+const defaultZoom = 14
+
+# TileXY converts latitude/longitude into Web Mercator tile coordinates at the
+# given zoom level. latitude is clamped to the Web Mercator limit.
+func TileXY(lat: float64, lon: float64, z: int) (int, int)
+    if z < 0
+        z = defaultZoom
+    n := math.Pow(2.0, z as float64)
+    xfl := (lon + 180.0) / 360.0 * n
+    latClamped := lat
+    if latClamped > 85.05112878
+        latClamped = 85.05112878
+    if latClamped < -85.05112878
+        latClamped = -85.05112878
+    latRad := latClamped * math.Pi / 180.0
+    yfl := (1.0 - math.Asinh(math.Tan(latRad)) / math.Pi) / 2.0 * n
+    return math.Floor(xfl) as int, math.Floor(yfl) as int
+
+func CacheKey(z: int, x: int, y: int) string
+    return "terrain:" + cast.ToString(z) + "/" + cast.ToString(x) + "/" + cast.ToString(y) + ":v" + cast.ToString(SchemaVersion)
+
+# FetchTile downloads a JSON tile from an allowlisted URL, validates it, and
+# caches the parsed payload under the supplied cache key. The upstream URL must
+# pass security.ValidateApiURL (ALLOWED_API_DOMAINS).
+func FetchTile(tileURL: string, cacheKey: string) (map of string to any, error)
+    if not security.ValidateApiURL(tileURL)
+        return empty, error "disallowed terrain provider"
+    h := ctx.WithTimeout(ctx.Background(), storage.RedisTimeout)
+    defer h.Cancel()
+    req, rerr := http.NewRequest("GET", tileURL, empty)
+    if rerr isnt empty
+        return empty, rerr
+    resp, gerr := http.DefaultClient.Do(req.WithContext(h.Ctx))
+    if gerr isnt empty
+        return empty, gerr
+    defer resp.Body.Close()
+    if resp.StatusCode < 200 or resp.StatusCode >= 300
+        return empty, error "terrain provider returned {resp.StatusCode}"
+    out := empty map of string to any
+    dec := json.NewDecoder(resp.Body)
+    derr := json.Decode(dec, reference of out)
+    if derr isnt empty
+        return empty, derr
+    storage.CacheSet(cacheKey, out) onerr discard
+    return out, empty
+
+func TileMetadata(lat: float64, lon: float64, z: int) map of string to any
+    x, y := TileXY(lat, lon, z)
+    return map of string to any{
+        "z": z,
+        "x": x,
+        "y": y,
+        "cache_key": CacheKey(z, x, y),
+        "schema_version": SchemaVersion,
+    }
