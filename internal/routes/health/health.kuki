@@ -5,10 +5,18 @@ import "stdlib/ctx"
 import "stdlib/http" as httphelper
 import "stdlib/log"
 
+import "github.com/Iribala/town-builder/internal/pubsub"
 import "github.com/Iribala/town-builder/internal/storage"
 
 func livez(response: httphelper.Response, request: httphelper.Request)
-    response.JSON(map of string to any{"status": "ok"}) onerr discard
+    storageBackend := "in-memory"
+    if storage.Client() isnt empty
+        storageBackend = "redis"
+    response.JSON(map of string to any{
+        "status": "ok",
+        "sse_clients": len(pubsub.OnlineUsers()),
+        "storage_backend": storageBackend,
+    }) onerr discard
 
 func readyz(response: httphelper.Response, request: httphelper.Request)
     checks := empty map of string to any

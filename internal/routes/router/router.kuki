@@ -16,6 +16,7 @@ import "github.com/Iribala/town-builder/internal/routes/scene"
 import "github.com/Iribala/town-builder/internal/routes/snapshots"
 import "github.com/Iribala/town-builder/internal/routes/static" as staticroute
 import "github.com/Iribala/town-builder/internal/routes/town"
+import "github.com/Iribala/town-builder/internal/routes/towns"
 import "github.com/Iribala/town-builder/internal/routes/ui"
 
 func NewMux() reference http.ServeMux
@@ -24,6 +25,7 @@ func NewMux() reference http.ServeMux
     auth.Register(mux)
     models.Register(mux)
     town.Register(mux)
+    towns.Register(mux)
     buildings.Register(mux)
     scene.Register(mux)
     events.Register(mux)

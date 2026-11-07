@@ -1,0 +1,30 @@
+petiole towns
+
+import "net/http"
+import "stdlib/http" as httphelper
+
+import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/storage"
+
+func mine(response: httphelper.Response, request: httphelper.Request)
+    u, ok := common.CurrentUser(response, request)
+    if not ok
+        return
+    ids := storage.TownIDsByOwner(u.Did)
+    towns := empty list of map of string to any
+    for id in ids
+        towns = append(towns, map of string to any{"town_id": id})
+    response.JSON(map of string to any{"towns": towns, "count": len(towns)}) onerr discard
+
+func byOwner(response: httphelper.Response, request: httphelper.Request)
+    did := request.PathValue("did")
+    ids := storage.TownIDsByOwner(did)
+    towns := empty list of map of string to any
+    for id in ids
+        towns = append(towns, map of string to any{"town_id": id})
+    response.JSON(map of string to any{"towns": towns, "count": len(towns)}) onerr discard
+
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
+func Register(mux: reference http.ServeMux)
+    mux.Handle(`GET /api/towns/mine`, httphelper.Handler(mine))
+    mux.Handle(`GET /api/towns/by-owner/{did}`, httphelper.Handler(byOwner))

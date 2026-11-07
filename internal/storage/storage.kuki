@@ -183,3 +183,23 @@ func GetTownOwner(townID: string) string
     lock.RLock()
     defer lock.RUnlock()
     return townOwners[townID]
+
+func TownIDsByOwner(did: string) list of string
+    out := empty list of string
+    if client isnt empty
+        h := ctx.WithTimeout(ctx.Background(), RedisTimeout)
+        defer h.Cancel()
+        keys, err := client.Keys(h.Ctx, "town_owner:*").Result()
+        if err equals empty
+            for _, key in keys
+                val, verr := client.Get(h.Ctx, key).Result()
+                if verr equals empty and val equals did
+                    tid := strpkg.TrimPrefix(key, "town_owner:")
+                    out = append(out, tid)
+            return out
+    lock.RLock()
+    defer lock.RUnlock()
+    for tid, owner in townOwners
+        if owner equals did
+            out = append(out, tid)
+    return out
