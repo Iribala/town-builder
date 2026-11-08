@@ -274,14 +274,9 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     if not h.root.Exists(fn)
         response.JSONNotFound("File {fn} not found") onerr discard
         return
-    raw, rerr := h.root.Read(fn)
+    townData, rerr := h.root.ReadJSON of any from fn
     if rerr isnt empty
         response.JSONError("Failed to read file", 500) onerr discard
-        return
-    var townData: any
-    jerr := json.ParseBytesInto(raw, reference of townData)
-    if jerr isnt empty
-        response.JSONError("Failed to parse town data", 500) onerr discard
         return
     canonical := normalization.Normalize(townData)
     town_helpers.SaveAndBroadcast("", canonical, evt.Full(canonical)) onerr discard

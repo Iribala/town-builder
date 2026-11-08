@@ -4,6 +4,7 @@ import "math"
 import "stdlib/cast"
 import "stdlib/log"
 import "stdlib/maps"
+import "stdlib/slice"
 import "stdlib/sort"
 import "stdlib/string" as strpkg
 
@@ -238,10 +239,7 @@ func AdvancedQuery(category: string, filters: list of map of string to any, sort
             )
 
     total := len(results)
-    if offset > 0 and offset < len(results)
-        results = results[offset:]
-    else if offset >= len(results)
-        results = empty list of map of string to any
+    results = slice.Skip(results, offset)
     if limit > 0 and len(results) > limit
         results = results[:limit]
     log.Info("Advanced query: found {total} objects, returning {len(results)}")

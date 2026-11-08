@@ -37,8 +37,7 @@ func newCtx() ctx.Handle
 
 func appendCapped(stack: list of map of string to any, entry: map of string to any, limit: int) list of map of string to any
     stack = append(stack, entry)
-    if len(stack) > limit
-        stack = stack[len(stack) - limit:]
+    stack = slice.Skip(stack, len(stack) - limit)
     return stack
 
 func AddEntry(operation: string, category: string, objectID: string, before: map of string to any, after: map of string to any) (string, error)
@@ -91,10 +90,7 @@ func GetHistory(limit: int) list of map of string to any
         log.Warn("Redis history get failed, using in-memory storage: {err}")
     lock.Lock()
     defer lock.Unlock()
-    start := len(historyStack) - limit
-    if start < 0
-        start = 0
-    return slice.Reverse(historyStack[start:])
+    return slice.Reverse(slice.Skip(historyStack, len(historyStack) - limit))
 
 func CanUndo() bool
     client := storage.Client()
@@ -157,7 +153,7 @@ func PopLastEntry() (map of string to any, bool)
     if historyStack is empty
         return empty, false
     entry := historyStack[len(historyStack) - 1]
-    historyStack = historyStack[:len(historyStack) - 1]
+    historyStack = slice.SkipLast(historyStack, 1)
     return entry, true
 
 func PushRedoEntry(entry: map of string to any)
@@ -196,7 +192,7 @@ func PopRedoEntry() (map of string to any, bool)
     if redoStack is empty
         return empty, false
     entry := redoStack[len(redoStack) - 1]
-    redoStack = redoStack[:len(redoStack) - 1]
+    redoStack = slice.SkipLast(redoStack, 1)
     return entry, true
 
 func ClearHistory()

@@ -78,7 +78,7 @@ func CreateSnapshot(townData: map of string to any, name: string, description: s
             oldest := memSnapshots[0]
             if oldest["id"] is string as oid
                 delete memSnapshotData[oid]
-            memSnapshots = memSnapshots[1:]
+            memSnapshots = slice.Skip(memSnapshots, 1)
         memSnapshots = append(memSnapshots, metadata)
         memSnapshotData[snapshotID] = townData
         log.Info("Created in-memory snapshot: {snapshotID} ({name})")
