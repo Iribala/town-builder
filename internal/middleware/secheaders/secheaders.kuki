@@ -1,0 +1,56 @@
+petiole secheaders
+
+import "net/http"
+import "net/url"
+import "stdlib/env"
+import "stdlib/string" as strpkg
+
+import "github.com/Iribala/town-builder/internal/config"
+
+# Secheaders applies the HTTP security response headers to every response.
+# The Content-Security-Policy is built once at Init from the loaded config:
+# frame-ancestors includes 'self' plus the origin of KIBIGIA_EXCHANGE_URL
+# because the kibigia web app embeds town-builder in an iframe. Falling back
+# to 'self' only when unconfigured is deliberate (fail tight, not open).
+var frameAncestors: string
+
+# FRAME_ANCESTORS env var (comma-separated) overrides the derived value —
+# use it when the kibigia web origin differs from the API/exchange origin.
+func Init()
+    s := config.Current()
+    ancestors := list of string{"'self'"}
+    override := strpkg.TrimSpace(env.GetOr("FRAME_ANCESTORS", ""))
+    if override isnt empty
+        for item in env.SplitAndTrim(override, ",")
+            if item isnt empty and (item not in ancestors)
+                ancestors = append(ancestors, item)
+        frameAncestors = strpkg.Join(ancestors, " ")
+        return
+    if s isnt empty and strpkg.TrimSpace(s.KibigiaExchangeURL) isnt empty
+        parsed, err := url.Parse(s.KibigiaExchangeURL)
+        if err equals empty and parsed.Host isnt empty and (parsed.Scheme equals "https" or parsed.Scheme equals "http")
+            origin := parsed.Scheme + "://" + parsed.Host
+            if origin not in ancestors
+                ancestors = append(ancestors, origin)
+    frameAncestors = strpkg.Join(ancestors, " ")
+
+func contentSecurityPolicy() string
+    # 'wasm-unsafe-eval' is required in script-src for WebAssembly.
+    # 'unsafe-inline' scripts are required by the token/WASM bootstrap block
+    # in index.html. https://esm.sh hosts the pinned @atcute ESM modules used
+    # by the Bluesky sign-in flow; object-src/base-uri/form-action stay locked
+    # down.
+    return "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://esm.sh; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors " + frameAncestors
+
+func Wrap(next: http.Handler) http.Handler
+    if frameAncestors is empty
+        frameAncestors = "'self'"
+    csp := contentSecurityPolicy()
+    return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        h := w.Header()
+        h.Set("Content-Security-Policy", csp)
+        h.Set("X-Content-Type-Options", "nosniff")
+        h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+        h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+        next.ServeHTTP(w, r)
+    )

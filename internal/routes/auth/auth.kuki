@@ -1,9 +1,39 @@
 petiole auth
 
 import "net/http"
+import "stdlib/http" as httphelper
+import "stdlib/string" as strpkg
+
+import "github.com/Iribala/town-builder/internal/routes/common"
 
 # /api/auth: no public endpoints — dev token generation removed per upstream.
 # Tokens are issued by the Django auth service in production; for development
 # set DISABLE_JWT_AUTH=true.
-func Register(_: reference http.ServeMux)
-    return
+#
+# POST /api/auth/sse-cookie re-issues the caller's bearer token as an
+# HttpOnly, SameSite=Strict cookie. EventSource cannot set Authorization
+# headers, so /events authenticates off this cookie — storing it HttpOnly
+# keeps the JWT unreadable from JS (previously it was set via document.cookie).
+func sseCookie(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
+    if not ok
+        return
+    token := common.ExtractToken(request)
+    r := request.Raw()
+    secure := r.TLS isnt empty or strpkg.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
+    w := response.Raw()
+    cookie := reference of http.Cookie{
+        Name: "auth_token",
+        Value: token,
+        Path: "/",
+        HttpOnly: true,
+        SameSite: http.SameSiteStrictMode,
+        Secure: secure,
+    }
+
+    http.SetCookie(w, cookie)
+    response.JSON(map of string to any{"status": "ok"}) onerr discard
+
+# kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
+func Register(mux: reference http.ServeMux)
+    mux.Handle("POST /api/auth/sse-cookie", httphelper.Handler(sseCookie))

@@ -1,0 +1,52 @@
+petiole ratelimit_test
+
+import "io"
+import "net/http"
+import "net/http/httptest"
+import "stdlib/test"
+import "testing"
+
+import "github.com/Iribala/town-builder/internal/middleware/ratelimit"
+
+func ok204(w: http.ResponseWriter, r: reference http.Request)
+    w.WriteHeader(204)
+
+# Each test uses a distinct RemoteAddr so buckets never collide across tests.
+func request(mux: http.Handler, method: string, path: string, remoteAddr: string) (int, http.Header)
+    req := httptest.NewRequest(method, path, empty)
+    req.RemoteAddr = remoteAddr
+    rec := httptest.NewRecorder()
+    mux.ServeHTTP(rec, req)
+    resp := rec.Result()
+    body := io.ReadAll(resp.Body) onerr empty
+    _ = body
+    return resp.StatusCode, resp.Header
+
+func TestDefaultTierLimitsAt600(t: reference testing.T)
+    mux := ratelimit.Wrap(http.HandlerFunc(ok204))
+    for i from 0 to 600
+        code, _ := request(mux, "GET", "/api/town", "10.1.0.1:1234")
+        test.AssertEqual(t, code, 204)
+    code, header := request(mux, "GET", "/api/town", "10.1.0.1:1234")
+    test.AssertEqual(t, code, 429)
+    test.AssertEqual(t, header.Get("Retry-After"), "60")
+
+func TestExpensiveTierLimitsAt60(t: reference testing.T)
+    mux := ratelimit.Wrap(http.HandlerFunc(ok204))
+    for i from 0 to 60
+        code, _ := request(mux, "POST", "/api/town/save", "10.1.0.2:1234")
+        test.AssertEqual(t, code, 204)
+    code, _ := request(mux, "POST", "/api/town/save", "10.1.0.2:1234")
+    test.AssertEqual(t, code, 429)
+
+func TestExpensiveTierDoesNotCountReads(t: reference testing.T)
+    mux := ratelimit.Wrap(http.HandlerFunc(ok204))
+    for i from 0 to 61
+        code, _ := request(mux, "GET", "/api/town/save", "10.1.0.3:1234") # GET → default tier
+        test.AssertEqual(t, code, 204)
+
+func TestEventsExempt(t: reference testing.T)
+    mux := ratelimit.Wrap(http.HandlerFunc(ok204))
+    for i from 0 to 700
+        code, _ := request(mux, "GET", "/events", "10.1.0.4:1234")
+        test.AssertEqual(t, code, 204)

@@ -57,12 +57,12 @@ if [ -f .env ]; then
     echo "✓ .env file exists"
 
     # Check critical settings
-    if grep -q "JWT_SECRET_KEY=your_secure_random_string_here" .env 2>/dev/null; then
-        echo "⚠️  WARNING: JWT_SECRET_KEY is still set to default!"
+    if grep -q "^JWT_SECRET_KEY=$" .env 2>/dev/null; then
+        echo "⚠️  WARNING: JWT_SECRET_KEY is empty — the server will refuse to boot with auth enabled!"
         echo "   Generate a secure key: openssl rand -hex 32"
     fi
 
-    if grep -q "DISABLE_JWT_AUTH=true" .env 2>/dev/null; then
+    if grep -q "^DISABLE_JWT_AUTH=true$" .env 2>/dev/null; then
         echo "⚠️  JWT authentication is disabled (development mode)"
     fi
 else

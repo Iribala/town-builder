@@ -6,6 +6,7 @@ import "stdlib/log"
 
 import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
+import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/snapshots" as snapsvc
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
@@ -67,11 +68,12 @@ func restore(response: httphelper.Response, request: httphelper.Request)
     if not dok
         response.JSONNotFound("Snapshot not found") onerr discard
         return
-    err := storage.Set("", data)
+    normalized := normalization.Normalize(data)
+    err := storage.Set("", normalized)
     if err isnt empty
         response.JSONError("Failed to restore", 500) onerr discard
         return
-    town_helpers.BroadcastSSE(evt.Full(data))
+    town_helpers.BroadcastSSE(evt.Full(normalized))
     meta, _ := snapsvc.GetSnapshotMetadata(id)
     log.Info("Restored snapshot: {id}")
     name := ""

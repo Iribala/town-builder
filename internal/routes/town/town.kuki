@@ -13,11 +13,40 @@ import "github.com/Iribala/town-builder/internal/events" as evt
 import "github.com/Iribala/town-builder/internal/mapx"
 import "github.com/Iribala/town-builder/internal/normalization"
 import "github.com/Iribala/town-builder/internal/routes/common"
+import "github.com/Iribala/town-builder/internal/services/auth"
 import "github.com/Iribala/town-builder/internal/services/django_client"
 import "github.com/Iribala/town-builder/internal/services/town_helpers"
 import "github.com/Iribala/town-builder/internal/storage"
 import "github.com/Iribala/town-builder/internal/utils/geometry"
 import "github.com/Iribala/town-builder/internal/utils/security"
+
+# authorizeDjangoTown enforces ownership for Django-scoped operations (save to
+# a specific town_id, load a town from Django). The shared global town ("") is
+# collaborative and always allowed — it has no per-user owner. A Django town
+# with no recorded owner is treated as unowned: the first authenticated caller
+# carrying a DID may claim it on a successful modify. Once an owner exists,
+# only that DID may modify (or view, for load-from-django) the town.
+func authorizeDjangoTown(u: reference auth.UserInfo, townID: int) bool
+    if townID <= 0
+        return false
+    idStr := cast.ToString(townID)
+    owner := storage.GetTownOwner(idStr)
+    if (u is empty) or (u.Did is empty)
+        if owner is empty
+            # Degraded dev mode: token without a DID claim, unowned town.
+            return true
+        return false
+    if owner is empty
+        return true
+    return owner equals u.Did
+
+# claimTownIfUnowned records u.Did as the owner of a town that has no owner
+# yet. Called after a successful Django write (PATCH or CREATE).
+func claimTownIfUnowned(u: reference auth.UserInfo, townIDStr: string)
+    if (townIDStr is empty) or (u is empty) or (u.Did is empty)
+        return
+    if storage.GetTownOwner(townIDStr) is empty
+        storage.SetTownOwner(townIDStr, u.Did) onerr discard
 
 func getTown(response: httphelper.Response, request: httphelper.Request)
     _, ok := common.CurrentUser(response, request)
@@ -151,6 +180,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
     fullEvent["actor"] = u.Username
     fullEvent["did"] = u.Did
     djangoMsg := ""
+    djangoWriteOK := false
     var townID: any = empty
     if v, vok := payload["town_id"]; vok and not cast.IsNil(v)
         townID = v
@@ -158,11 +188,18 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
         idInt := 0
         if townID is float64 as f
             idInt = f as int
+        if idInt <= 0
+            response.JSONBadRequest("Invalid town_id") onerr discard
+            return
+        if not authorizeDjangoTown(u, idInt)
+            response.JSONError("Not authorized to modify this town", 403) onerr discard
+            return
         _, derr := django_client.UpdateTown(idInt, payload, canonical, townName)
         if derr isnt empty
             log.Error("Error updating town in Django: {derr}")
             djangoMsg = " Warning: failed to sync to Django backend: {derr}"
         else
+            djangoWriteOK = true
             djangoMsg = " Town updated in Django backend (ID: {idInt})."
     else
         searchName := townName
@@ -174,11 +211,15 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
         if searchName isnt empty
             existingID, found, serr := django_client.SearchTownByName(searchName)
             if serr equals empty and found
+                if not authorizeDjangoTown(u, existingID)
+                    response.JSONError("Not authorized to modify this town", 403) onerr discard
+                    return
                 _, uerr := django_client.UpdateTown(existingID, payload, canonical, townName)
                 if uerr isnt empty
                     djangoMsg = " Warning: failed to sync to Django backend: {uerr}"
                 else
                     townID = existingID
+                    djangoWriteOK = true
                     djangoMsg = " Town updated in Django backend (ID: {existingID})."
             else
                 result, cerr := django_client.CreateTown(payload, canonical, townName)
@@ -187,6 +228,7 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
                 else
                     if v, vok := result["town_id"]; vok
                         townID = v
+                    djangoWriteOK = true
                     djangoMsg = " Town created in Django backend."
         else
             result, cerr := django_client.CreateTown(payload, canonical, townName)
@@ -195,16 +237,16 @@ func saveTown on h: townRouter(response: httphelper.Response, request: httphelpe
             else
                 if v, vok := result["town_id"]; vok
                     townID = v
+                djangoWriteOK = true
                 djangoMsg = " Town created in Django backend."
     townIDStr := ""
     if not cast.IsNil(townID)
         townIDStr = cast.ToString(townID)
     storage.Set(townIDStr, canonical) onerr discard
-    ownerDid := mapx.Str(payload, "owner_did")
-    if ownerDid is empty
-        ownerDid = mapx.Str(payload, "ownerDid")
-    if ownerDid isnt empty and townIDStr isnt empty
-        storage.SetTownOwner(townIDStr, ownerDid) onerr discard
+    # Ownership is derived from the verified JWT, never from the request body.
+    # Only a successful Django write can claim the town.
+    if djangoWriteOK
+        claimTownIfUnowned(u, townIDStr)
     town_helpers.BroadcastSSE(fullEvent)
     response.JSON(map of string to any{
         "status": "success",
@@ -251,13 +293,16 @@ func loadTown on h: townRouter(response: httphelper.Response, request: httphelpe
     }) onerr discard
 
 func loadFromDjango(response: httphelper.Response, request: httphelper.Request)
-    _, ok := common.CurrentUser(response, request)
+    u, ok := common.CurrentUser(response, request)
     if not ok
         return
     idStr := request.PathValue("id")
     idInt, perr := cast.ToInt(idStr)
     if perr isnt empty
         response.JSONBadRequest("Invalid town id") onerr discard
+        return
+    if not authorizeDjangoTown(u, idInt)
+        response.JSONError("Not authorized to access this town", 403) onerr discard
         return
     townData, derr := django_client.GetTownByID(idInt)
     if derr isnt empty
@@ -434,7 +479,7 @@ func Register(mux: reference http.ServeMux)
     mux.Handle("POST /api/town", httphelper.Handler(updateTown))
     mux.Handle("POST /api/town/save", httphelper.Handler(h.saveTown))
     mux.Handle("POST /api/town/load", httphelper.Handler(h.loadTown))
-    mux.Handle(`GET /api/town/load-from-django/{id}`, httphelper.Handler(loadFromDjango))
+    mux.Handle(`POST /api/town/load-from-django/{id}`, httphelper.Handler(loadFromDjango))
     mux.Handle("DELETE /api/town/model", httphelper.Handler(deleteModel))
     mux.Handle("PUT /api/town/model", httphelper.Handler(editModel))
     mux.Handle("GET /api/config", httphelper.Handler(getConfig))

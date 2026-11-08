@@ -12,6 +12,16 @@ if [ ! -f .env ]; then
     echo "⚠️  Warning: .env file not found!"
     echo "Creating .env from .env.example..."
     cp .env.example .env
+    # The template ships secure-by-default: JWT auth enabled with an empty
+    # key. Generate a throwaway development key so the server boots locally.
+    if grep -q '^JWT_SECRET_KEY=$' .env && command -v openssl &> /dev/null; then
+        DEV_KEY=$(openssl rand -hex 32)
+        perl -0pi -e "s/^JWT_SECRET_KEY=$/JWT_SECRET_KEY=${DEV_KEY}/m" .env
+        echo "✓ Generated a development JWT_SECRET_KEY"
+    else
+        perl -0pi -e 's/^DISABLE_JWT_AUTH=false$/DISABLE_JWT_AUTH=true/m' .env
+        echo "⚠️  openssl not found; set DISABLE_JWT_AUTH=true for local dev"
+    fi
     echo "✓ Created .env file. Please review and update it with your configuration."
     echo ""
 fi

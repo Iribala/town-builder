@@ -28,17 +28,20 @@ spec:
             name: town-builder-secrets
         - configMapRef:
             name: town-builder-config
+        # Probes are TCP-socket probes, not HTTP: the app rejects requests
+        # whose Host header isn't in ALLOWED_HOSTS (see config.kuki), and
+        # kubelet's default Host is the (dynamic) pod IP — HTTP probes would
+        # 400 and the pod would restart-loop. A TCP probe proves the listener
+        # is accepting connections, which is all liveness needs here.
         readinessProbe:
-          httpGet:
-            path: /readyz # Readiness endpoint (internal/routes/health)
+          tcpSocket:
             port: http
           initialDelaySeconds: 10 # Time before first probe
           periodSeconds: 15 # How often to probe
           timeoutSeconds: 5
           failureThreshold: 3
         livenessProbe:
-          httpGet:
-            path: /healthz # Liveness endpoint (internal/routes/health)
+          tcpSocket:
             port: http
           initialDelaySeconds: 20 # Time before first probe
           periodSeconds: 20 # How often to probe

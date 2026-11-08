@@ -72,6 +72,8 @@ func index(response: httphelper.Response, request: httphelper.Request)
     }
     w := response.Raw()
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
+    # The page embeds the caller's JWT (window.__TOKEN); never let it be cached.
+    w.Header().Set("Cache-Control", "no-store")
     if err := indexTmpl.Execute(w, data); err isnt empty
         log.Error("Failed to render index: {err}")
 

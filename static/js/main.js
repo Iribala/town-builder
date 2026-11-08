@@ -12,8 +12,7 @@ import {
     setMyName,
     getCurrentTownId,
     setBasePath,
-    setToken,
-    getToken
+    setToken
 } from './state/app-state.js';
 import { isMobile } from './utils/device-detect.js';
 import mobileUI from './mobile/mobile-ui.js';
@@ -79,13 +78,6 @@ if (window.__BASE_PATH) setBasePath(window.__BASE_PATH);
 if (window.__TOKEN) setToken(window.__TOKEN);
 // Handle an ATProto OAuth callback if present.
 handleAtprotoCallback().catch(() => {});
-// Mirror the token into the auth_token cookie so EventSource (which cannot set
-// headers) authenticates against /events even before setupSSE runs.
-const bootstrapToken = getToken();
-if (bootstrapToken) {
-    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-    document.cookie = `auth_token=${encodeURIComponent(bootstrapToken)}; path=/; SameSite=Strict${secure}`;
-}
 
 
 async function init() {

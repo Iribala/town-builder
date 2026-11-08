@@ -124,6 +124,12 @@ func Load() (reference Settings, error)
     if not s.DisableJwtAuth and (s.JwtSecretKey is empty)
         return empty, error "JWT_SECRET_KEY environment variable must be set when JWT authentication is enabled. Set JWT_SECRET_KEY to a secure random string or set DISABLE_JWT_AUTH=true for development."
 
+    # Fail closed in production: an unset ALLOWED_HOSTS silently falls back to
+    # localhost and TrustedHosts 400s every public request (and the kubelet
+    # probes). Refuse to boot instead of discovering this in the ingress.
+    if strpkg.EqualFold(s.Environment, "production") and (env.GetOr("ALLOWED_HOSTS", "") is empty)
+        return empty, error "ALLOWED_HOSTS must be set in production (comma-separated public hostnames). Example: ALLOWED_HOSTS=town.example.com. Without it, every request — including health probes — is rejected."
+
     current = s
     return s, empty
 

@@ -34,6 +34,19 @@ data:
   # Environment setting
   ENVIRONMENT: "production"
 
+  # Host allowlist - REQUIRED in production!
+  # The server refuses to boot without it, and rejects requests whose Host
+  # header doesn't match. Set to the public hostname served by the ingress.
+  # Health probes are deliberately TCP-socket probes (see 03-deployment.yaml):
+  # kubelet cannot send a stable Host header, so HTTP probes would be rejected
+  # unless the pod IP were listed here.
+  ALLOWED_HOSTS: "town.kibigia.org,localhost,127.0.0.1"
+
+  # CSP frame-ancestors — who may embed this app in an iframe.
+  # Defaults to 'self' + the origin of KIBIGIA_EXCHANGE_URL. Override when the
+  # kibigia web origin differs from the exchange API origin:
+  # FRAME_ANCESTORS: "https://kibigia.org"
+
   # JWT Configuration (optional - configure in Secret instead if preferred)
   JWT_ALGORITHM: "HS256"
   # DISABLE_JWT_AUTH: "false"  # Uncomment only if using authentication proxy

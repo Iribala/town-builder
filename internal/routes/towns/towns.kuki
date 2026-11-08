@@ -17,7 +17,14 @@ func mine(response: httphelper.Response, request: httphelper.Request)
     response.JSON(map of string to any{"towns": towns, "count": len(towns)}) onerr discard
 
 func byOwner(response: httphelper.Response, request: httphelper.Request)
+    u, ok := common.CurrentUser(response, request)
+    if not ok
+        return
     did := request.PathValue("did")
+    # Only the owner (or a dev token without a DID claim) may enumerate their towns.
+    if u.Did isnt empty and u.Did isnt did
+        response.JSONError("Not authorized to list this DID's towns", 403) onerr discard
+        return
     ids := storage.TownIDsByOwner(did)
     towns := empty list of map of string to any
     for id in ids

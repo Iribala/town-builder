@@ -1,0 +1,175 @@
+petiole town_test
+
+import "bytes"
+import "io"
+import "net/http"
+import "net/http/httptest"
+import "stdlib/json"
+import "stdlib/test"
+import "testing"
+import "time"
+
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/routes/router"
+import "github.com/Iribala/town-builder/internal/storage"
+import "github.com/golang-jwt/jwt/v5" as jwtpkg
+
+const ownerSecret = "test-secret-key-at-least-32-bytes-long!"
+
+func setupOwned(djangoURL: string)
+    s := reference of config.Settings{
+        ApiURL: djangoURL,
+        ApiToken: "test-token",
+        DisableJwtAuth: false,
+        JwtSecretKey: ownerSecret,
+        JwtAlgorithm: "HS256",
+        Environment: "development",
+        AllowedDomains: "localhost,127.0.0.1",
+        AllowedApiDomains: list of string{"localhost", "127.0.0.1"},
+        DataPath: "./data",
+        StaticPath: "./static",
+        TemplatesPath: "./templates",
+        ModelsPath: "./static/models",
+        MaxRequestBodyBytes: 10 * 1024 * 1024,
+        MaxSseConnectionsPerUser: 3,
+    }
+
+    config.SetForTest(s)
+    storage.SetClient(empty)
+    storage.ResetMemory()
+
+func tokenFor(sub: string, did: string) string
+    claims := jwtpkg.MapClaims{
+        "sub": sub,
+        "username": sub,
+        "did": did,
+        "exp": time.Now().Add(8 * time.Hour).Unix(),
+        "iat": time.Now().Unix(),
+    }
+    tok := jwtpkg.NewWithClaims(jwtpkg.SigningMethodHS256, claims)
+    signed, err := tok.SignedString(ownerSecret as list of byte)
+    if err isnt empty
+        return ""
+    return signed
+
+func ownershipRequest(method: string, path: string, body: map of string to any, token: string) (int, map of string to any)
+    var reader: io.Reader
+    if body isnt empty
+        data, err := json.Bytes(body)
+        if err isnt empty
+            return 0, empty
+        reader = bytes.NewReader(data)
+    mux := router.NewMux()
+    req := httptest.NewRequest(method, path, reader)
+    if token isnt empty
+        req.Header.Set("Authorization", "Bearer " + token)
+    req.Header.Set("Content-Type", "application/json")
+    rec := httptest.NewRecorder()
+    mux.ServeHTTP(rec, req)
+    resp := rec.Result()
+    raw := io.ReadAll(resp.Body) onerr empty
+    out := empty map of string to any
+    if raw isnt empty
+        json.ParseBytesInto(raw, reference of out) onerr discard
+    return resp.StatusCode, out
+
+func TestFirstSuccessfulModifyClaimsOwnership(t: reference testing.T)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setupOwned(srv.URL + "/")
+    alice := tokenFor("alice", "did:plc:alice")
+
+    status, _ := ownershipRequest("POST", "/api/town/save", map of string to any{
+        "data": sampleLayout,
+        "town_id": 42.0,
+    }, alice
+    )
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, storage.GetTownOwner("42"), "did:plc:alice")
+
+func TestFailedDjangoSyncDoesNotClaimOwnership(t: reference testing.T)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(500)
+        w.Write(`{"error": "boom"}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setupOwned(srv.URL + "/")
+    alice := tokenFor("alice", "did:plc:alice")
+
+    status, _ := ownershipRequest("POST", "/api/town/save", map of string to any{
+        "data": sampleLayout,
+        "town_id": 42.0,
+    }, alice
+    )
+    test.AssertEqual(t, status, 200) # save succeeds locally, sync warns
+    test.AssertEqual(t, storage.GetTownOwner("42"), "")
+
+func TestNonOwnerCannotOverwriteDjangoTown(t: reference testing.T)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setupOwned(srv.URL + "/")
+    alice := tokenFor("alice", "did:plc:alice")
+    bob := tokenFor("bob", "did:plc:bob")
+
+    status, _ := ownershipRequest("POST", "/api/town/save", map of string to any{
+        "data": sampleLayout,
+        "town_id": 42.0,
+    }, alice
+    )
+    test.AssertEqual(t, status, 200)
+
+    status, _ = ownershipRequest("POST", "/api/town/save", map of string to any{
+        "data": sampleLayout,
+        "town_id": 42.0,
+    }, bob
+    )
+    test.AssertEqual(t, status, 403)
+
+func TestLoadFromDjangoRequiresOwnershipAndPost(t: reference testing.T)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(200)
+        data := json.Bytes(kibigiaTownResponse) onerr empty
+        w.Write(data) onerr discard
+    )
+
+    defer srv.Close()
+    setupOwned(srv.URL + "/")
+    storage.SetTownOwner("42", "did:plc:alice") onerr discard
+    alice := tokenFor("alice", "did:plc:alice")
+    bob := tokenFor("bob", "did:plc:bob")
+
+    status, _ := ownershipRequest("GET", "/api/town/load-from-django/42", empty, alice)
+    test.AssertEqual(t, status, 405) # GET no longer mutates state
+    status, _ = ownershipRequest("POST", "/api/town/load-from-django/42", empty, bob)
+    test.AssertEqual(t, status, 403)
+    status, _ = ownershipRequest("POST", "/api/town/load-from-django/42", empty, alice)
+    test.AssertEqual(t, status, 200)
+
+func TestClientOwnerDidIsIgnored(t: reference testing.T)
+    srv := httptest.NewServer(func(w: http.ResponseWriter, r: reference http.Request)
+        w.WriteHeader(200)
+        w.Write(`{"id": 42}` as list of byte) onerr discard
+    )
+
+    defer srv.Close()
+    setupOwned(srv.URL + "/")
+    bob := tokenFor("bob", "did:plc:bob")
+
+    # Bob tries to attribute the town he just wrote to Alice's DID.
+    status, _ := ownershipRequest("POST", "/api/town/save", map of string to any{
+        "data": sampleLayout,
+        "town_id": 42.0,
+        "owner_did": "did:plc:alice",
+    }, bob
+    )
+    test.AssertEqual(t, status, 200)
+    test.AssertEqual(t, storage.GetTownOwner("42"), "did:plc:bob")

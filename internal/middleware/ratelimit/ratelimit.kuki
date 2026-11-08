@@ -1,0 +1,93 @@
+petiole ratelimit
+
+import "fmt"
+import "hash/fnv"
+import "net/http"
+import "stdlib/string" as strpkg
+import "sync"
+import "time"
+
+# Ratelimit is a small fixed-window, per-identity rate limiter. Identity is
+# the bearer token when present (hashed, not stored raw) and falls back to the
+# remote address otherwise, so it works behind proxies that do not preserve
+# the client IP — a spoofed X-Forwarded-For is never trusted.
+#
+# Tiers (per rolling 60s window):
+#   - /events and long-lived SSE paths: exempt
+#   - state-changing/Django-write endpoints: 60 req/min
+#   - everything else (including cursor broadcasts): 600 req/min
+const windowSec: int64 = 60
+
+const expensiveLimit = 60
+
+const defaultLimit = 600
+
+var lock: sync.Mutex
+
+var buckets: map of string to list of int64
+
+func init()
+    buckets = empty map of string to list of int64
+
+func limitFor(r: reference http.Request) int
+    p := r.URL.Path
+    if p equals "/events"
+        return -1
+    if r.Method equals "POST" or r.Method equals "PUT" or r.Method equals "PATCH" or r.Method equals "DELETE"
+        if p equals "/api/town/save" or p equals "/api/town/load" or p equals "/api/batch/operations"
+            return expensiveLimit
+        if strpkg.HasPrefix(p, "/api/town/load-from-django/")
+            return expensiveLimit
+        if strpkg.HasPrefix(p, "/api/snapshots") or strpkg.HasPrefix(p, "/api/history")
+            return expensiveLimit
+    return defaultLimit
+
+func identityKey(r: reference http.Request) string
+    token := strpkg.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+    if token isnt empty
+        f := fnv.New64a()
+        f.Write(token as list of byte) onerr discard
+        return fmt.Sprintf("tok:%x", f.Sum64())
+    return "ip:" + r.RemoteAddr
+
+func allow(key: string, limit: int) bool
+    lock.Lock()
+    defer lock.Unlock()
+    now := time.Now().Unix()
+    entry, ok := buckets[key]
+    if not ok
+        buckets[key] = list of int64{now, 1}
+        return true
+    start := entry[0]
+    count := entry[1]
+    if now - start >= windowSec
+        buckets[key] = list of int64{now, 1}
+        return true
+    if count >= limit as int64
+        return false
+    buckets[key] = list of int64{start, count + 1}
+    # Bound memory: drop windows idle for 10+ minutes once the map grows.
+    if len(buckets) > 10000
+        stale := empty list of string
+        for k, v in buckets
+            if now - v[0] >= 10 * windowSec
+                stale = append(stale, k)
+        for k in stale
+            delete buckets[k]
+    return true
+
+func Wrap(next: http.Handler) http.Handler
+    return http.HandlerFunc(func(w: http.ResponseWriter, r: reference http.Request)
+        limit := limitFor(r)
+        if limit < 0
+            next.ServeHTTP(w, r)
+            return
+        key := identityKey(r)
+        if not allow("{key}:{limit}", limit)
+            w.Header().Set("Retry-After", "60")
+            w.Header().Set("Content-Type", "application/json")
+            w.WriteHeader(429)
+            w.Write(`{"error":"rate limit exceeded"}` as list of byte) onerr discard
+            return
+        next.ServeHTTP(w, r)
+    )

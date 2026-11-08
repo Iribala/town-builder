@@ -136,3 +136,36 @@ func TestBatchUnknownOpFails(t: reference testing.T)
     }
     _, _, failed := batch.ExecuteOperations(ops, true)
     test.AssertEqual(t, failed, 1)
+
+func TestBatchCreateRejectsArbitraryCategoryKey(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op": "create",
+            "category": "townName",
+            "data": map of string to any{"model": "house.glb"},
+        },
+    }
+    # attempt to poison a top-level scalar
+
+    results, ok, failed := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, ok, 0)
+    test.AssertEqual(t, failed, 1)
+    if results[0]["success"] is bool as success
+        test.AssertFalse(t, success)
+    data := storage.Get("") onerr empty
+    _, vok := data["townName"]
+    test.AssertFalse(t, vok)
+
+func TestBatchCreateRejectsProtoCategory(t: reference testing.T)
+    setupBatch()
+    ops := list of map of string to any{
+        map of string to any{
+            "op": "create",
+            "category": "__proto__",
+            "data": map of string to any{"model": "house.glb"},
+        },
+    }
+    _, ok, failed := batch.ExecuteOperations(ops, true)
+    test.AssertEqual(t, ok, 0)
+    test.AssertEqual(t, failed, 1)

@@ -387,7 +387,7 @@ data/
 - `POST /api/town` - Update town data (name/driver/full)
 - `POST /api/town/save` - Save town data (local + optional Django)
 - `POST /api/town/load` - Load latest town data (local)
-- `GET /api/town/load-from-django/{town_id}` - Load town from Django
+- `POST /api/town/load-from-django/{town_id}` - Load town from Django (POST: replaces global town state)
 - `DELETE /api/town/model` - Delete a model by category/id
 - `PUT /api/town/model` - Edit a model by category/id
 - `GET /api/config` - Client configuration
@@ -515,7 +515,7 @@ See `.env.example` for complete list. Key variables:
 
 ## Security
 
-See `docs/SECURITY_FIXES.md` for detailed security information.
+See `docs/SECURITY_REVIEW.md` for the security review and remediation status.
 
 Key protections:
 - Path traversal prevention for file operations

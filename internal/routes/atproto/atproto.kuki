@@ -11,28 +11,26 @@ func identity(response: httphelper.Response, request: httphelper.Request)
     apiBase := request.Raw().URL.Query().Get("api_base")
     did, err := atproto.ResolveHandle(handle, apiBase)
     if err isnt empty
-        response.JSONError("Failed to resolve handle: {err}", 404) onerr discard
+        response.JSONError("Failed to resolve handle", 404) onerr discard
         return
     pds, perr := atproto.ResolvePDS(did)
     if perr isnt empty
         pds = ""
     response.JSON(map of string to any{"did": did, "pds": pds, "handle": handle}) onerr discard
 
+# towns is anonymous to support the landing-page preview, so it discloses only
+# how many towns a DID owns — never the town IDs (the DID → town mapping is
+# private). Town IDs are available to the owner at /api/towns/mine.
 func towns(response: httphelper.Response, request: httphelper.Request)
     did := request.PathValue("did")
     ids := storage.TownIDsByOwner(did)
-    towns := empty list of map of string to any
-    for id in ids
-        towns = append(towns, map of string to any{"town_id": id})
-    response.JSON(map of string to any{"did": did, "towns": towns, "count": len(towns)}) onerr discard
+    response.JSON(map of string to any{"did": did, "count": len(ids)}) onerr discard
 
+# view mirrors towns (kept for backwards compatibility): count only.
 func view(response: httphelper.Response, request: httphelper.Request)
     did := request.PathValue("did")
     ids := storage.TownIDsByOwner(did)
-    towns := empty list of map of string to any
-    for id in ids
-        towns = append(towns, map of string to any{"town_id": id})
-    response.JSON(map of string to any{"did": did, "towns": towns, "count": len(towns)}) onerr discard
+    response.JSON(map of string to any{"did": did, "count": len(ids)}) onerr discard
 
 # kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)

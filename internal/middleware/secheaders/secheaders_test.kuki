@@ -1,0 +1,67 @@
+petiole secheaders_test
+
+import "io"
+import "net/http"
+import "net/http/httptest"
+import "stdlib/string" as strpkg
+import "stdlib/test"
+import "testing"
+
+import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/middleware/secheaders"
+
+func ok204(w: http.ResponseWriter, r: reference http.Request)
+    w.WriteHeader(204)
+
+func get(mux: http.Handler) http.Header
+    req := httptest.NewRequest("GET", "/", empty)
+    rec := httptest.NewRecorder()
+    mux.ServeHTTP(rec, req)
+    resp := rec.Result()
+    body := io.ReadAll(resp.Body) onerr empty
+    _ = body
+    return resp.Header
+
+func TestSecurityHeadersPresent(t: reference testing.T)
+    s := reference of config.Settings{
+        Environment: "production",
+        KibigiaExchangeURL: "https://kibigia.internal/issues/town-builder/exchange/",
+    }
+
+    config.SetForTest(s)
+    secheaders.Init()
+    headers := get(secheaders.Wrap(http.HandlerFunc(ok204)))
+    csp := headers.Get("Content-Security-Policy")
+    test.AssertTrue(t, strpkg.Contains(csp, "default-src 'self'"))
+    test.AssertTrue(t, strpkg.Contains(csp, "object-src 'none'"))
+    test.AssertTrue(t, strpkg.Contains(csp, "wasm-unsafe-eval"))
+    test.AssertTrue(t, strpkg.Contains(csp, "frame-ancestors 'self' https://kibigia.internal"))
+    test.AssertEqual(t, headers.Get("X-Content-Type-Options"), "nosniff")
+    test.AssertEqual(t, headers.Get("Referrer-Policy"), "strict-origin-when-cross-origin")
+    test.AssertTrue(t, strpkg.Contains(headers.Get("Strict-Transport-Security"), "max-age="))
+
+func TestFrameAncestorsDefaultsToSelf(t: reference testing.T)
+    s := reference of config.Settings{Environment: "development"}
+    config.SetForTest(s)
+    secheaders.Init()
+    headers := get(secheaders.Wrap(http.HandlerFunc(ok204)))
+    test.AssertTrue(
+        t,
+        strpkg.Contains(headers.Get("Content-Security-Policy"), "frame-ancestors 'self'"),
+    )
+    test.AssertFalse(
+        t,
+        strpkg.Contains(headers.Get("Content-Security-Policy"), "frame-ancestors 'self' https:"),
+    )
+
+func TestFrameAncestorsEnvOverride(t: reference testing.T)
+    t.Setenv("FRAME_ANCESTORS", "https://kibigia.org, https://app.kibigia.org")
+    s := reference of config.Settings{Environment: "production"}
+    config.SetForTest(s)
+    secheaders.Init()
+    headers := get(secheaders.Wrap(http.HandlerFunc(ok204)))
+    csp := headers.Get("Content-Security-Policy")
+    test.AssertTrue(
+        t,
+        strpkg.Contains(csp, "frame-ancestors 'self' https://kibigia.org https://app.kibigia.org"),
+    )

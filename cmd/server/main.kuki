@@ -6,11 +6,14 @@ import "stdlib/errors" as errs
 import "stdlib/http" as httppkg
 import "stdlib/log"
 import "stdlib/profile"
+import "time"
 
 import "github.com/Iribala/town-builder/internal/config"
 import "github.com/Iribala/town-builder/internal/middleware/bodylimit"
 import "github.com/Iribala/town-builder/internal/middleware/cors"
+import "github.com/Iribala/town-builder/internal/middleware/ratelimit"
 import "github.com/Iribala/town-builder/internal/middleware/requestid"
+import "github.com/Iribala/town-builder/internal/middleware/secheaders"
 import "github.com/Iribala/town-builder/internal/routes/router"
 import "github.com/Iribala/town-builder/internal/storage"
 
@@ -27,14 +30,30 @@ func main()
     defer storage.Close()
 
     cors.Init()
+    secheaders.Init()
 
     mux := router.NewMux()
-    handler := httppkg.TrustedHosts(requestid.Wrap(bodylimit.Wrap(cors.Wrap(mux))), many s.AllowedHosts)
+    handler := httppkg.TrustedHosts(
+        requestid.Wrap(bodylimit.Wrap(cors.Wrap(secheaders.Wrap(ratelimit.Wrap(mux))))),
+        many s.AllowedHosts,
+    )
 
     addr := ":5001"
     log.Info("Listening on {addr}")
+    # Explicit server with timeouts (Slowloris mitigation). WriteTimeout stays
+    # 0 on purpose: /events is a long-lived SSE stream and a per-response
+    # write deadline would sever it. Slowloris is bound by ReadHeaderTimeout.
+    srv := reference of http.Server{
+        Addr: addr,
+        Handler: handler,
+        ReadHeaderTimeout: 10 * time.Second,
+        ReadTimeout: 60 * time.Second,
+        WriteTimeout: 0,
+        IdleTimeout: 120 * time.Second,
+    }
+
     serve := func() error
-        lerr := http.ListenAndServe(addr, handler)
+        lerr := srv.ListenAndServe()
         if lerr isnt empty
             return errs.Wrap(lerr, "server error")
         return empty

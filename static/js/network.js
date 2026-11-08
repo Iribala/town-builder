@@ -41,23 +41,31 @@ export function setupSSE() {
     const maxDelay = 30000;
     
     return new Promise((resolve, reject) => {
-        function connect(isInitial = false) {
+        async function connect(isInitial = false) {
             if (isConnecting) {
                 console.debug('SSE connection already in progress');
                 return;
             }
-            
+
             isConnecting = true;
-            
+
             const sseUrl = (getBasePath() || '') + '/events?name=' + encodeURIComponent(getMyName());
-            // Set token as a cookie so EventSource sends it automatically.
-            // Native EventSource does not support custom request headers.
+            // EventSource cannot send Authorization headers, so the backend
+            // keeps an HttpOnly auth_token cookie for /events. Re-issue it
+            // from the bearer token via the authenticated endpoint before
+            // opening the stream; JS never reads the cookie.
             const token = getToken();
             if (token) {
-                const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-                document.cookie = `auth_token=${encodeURIComponent(token)}; path=/; SameSite=Strict${secure}`;
+                try {
+                    await fetch((getBasePath() || '') + '/api/auth/sse-cookie', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                } catch (err) {
+                    console.warn('Failed to establish auth cookie for SSE:', err);
+                }
             }
-            
+
             const evtSource = new EventSource(sseUrl);
             currentEvtSource = evtSource;
             
@@ -367,7 +375,7 @@ export async function loadSceneFromServer() {
 
 export async function loadTownFromDjango(townId) {
     const response = await apiFetch(`${getBasePath() || ''}/api/town/load-from-django/${townId}`, {
-        method: 'GET',
+        method: 'POST',
         headers: authHeaders({ 'Content-Type': 'application/json' })
     });
     const result = await response.json();

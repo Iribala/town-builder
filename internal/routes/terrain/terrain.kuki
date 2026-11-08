@@ -4,29 +4,39 @@ import "net/http"
 import "stdlib/cast"
 import "stdlib/http" as httphelper
 
+import "github.com/Iribala/town-builder/internal/routes/common"
 import "github.com/Iribala/town-builder/internal/services/terrain" as terrainsvc
 import "github.com/Iribala/town-builder/internal/storage"
 
 # TerrainTile returns a cached terrain tile for the given z/x/y coordinates.
 # When a `src` query parameter is supplied (and its host is allowlisted), the
 # tile is fetched from the upstream provider and cached; otherwise a metadata
-# stub is returned.
+# stub is returned. Authenticated only: it makes a server-side outbound fetch.
 func tile(response: httphelper.Response, request: httphelper.Request)
+    _, ok := common.CurrentUser(response, request)
+    if not ok
+        return
     z := 14
     if zv, zerr := cast.ToInt(request.PathValue("z")); zerr equals empty
         z = zv
+    if z < 0 or z > 22
+        response.JSONBadRequest("Invalid zoom level") onerr discard
+        return
     x := 0
     if xv, xerr := cast.ToInt(request.PathValue("x")); xerr equals empty
         x = xv
     y := 0
     if yv, yerr := cast.ToInt(request.PathValue("y")); yerr equals empty
         y = yv
+    if x < 0 or y < 0
+        response.JSONBadRequest("Invalid tile coordinates") onerr discard
+        return
     cacheKey := terrainsvc.CacheKey(z, x, y)
     src := request.Raw().URL.Query().Get("src")
     if src isnt empty
         data, err := terrainsvc.FetchTile(src, cacheKey)
         if err isnt empty
-            response.JSONError("Failed to fetch terrain tile: {err}", 502) onerr discard
+            response.JSONError("Failed to fetch terrain tile", 502) onerr discard
             return
         w := response.Raw()
         w.Header().Set("Cache-Control", "public, max-age=300")

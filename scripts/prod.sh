@@ -4,7 +4,7 @@
 set -e
 
 echo "Starting Town Builder production server..."
-echo "Server will be available at http://127.0.0.1:5000/"
+echo "Server will be available at http://127.0.0.1:5001/ (containerPort 5001, see Dockerfile/k8s)"
 echo ""
 
 # Check if .env exists
@@ -21,8 +21,8 @@ if grep -q "DISABLE_JWT_AUTH=true" .env 2>/dev/null; then
     echo ""
 fi
 
-if grep -q "JWT_SECRET_KEY=your_secure_random_string_here" .env 2>/dev/null; then
-    echo "❌ ERROR: JWT_SECRET_KEY is still set to default!"
+if grep -q "^JWT_SECRET_KEY=$" .env 2>/dev/null; then
+    echo "❌ ERROR: JWT_SECRET_KEY is empty!"
     echo "Generate a secure key with: openssl rand -hex 32"
     exit 1
 fi
