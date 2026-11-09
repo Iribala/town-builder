@@ -1,18 +1,24 @@
 # Vanilla JavaScript + WebGL2 for the Town Builder Web Client
 
-> **Status**: Phase 0 and **Phase 1 are done** (see §4): an opt-in vanilla
-> WebGL2 renderer ships behind `?renderer=webgl2` with automatic fallback to
+> **Status**: Survey done, Phase 0 and **Phase 1 are done and committed on
+> `main`** (see §4): an opt-in vanilla WebGL2 renderer ships behind
+> `?renderer=webgl2`, flag-gated and default-off, with automatic fallback to
 > Three.js on init failure. Phase 2 (visual parity / default-flip) is open.
-> This document remains the plan of record — not a description of merged
-> work; everything below was validated locally in the browser, not in a
-> release.
+> No release has been cut from this work; nothing ships unless the
+> default-flip decision (§4) is made later.
+>
+> Current code state (2026-11-09): all of it is committed on `main`,
+> flag-gated behind `?renderer=webgl2`, default-off. `static/js/webgl2/` —
+> ~2,400 lines, **~23 KB gzip** vs the ~437 KB three.js stack (−94%);
+> `tests/js/gltf-min.test.cjs` parses all 75 assets; verified end-to-end in
+> Chrome (render, place, collide, pick/delete, clear-scene) with a clean
+> console on both renderer paths. See §4 for what is and isn't verified.
 >
 > Short answer: **yes — and in several structural respects this repo is a
-> better candidate than the Babylon one. But we carry one materially larger
-> risk it did not have: a runtime asset pipeline (75 glTF models the entire
-> UI is built around) and a higher visual bar (real PBR + PMREM + ACES). The
-> plan would be staged and opt-in, with Three.js kept as fallback until
-> parity is proven.**
+> better candidate than the Babylon one. The runtime asset pipeline risk
+> (75 glTF models the entire UI is built around) turned out to be
+> manageable: the uniform minimal PBR/accessor subset was exactly as
+> loadable as hoped, and the 75-asset test proves it on every run.**
 >
 > Surveyed November 9, 2026. All sizes measured locally on the working tree.
 
@@ -320,14 +326,15 @@ Staged exactly like the sibling repo's plan, adapted:
     pick path (belongs to Phase 1/2 since it changes picking semantics);
     static cache headers / content hashing (only needed at the flip).
 - **Phase 1 — opt-in spike (done 2026-11-09, `?renderer=webgl2`)**
-  New `static/js/webgl2/` — ~2,700 lines across three files, **~23 KB gzip**
-  total vs the ~437 KB three.js stack (~94% smaller):
+  New `static/js/webgl2/` — ~2,400 lines across three files (committed on
+  `main` in `202063e`), **~23 KB gzip** total vs the ~437 KB three.js
+  stack (~94% smaller):
 
   | File | Lines | Role |
   |---|---|---|
-  | `glmath.js` | ~330 | vec2/vec3/quat/euler/mat3/mat4 (Gaussian-elimination inverse), Spherical, Ray, Plane |
-  | `three-shim.js` | ~1,100 | Drop-in for the used three.js surface: Object3D/Group/Scene/Mesh/Sprite, PerspectiveCamera, WebGLRenderer (GGX PBR + hemisphere IBL + ACES + sRGB), GridHelper, Raycaster (AABB-prefiltered ray/triangle), Frustum/Box3/Timer/Color/CanvasTexture |
-  | `gltf-min.js` | ~470 | Purpose-built loader for the exact asset subset (external .bin, VEC3/VEC2 float + uint16 indices, baseColorTexture + metallic/roughness factors, TRS nodes). Throws on anything else |
+  | `glmath.js` | 613 | vec2/vec3/quat/euler/mat3/mat4 (Gaussian-elimination inverse), Spherical, Ray, Plane |
+  | `three-shim.js` | 1,430 | Drop-in for the used three.js surface: Object3D/Group/Scene/Mesh/Sprite, PerspectiveCamera, WebGLRenderer (GGX PBR + hemisphere IBL + ACES + sRGB), GridHelper, Raycaster (AABB-prefiltered ray/triangle), Frustum/Box3/Timer/Color/CanvasTexture |
+  | `gltf-min.js` | 366 | Purpose-built loader for the exact asset subset (external .bin, VEC3/VEC2 float + uint16 indices, baseColorTexture + metallic/roughness factors, TRS nodes). Throws on anything else |
 
   Wiring: `ui.kuki` detects `?renderer=webgl2` server-side and `index.html`
   picks the shim for the `three` import-map entry (default path unchanged);
@@ -343,10 +350,17 @@ Staged exactly like the sibling repo's plan, adapted:
   model place/collision-check/delete all work (delete verified on the
   building and on a moving vehicle); `node:test` suite green — including a
   test that parses **all 75 assets** with `gltf-min.js` (it caught a real
-  bug: `readAccessor` didn't expose `count`). The JS backlog caught two
-  more: a missing `getBasePath` import in `main.js` (pre-existing, crashed
-  every page after line ~120 regardless of renderer) and missing
-  `geometry.parameters` on the shim's primitive geometries.
+  bug: `readAccessor` didn't expose `count`).
+
+  **Caught during bring-up (the real cost of owning the code):**
+  `gl_` used as a variable name (reserved in GLSL — shader failed),
+  plain JS arrays passed as index buffers (GPU "insufficient buffer size"),
+  `lookAt` built the camera basis as rows instead of columns (projection
+  landed off-center), and both hand-derived matrix inverses were wrong
+  (replaced with Gaussian-elimination inverses, verified against identity
+  and composed transforms). Plus a missing `getBasePath` import in `main.js`
+  (pre-existing; crashed every page after init regardless of renderer) and
+  missing `geometry.parameters` on the shim's primitive geometries.
 
   **Not yet verified:** collaborative-cursor sprites (needs a second
   client), drive-mode camera follow (the pick path it relies on is
@@ -437,7 +451,7 @@ unsound); or rewriting without the three.js fallback flag.
 | A. Do nothing | 0 | 0 | r181 fossilizes | Worst long-term, zero cost now |
 | B. Phase 0 (dead weight + vendor) | −1.7 MB raw; CDN dep removed | half day | trivial | **Done 2026-11-09** |
 | C. Upgrade three r181 → r187 | ~0 (maybe worse; no min builds) | 2–4 days verify | moderate; validates a version we still can't tree-shake | Not recommended |
-| D. Vanilla spike, keep three fallback (Phases 0–2) | −437 KB gz at flip | 3–4 weeks | moderate, contained by flag | **Recommended path** |
+| D. Vanilla spike, keep three fallback (Phases 0–2) | −437 KB gz at flip | 3–4 weeks | moderate, contained by flag | **Phases 0–1 done; recommended path** |
 | E. Vanilla + WebGPU first | −437 KB gz | 6–8+ weeks | high; Safari-26-only audience gate risk | No (revisit after D) |
 | F. Offline model repack + tiny loader | −437 KB gz + faster parse | + tooling | new pipeline to maintain | Only if D's loader stumbles |
 
@@ -465,9 +479,12 @@ fallback, and let the parity screenshots make the call on the flip.
 ```bash
 # serve the client (as today)
 ./scripts/dev.sh                       # or: go run ./cmd/server + proxy
+# then open http://localhost:5001/?renderer=webgl2  (hard-reload once)
+# or the default Three.js path at http://localhost:5001/
 # sizes
 gzip -c static/js/three.core.js | wc -c
-find static/js -name '*.js' | grep -v -E 'three\.(core|module)\.js|three/examples|wasm_exec' | xargs gzip -c | wc -c
+gzip -c static/js/webgl2/three-shim.js | wc -c    # ~13 KB
+find static/js -name '*.js' | grep -v -E 'three\.(core|module)\.js|three/examples|wasm_exec|webgl2' | xargs gzip -c | wc -c
 # model subset audit
 python3 - <<'EOF'
 import json, glob, collections
