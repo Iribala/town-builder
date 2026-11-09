@@ -12,7 +12,8 @@ import {
     setMyName,
     getCurrentTownId,
     setBasePath,
-    setToken
+    setToken,
+    getBasePath
 } from './state/app-state.js';
 import { isMobile } from './utils/device-detect.js';
 import mobileUI from './mobile/mobile-ui.js';
@@ -84,8 +85,23 @@ async function init() {
     // Wait for Go WASM module to load
     await waitForWasm();
 
-    // Initialize the scene
-    initializeScene();
+    // Initialize the scene. In the vanilla WebGL2 path the shim can throw
+    // (e.g. WebGL2 unavailable or a loader/render bug) — fall back to the
+    // default renderer once per session rather than leaving a blank page.
+    try {
+        initializeScene();
+    } catch (err) {
+        if (new URLSearchParams(window.location.search).get('renderer') === 'webgl2'
+            && !sessionStorage.getItem('webgl2-fell-back')) {
+            sessionStorage.setItem('webgl2-fell-back', '1');
+            console.warn('Vanilla renderer failed to initialize, falling back to default:', err);
+            const params = new URLSearchParams(window.location.search);
+            params.delete('renderer');
+            window.location.replace(`${window.location.pathname}?${params.toString()}${window.location.hash}`);
+            return;
+        }
+        throw err;
+    }
     animate();
 
     // Wire up keyboard listeners

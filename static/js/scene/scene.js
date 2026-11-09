@@ -6,8 +6,14 @@
  * - HDR environment with PMREM generator (r181 GGX VNDF)
  * - ACESFilmic tone mapping for better color and contrast
  */
-import * as THREE from '../three.module.js';
+import * as THREE from 'three';
 import { getEnvMapTexture, setEnvMapTexture } from '../state/app-state.js';
+
+// In the vanilla WebGL2 renderer, PMREM/prefiltered cubemaps are replaced by
+// the shim's hemisphere ambient approximation; the whole env-map block below
+// is skipped. Detected the same way as everywhere else: the page URL flag.
+const IS_VANILLA_RENDERER = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('renderer') === 'webgl2';
 
 /**
  * Create an HDR-capable environment map with PMREM prefiltering
@@ -135,17 +141,20 @@ export function initScene(container) {
 
     container.appendChild(renderer.domElement);
 
-    // Add HDR environment map with PMREM prefiltering (enhanced in r181)
-    const envMap = createHDREnvironmentMap(renderer);
-    scene.environment = envMap;
+    // Add HDR environment map with PMREM prefiltering (enhanced in r181).
+    // Skipped in vanilla mode: the shim's hemisphere ambient stands in for it.
+    if (!IS_VANILLA_RENDERER) {
+        const envMap = createHDREnvironmentMap(renderer);
+        scene.environment = envMap;
 
-    // After environment loads, replace with prefiltered version
-    setTimeout(() => {
-        const envMapTexture = getEnvMapTexture();
-        if (envMapTexture) {
-            scene.environment = envMapTexture;
-        }
-    }, 100);
+        // After environment loads, replace with prefiltered version
+        setTimeout(() => {
+            const envMapTexture = getEnvMapTexture();
+            if (envMapTexture) {
+                scene.environment = envMapTexture;
+            }
+        }, 100);
+    }
 
     // Create background
     const backgroundGeometry = new THREE.PlaneGeometry(20, 20);

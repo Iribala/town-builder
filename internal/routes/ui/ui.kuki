@@ -49,6 +49,7 @@ type indexData
     TownID: int
     Token: string
     BasePath: string
+    VanillaRenderer: bool
 
 func index(response: httphelper.Response, request: httphelper.Request)
     if indexTmpl equals empty
@@ -69,6 +70,7 @@ func index(response: httphelper.Response, request: httphelper.Request)
         TownID: townID,
         Token: token,
         BasePath: basePath(),
+        VanillaRenderer: request.URL().Query().Get("renderer") equals "webgl2",
     }
     w := response.Raw()
     w.Header().Set("Content-Type", "text/html; charset=utf-8")

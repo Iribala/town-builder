@@ -1,7 +1,7 @@
 /**
  * Raycasting utilities for 3D object interaction
  */
-import * as THREE from '../three.module.js';
+import * as THREE from 'three';
 
 /**
  * Get mouse coordinates in normalized device coordinates (-1 to +1)

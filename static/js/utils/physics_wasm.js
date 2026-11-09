@@ -18,7 +18,7 @@
  * - Improved small object allocation
  */
 
-import * as THREE from '../three.module.js';
+import * as THREE from 'three';
 
 let physicsWasmReady = false;
 let physicsWasmEnabled = false;

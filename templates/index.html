@@ -378,11 +378,11 @@
       {{end}}
     </script>
 
-    <!-- Import map for Three.js and ATProto modules -->
+    <!-- Import map: three.js by default, vanilla WebGL2 shim with ?renderer=webgl2 -->
     <script type="importmap">
     {
       "imports": {
-        "three": "{{.BasePath}}/static/js/three.module.js",
+        "three": "{{if .VanillaRenderer}}{{.BasePath}}/static/js/webgl2/three-shim.js{{else}}{{.BasePath}}/static/js/three.module.js{{end}}",
         "@atcute/client": "{{.BasePath}}/static/vendor/atcute/client.mjs",
         "@atcute/oauth-browser-client": "{{.BasePath}}/static/vendor/atcute/oauth-browser-client.mjs"
       }

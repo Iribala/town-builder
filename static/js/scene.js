@@ -4,7 +4,7 @@
  * - Timer class for frame-independent physics
  */
 import { wasmReady } from './utils/wasm.js';
-import * as THREE from './three.module.js';
+import * as THREE from 'three';
 import { updateControls } from './controls.js';
 import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator, updateContextHelp, hasModelBeenPlaced } from './ui.js';
 import { initScene, setupResizeListener } from './scene/scene.js';

@@ -1,7 +1,7 @@
 /**
  * Model placement utilities
  */
-import * as THREE from '../three.module.js';
+import * as THREE from 'three';
 import { checkCollision } from './collision.js';
 import { getMouseCoordinates } from '../utils/raycaster.js';
 

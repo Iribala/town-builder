@@ -2,7 +2,7 @@
  * Collision detection utilities for 3D objects
  * Optimized with Go 1.24 WASM spatial grid
  */
-import * as THREE from '../three.module.js';
+import * as THREE from 'three';
 import {
     checkCollision as wasmCheckCollision,
     isPhysicsWasmReady

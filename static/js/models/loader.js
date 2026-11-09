@@ -6,8 +6,14 @@
  * - LRU cache for model geometry (reduces redundant loads)
  * - Bloom filter for fast existence checks (reduces failed load attempts)
  */
-import * as THREE from '../three.module.js';
-import { GLTFLoader } from '../three/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from 'three';
+
+// GLTFLoader (three) is imported lazily — in the vanilla WebGL2 renderer
+// models are parsed by webgl2/gltf-min.js instead, and statically importing
+// GLTFLoader here would link it against the shim, which lacks the classes
+// it needs. Detection mirrors the ?renderer=webgl2 flag in the page URL.
+const IS_VANILLA_RENDERER = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('renderer') === 'webgl2';
 import { updateBoundingBox } from './collision.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from '../utils/physics_wasm.js';
 import { LRUCache, BloomFilter } from '../utils/data_structures.js';
@@ -151,26 +157,39 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             return;
         }
 
-        // Cache miss or bypass - load from server
-        const loader = new GLTFLoader();
+        // Cache miss or bypass - load from server.
+        // Vanilla mode: gltf-min.js parses the restricted subset our assets use.
+        // Default mode: three's GLTFLoader, loaded lazily like the vanilla path.
+        let scenePromise;
+        if (IS_VANILLA_RENDERER) {
+            scenePromise = import('../webgl2/gltf-min.js')
+                .then(m => m.loadGLTF(url).then(parsed => parsed.root));
+        } else {
+            scenePromise = import('../three/examples/jsm/loaders/GLTFLoader.js')
+                .then(({ GLTFLoader }) => new Promise((res, rej) => {
+                    const loader = new GLTFLoader();
+                    activeLoaders.set(loaderId, loader);
+                    loader.load(url, gltf => {
+                        activeLoaders.delete(loaderId);
+                        res(gltf.scene);
+                    }, undefined, rej);
+                }));
+        }
 
-        // Store loader reference for potential abort
-        activeLoaders.set(loaderId, loader);
-
-        loader.load(url, gltf => {
+        scenePromise.then(gltfScene => {
             // Remove loader from active tracking
             activeLoaders.delete(loaderId);
 
             // Cache the ORIGINAL scene for reuse
             // Store a clean copy in cache, use a clone for this instance
-            modelCache.set(cacheKey, gltf.scene);
+            modelCache.set(cacheKey, gltfScene);
 
             // Add to existence bloom filter
             modelExistsFilter.add(cacheKey);
 
             // Clone for this instance to avoid modifying the cached version
             // THREE.js clone() shares geometries/materials (memory efficient)
-            const modelInstance = gltf.scene.clone();
+            const modelInstance = gltfScene.clone();
             modelInstance.userData = { category, modelName };
 
             if (position) {
@@ -195,24 +214,25 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             }
 
             resolve(modelInstance);
-        }, undefined, err => {
+        }).catch(err => {
             // Remove loader from active tracking
             activeLoaders.delete(loaderId);
+            const message = err?.message ?? String(err);
 
             // Distinguish between user abort and actual error
-            if (err.message && err.message.includes('abort')) {
+            if (message && message.includes('abort')) {
                 // User intentionally aborted - this is not an error condition
                 reject(new Error('ABORTED'));
             } else {
                 // Add to not-found bloom filter to reduce retry attempts
                 // Note: Bloom filter is used as a hint only, not a hard rejection
-                if (err.message && (err.message.includes('404') || err.message.includes('Not Found'))) {
+                if (message.includes('404') || message.includes('Not Found')) {
                     modelNotFoundFilter.add(cacheKey);
                     // Provide user-friendly error message
                     reject(new Error(`Model not found: ${category}/${modelName}`));
                 } else {
                     // Other error types (network, parsing, etc.)
-                    reject(new Error(`Failed to load model ${category}/${modelName}: ${err.message}`));
+                    reject(new Error(`Failed to load model ${category}/${modelName}: ${message}`));
                 }
             }
         });

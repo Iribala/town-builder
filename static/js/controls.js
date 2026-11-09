@@ -1,5 +1,5 @@
 import { camera, renderer, placedObjects } from './state/scene-state.js';
-import * as THREE from './three.module.js';
+import * as THREE from 'three';
 import { showNotification, getCurrentMode } from './ui.js';
 import { getJoystickInput } from './joystick.js';
 import { getDrivingCar, getSelectedObject, getDeltaTime } from './state/app-state.js';
