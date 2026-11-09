@@ -37,10 +37,11 @@ func Init()
 func contentSecurityPolicy() string
     # 'wasm-unsafe-eval' is required in script-src for WebAssembly.
     # 'unsafe-inline' scripts are required by the token/WASM bootstrap block
-    # in index.html. https://esm.sh hosts the pinned @atcute ESM modules used
-    # by the Bluesky sign-in flow; object-src/base-uri/form-action stay locked
-    # down.
-    return "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://esm.sh; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors " + frameAncestors
+    # in index.html. The Bluesky sign-in flow uses the self-hosted @atcute
+    # ESM modules under /static/vendor/atcute/ (vendored in Phase 0 of the
+    # vanilla-JS evaluation); no third-party origins are needed.
+    # object-src/base-uri/form-action stay locked down.
+    return "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors " + frameAncestors
 
 func Wrap(next: http.Handler) http.Handler
     if frameAncestors is empty

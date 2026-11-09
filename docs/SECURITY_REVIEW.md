@@ -132,14 +132,15 @@ All High and Medium findings have been addressed. Details per finding:
 - New `secheaders` middleware sets CSP, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: strict-origin-when-cross-origin`, HSTS on every response.
   CSP: `default-src 'self'; script-src 'self' 'unsafe-inline'
-  'wasm-unsafe-eval' https://esm.sh; object-src 'none'; base-uri 'self';
+  'wasm-unsafe-eval'; object-src 'none'; base-uri 'self';
   form-action 'self'; frame-ancestors …`. `frame-ancestors` is 'self' +
   origin of `KIBIGIA_EXCHANGE_URL`, overridable via `FRAME_ANCESTORS`
   (see .env.example/k8s ConfigMap) since the kibigia web origin can differ
-  from the exchange API origin. `https://esm.sh` is permitted because the
-  Bluesky sign-in does dynamic `import()` from it; it is also now version-
-  pinned in the import map (`@atcute/client@5.1.2`,
-  `@atcute/oauth-browser-client@5.1.0`).
+  from the exchange API origin.
+- The `https://esm.sh` exception in `script-src` was **removed**: the
+  Bluesky sign-in modules are now self-hosted under `static/vendor/atcute/`
+  (Phase 0 of the vanilla-JS evaluation, 2026-11-09). No third-party origin
+  is needed in any directive.
 - Bootstrap 5.3.0 / bootstrap-icons 1.10.0 are **self-hosted** under
   `static/vendor/` (no runtime jsdelivr dependency at all); icon fonts
   served as `font/woff2|woff`. Index responses carry `Cache-Control:
@@ -213,8 +214,8 @@ All High and Medium findings have been addressed. Details per finding:
 ### Residual / explicitly out of scope
 - **ATProto OAuth session in localStorage** — inherent to the atcute browser
   client (must survive reloads); mitigated by the CSP now in place and by
-  pinning the esm.sh modules. Moving to a backend-mediated OAuth flow is a
-  larger change.
+  vendoring the @atcute modules under `static/vendor/atcute/`. Moving to a
+  backend-mediated OAuth flow is a larger change.
 - **Global undo/redo and collaborative global town** remain open to all
   authenticated users by design; per-account attribution and op-level
   authorization for the shared world was not added.

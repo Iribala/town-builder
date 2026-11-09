@@ -378,13 +378,13 @@
       {{end}}
     </script>
 
-    <!-- Import map for Three.js modules -->
+    <!-- Import map for Three.js and ATProto modules -->
     <script type="importmap">
     {
       "imports": {
         "three": "{{.BasePath}}/static/js/three.module.js",
-        "@atcute/client": "https://esm.sh/@atcute/client@5.1.2",
-        "@atcute/oauth-browser-client": "https://esm.sh/@atcute/oauth-browser-client@5.1.0"
+        "@atcute/client": "{{.BasePath}}/static/vendor/atcute/client.mjs",
+        "@atcute/oauth-browser-client": "{{.BasePath}}/static/vendor/atcute/oauth-browser-client.mjs"
       }
     }
     </script>
