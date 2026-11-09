@@ -1,9 +1,11 @@
 # Vanilla JavaScript + WebGL2 for the Town Builder Web Client
 
-> **Status**: Survey and evaluation complete (Nov 9, 2026). **Phase 0 is
-> done** (see §4); Phases 1–2 are proposed, not started. This document is a
-> plan of record for a possible Three.js → vanilla JS + WebGL2 conversion —
-> not a description of merged work.
+> **Status**: Phase 0 and **Phase 1 are done** (see §4): an opt-in vanilla
+> WebGL2 renderer ships behind `?renderer=webgl2` with automatic fallback to
+> Three.js on init failure. Phase 2 (visual parity / default-flip) is open.
+> This document remains the plan of record — not a description of merged
+> work; everything below was validated locally in the browser, not in a
+> release.
 >
 > Short answer: **yes — and in several structural respects this repo is a
 > better candidate than the Babylon one. But we carry one materially larger
@@ -317,15 +319,46 @@ Staged exactly like the sibling repo's plan, adapted:
   - Deferred: consolidating `mobile/interactions-touch.js` with the desktop
     pick path (belongs to Phase 1/2 since it changes picking semantics);
     static cache headers / content hashing (only needed at the flip).
-- **Phase 1 — opt-in spike (`?renderer=webgl2`, ~1–2 weeks)**
-  - `static/js/webgl2/`: `glmath.js`, `gl-core.js`, `mesh-builders.js`,
-    `gltf-min.js` (subset loader), `pbr.js` (GGX + analytic hemisphere IBL
-    + ACES), `webgl2-renderer.js`.
-  - `scene.js` switches on the flag; throws → automatic fallback to
-    three.js (same pattern as the sibling repo).
-  - Smoke test: `tests/js/gltf-min.test.cjs` parses **all 75 assets**;
-    manual pass: place one of each category, drive a car, edit/delete,
-    touch controls, collaborative cursors, frustum culling stats overlay.
+- **Phase 1 — opt-in spike (done 2026-11-09, `?renderer=webgl2`)**
+  New `static/js/webgl2/` — ~2,700 lines across three files, **~23 KB gzip**
+  total vs the ~437 KB three.js stack (~94% smaller):
+
+  | File | Lines | Role |
+  |---|---|---|
+  | `glmath.js` | ~330 | vec2/vec3/quat/euler/mat3/mat4 (Gaussian-elimination inverse), Spherical, Ray, Plane |
+  | `three-shim.js` | ~1,100 | Drop-in for the used three.js surface: Object3D/Group/Scene/Mesh/Sprite, PerspectiveCamera, WebGLRenderer (GGX PBR + hemisphere IBL + ACES + sRGB), GridHelper, Raycaster (AABB-prefiltered ray/triangle), Frustum/Box3/Timer/Color/CanvasTexture |
+  | `gltf-min.js` | ~470 | Purpose-built loader for the exact asset subset (external .bin, VEC3/VEC2 float + uint16 indices, baseColorTexture + metallic/roughness factors, TRS nodes). Throws on anything else |
+
+  Wiring: `ui.kuki` detects `?renderer=webgl2` server-side and `index.html`
+  picks the shim for the `three` import-map entry (default path unchanged);
+  first-party modules import bare `three`; `models/loader.js` dynamically
+  imports the matching loader (gltf-min in vanilla, GLTFLoader otherwise);
+  `main.js` falls back once per session to the default renderer if vanilla
+  init throws; `scene/scene.js` skips the PMREM env map in vanilla mode
+  (hemisphere ambient stands in).
+
+  **Verified in-browser (Chrome) on `http://localhost:5001/?renderer=webgl2`:**
+  scene renders (ground, grid, models) with pixel-comparable output to the
+  default renderer; clean console (no errors) in both renderer paths;
+  model place/collision-check/delete all work (delete verified on the
+  building and on a moving vehicle); `node:test` suite green — including a
+  test that parses **all 75 assets** with `gltf-min.js` (it caught a real
+  bug: `readAccessor` didn't expose `count`). The JS backlog caught two
+  more: a missing `getBasePath` import in `main.js` (pre-existing, crashed
+  every page after line ~120 regardless of renderer) and missing
+  `geometry.parameters` on the shim's primitive geometries.
+
+  **Not yet verified:** collaborative-cursor sprites (needs a second
+  client), drive-mode camera follow (the pick path it relies on is
+  verified; the camera itself was not exercised), mobile/touch, long
+  sessions, game-over overlay, no automated 3D-layer screenshots.
+  Drive-mode *selection* uses the same raycast as Delete, which passes on a
+  moving vehicle.
+
+  **Notable:** Chrome served a stale cached `gltf-min.js` after edits —
+  the documented "no cache headers/hash busting" gotcha bit hard during
+  development. Hard-reload (or content hashes, slated for the flip) is
+  required during iteration.
 - **Phase 2 — parity (~1 week)**
   - Screenshot A/B every model category; texture/color correctness;
     placement indicator, selection, hover, collision AABB vs three's
@@ -423,8 +456,8 @@ shows the pattern works — with measured wins in transfer size and INP, and
 with features/gloss deliberately traded for simplicity.**
 
 Versus the sibling write-up, we differ in kind, not degree: they could
-*start writing shaders on day one*; we must *first own a small asset
-pipeline*. Do Phase 0 now, time-box the Phase 1 spike, keep the three.js
+*start writing shaders on day one*; we had to *own a small asset pipeline
+first*. Phase 0 and Phase 1 (opt-in spike) are done; keep the three.js
 fallback, and let the parity screenshots make the call on the flip.
 
 ### Appendix A — Reproduction
