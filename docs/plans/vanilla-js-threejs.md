@@ -16,8 +16,10 @@
 > as of 2026-11-09, two Phase 2 parity bugs found by A/B are fixed,
 > cross-renderer cursor sprites are verified, an all-75-asset A/B sweep
 > (transforms, AABBs, category-status tint, drive-mode camera) is green on
-> both renderers, and the long-session GPU-leak soak shows both paths
-> return to baseline GL object counts exactly.
+> both renderers, the long-session GPU-leak soak shows both paths
+> return to baseline GL object counts exactly, and mobile/touch was
+> emulated end-to-end — which surfaced and fixed three touch-path bugs
+> that made all touch gestures dead.
 >
 > Short answer: **yes — and in several structural respects this repo is a
 > better candidate than the Babylon one. The runtime asset pipeline risk
@@ -328,8 +330,10 @@ Staged exactly like the sibling repo's plan, adapted:
     package re-brewed, secheaders tests pass. This closes the supply-chain
     finding from `docs/SECURITY_REVIEW.md` (M2) completely.
   - Deferred: consolidating `mobile/interactions-touch.js` with the desktop
-    pick path (belongs to Phase 1/2 since it changes picking semantics);
-    static cache headers / content hashing (only needed at the flip).
+    pick path (still open — the touch pick now works and mirrors the
+    desktop `findRootObject` semantics, but is not yet deduplicated);
+    static cache headers / content hashing (base `no-cache` done in
+    Phase 2; hashing only needed at the flip).
 - **Phase 1 — opt-in spike (done 2026-11-09, `?renderer=webgl2`)**
   New `static/js/webgl2/` — ~2,400 lines across three files (committed on
   `main` in `202063e`), **~23 KB gzip** total vs the ~437 KB three.js
@@ -369,9 +373,8 @@ Staged exactly like the sibling repo's plan, adapted:
 
   **Not yet verified (at time of Phase 1):** collaborative-cursor sprites
   (needs a second client), drive-mode camera follow, mobile/touch, long
-  sessions, no automated 3D-layer screenshots. (Cursor sprites and the
-  drive-mode camera were verified in Phase 2 — see below; mobile/touch,
-  the long-session soak, and CI screenshots remain open.
+  sessions, no automated 3D-layer screenshots. (All of these have since
+  been verified in Phase 2 — see below; only CI screenshots remain open.
   Drive-mode *selection* uses the same raycast as Delete, which passes on a
   moving vehicle.)
 
@@ -474,11 +477,46 @@ Staged exactly like the sibling repo's plan, adapted:
       `frustumCulled` default). The scene-level 100-object culling in
       `scene.js` still applies to both. Worth revisiting only if
       profiling shows overdraw matters; out of scope for parity.
-  - Still open: mobile/touch (untested; the touch pick path duplicates
-    desktop logic), hover/selection highlight parity is effectively
+  - 2026-11-09: mobile/touch — emulated iPhone (390×844 @3×, mobile UA +
+    touch) in one tab per renderer, models placed programmatically, real
+    synthetic TouchEvent sequences through the whole mobile pipeline. Found
+    and fixed **three renderer-agnostic touch bugs** (pre-existing, in the
+    shared hand-written mobile layer — desktop paths were unaffected, and
+    the vanilla/three modules themselves were fine):
+    1. `integration.js` `syncMode()` gated `touchInteractions.setMode()` on
+       a nonexistent `isEnabled()` method → `touchInteractions.mode` was
+       permanently `'place'`; **every** touch gesture was dead on mobile
+       (tap, select, drag, rotate, delete). Added `isEnabled()` to
+       `TouchInteractions`.
+    2. `selectObjectAtTouch`/`deleteObjectAtTouch` collected only meshes
+       with `userData.id` — but placed roots are Groups carrying
+       `_isPlacedRoot`, children carry no `id`, so the pick set was
+       always empty and selection/deletion could never hit. Now collects
+       `_isPlacedRoot` roots and raycasts recursively, mirroring the
+       desktop `findRootObject` path.
+    3. In edit mode with an object selected, single/two-finger gestures
+       were consumed by **both** the camera (pan/pinch) and the object
+       (drag/rotate) — the camera panned while dragging an object, and
+       pinched while rotating one. `controls-touch.js` now yields to
+       `interactions-touch.js` when an edit-mode object gesture is active.
+    Verified after the fix (both renderers, identical results):
+    tap-select, object drag (identical landing coordinates, camera
+    stationary), two-finger rotate (+45° on both), double-tap deselect,
+    place-via-tap, delete-via-tap (confirm dialog auto-accepted),
+    drive-select via tap→click with joystick shown, camera pan and pinch
+    zoom in place mode (identical vectors; FOV 75→74.2 on both), mobile
+    layout/FAB/tutorial render identically. Consoles clean on both.
+    Note: this module has no unit tests (the node harness doesn't cover
+    DOM/touch); verification is browser-emulation only.
+    Incidental: the emulation work exposed that static files were served
+    with no `Cache-Control`, and Chrome served **stale modules** even
+    across `ignoreCache` reloads (per-renderer memory cache — the known
+    "no cache headers" gotcha). The static route now sends
+    `Cache-Control: no-cache` (revalidate-always, no content hashing yet).
+  - Still open: hover/selection highlight parity is effectively
     covered by the status-tint check (desktop has no separate hover
-    visual), no automated 3D-layer screenshots in CI, cache
-    headers/content hashing for the flip.
+    visual), no automated 3D-layer screenshots in CI, content
+    hashing for the flip (base `no-cache` headers now in place).
 - **Decision gate — default flip**
   - Only after parity is boring in normal play: make vanilla the default,
     delete the three stack (2.1 MB raw / ~437 KB gz), remove the import
@@ -524,9 +562,10 @@ unsound); or rewriting without the three.js fallback flag.
   map entry at the flip no longer touches Bluesky sign-in. (The same order
   discipline applies to the eventual flip itself: vendor/remove `three`
   only when nothing else references it.)
-- **No cache busting.** Without hashes, a flipped default can serve stale
-  mixed JS (old `scene.js` + new `webgl2-renderer.js`). Version the
-  static path or add headers in the same change as the flip.
+- **No content hashing yet.** The static route now sends
+  `Cache-Control: no-cache` (revalidate-always, 2026-11-09), which closes
+  the stale-mixed-JS failure mode for flips; actual content hashes are
+  still worth adding at the flip for cache efficiency.
 - **Heuristic caching + no service worker** (today). First flips must be
   tested with hard reloads; copy the sibling repo's lesson.
 - **Mobile duplication.** `interactions-touch.js` re-implements picking in
