@@ -43,6 +43,10 @@ type mimeHandler
 func ServeHTTP on h: reference mimeHandler(w: http.ResponseWriter, r: reference http.Request)
     if m := mimeFor(r.URL.Path); m isnt empty
         w.Header().Set("Content-Type", m)
+    # No content hashing exists yet, so never let browsers keep stale assets:
+    # "no-cache" = store but always revalidate (304s keep it cheap). Required
+    # for reliable dev iteration and safe renderer-flip rollouts.
+    w.Header().Set("Cache-Control", "no-cache")
     h.next.ServeHTTP(w, r)
 
 # kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
