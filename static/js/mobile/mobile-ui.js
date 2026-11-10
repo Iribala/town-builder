@@ -62,7 +62,7 @@ class MobileUI {
     if (!fab) {
       fab = document.createElement('button');
       fab.id = 'mobile-fab';
-      fab.className = 'fab btn btn-primary';
+      fab.className = 'fab';
       fab.innerHTML = '<i class="bi bi-list"></i>';
       fab.setAttribute('aria-label', 'Toggle menu');
       document.body.appendChild(fab);
@@ -111,8 +111,8 @@ class MobileUI {
     if (!this.toolbar) return;
 
     // Create a draggable header area (title + drag handle)
-    const cardBody = this.toolbar.querySelector('.card-body');
-    const cardTitle = this.toolbar.querySelector('.card-title');
+    const cardBody = this.toolbar.querySelector('.panel-body');
+    const cardTitle = this.toolbar.querySelector('.toolbar-title');
     const modelContainer = this.toolbar.querySelector('#model-container');
 
     if (!cardBody || !cardTitle) return;

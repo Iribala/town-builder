@@ -98,8 +98,8 @@ class Tutorial {
         </div>
 
         <div class="tutorial-buttons">
-          <button class="btn btn-outline-light" id="tutorial-skip">Skip</button>
-          <button class="btn btn-primary" id="tutorial-start">Got It!</button>
+          <button class="outline" id="tutorial-skip">Skip</button>
+          <button id="tutorial-start">Got It!</button>
         </div>
 
         <div class="tutorial-footer mt-3">

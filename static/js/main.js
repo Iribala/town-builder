@@ -143,21 +143,15 @@ async function init() {
         playAnon.addEventListener('click', () => {
             try { localStorage.setItem('landingSeen', '1'); } catch (e) {}
             const modalEl = document.getElementById('landingModal');
-            if (modalEl && window.bootstrap) {
-                const m = window.bootstrap.Modal.getInstance(modalEl) || new window.bootstrap.Modal(modalEl);
-                m.hide();
-            }
+            if (modalEl && typeof modalEl.close === 'function') modalEl.close();
         });
     }
-    // Show landing modal once for anonymous visitors with no town id.
+    // Show landing dialog once for anonymous visitors with no town id.
     try {
         const currentTownId = getCurrentTownId();
-        if (!currentTownId && !localStorage.getItem('landingSeen') && window.bootstrap) {
+        if (!currentTownId && !localStorage.getItem('landingSeen')) {
             const modalEl = document.getElementById('landingModal');
-            if (modalEl) {
-                const m = new window.bootstrap.Modal(modalEl);
-                m.show();
-            }
+            if (modalEl && typeof modalEl.showModal === 'function') modalEl.showModal();
         }
     } catch (e) {}
     // Initialize mobile modules if on mobile device

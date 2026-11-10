@@ -49,7 +49,7 @@ class MobileSettings {
         <div class="mobile-settings-title">
           <i class="bi bi-gear-fill me-2"></i>Mobile Settings
         </div>
-        <button class="btn btn-sm btn-close mobile-settings-close" aria-label="Close"></button>
+        <button class="dialog-close mobile-settings-close" aria-label="Close"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
       </div>
 
       <div class="mobile-settings-content">
@@ -57,7 +57,7 @@ class MobileSettings {
         <div class="mobile-setting-item">
           <div class="mobile-setting-label">Graphics Quality</div>
           <div class="mobile-setting-description">Adjust rendering quality for better performance</div>
-          <select class="form-select" id="graphics-quality-select">
+          <select id="graphics-quality-select">
             <option value="auto">Auto</option>
             <option value="high">High</option>
             <option value="medium">Medium</option>
@@ -69,9 +69,9 @@ class MobileSettings {
         <div class="mobile-setting-item">
           <div class="mobile-setting-label">Touch Sensitivity</div>
           <div class="mobile-setting-description">Adjust how responsive touch controls are</div>
-          <input type="range" class="form-range" id="touch-sensitivity-slider"
+          <input type="range" id="touch-sensitivity-slider"
                  min="0.5" max="2" step="0.1" value="1.0">
-          <div class="d-flex justify-content-between">
+          <div class="hstack justify-between">
             <small>Less Sensitive</small>
             <small>More Sensitive</small>
           </div>
@@ -79,55 +79,46 @@ class MobileSettings {
 
         <!-- Haptic Feedback -->
         <div class="mobile-setting-item">
-          <div class="d-flex justify-content-between align-items-center">
+          <div class="hstack justify-between">
             <div>
               <div class="mobile-setting-label">Haptic Feedback</div>
               <div class="mobile-setting-description">Vibrate on interactions</div>
             </div>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="haptics-toggle"
-                     style="width: 48px; height: 24px;">
-            </div>
+            <input type="checkbox" role="switch" id="haptics-toggle">
           </div>
         </div>
 
         <!-- Touch Indicators -->
         <div class="mobile-setting-item">
-          <div class="d-flex justify-content-between align-items-center">
+          <div class="hstack justify-between">
             <div>
               <div class="mobile-setting-label">Show Touch Indicators</div>
               <div class="mobile-setting-description">Visual feedback for touch points</div>
             </div>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="touch-indicators-toggle"
-                     style="width: 48px; height: 24px;">
-            </div>
+            <input type="checkbox" role="switch" id="touch-indicators-toggle">
           </div>
         </div>
 
         <!-- Auto-Close Toolbar -->
         <div class="mobile-setting-item">
-          <div class="d-flex justify-content-between align-items-center">
+          <div class="hstack justify-between">
             <div>
               <div class="mobile-setting-label">Auto-Close Toolbar</div>
               <div class="mobile-setting-description">Close toolbar after selecting a model</div>
             </div>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="auto-close-toggle"
-                     style="width: 48px; height: 24px;">
-            </div>
+            <input type="checkbox" role="switch" id="auto-close-toggle">
           </div>
         </div>
 
         <!-- Tutorial -->
         <div class="mobile-setting-item">
-          <button class="btn btn-outline-primary w-100" id="show-tutorial-btn">
+          <button class="outline w-100" id="show-tutorial-btn">
             <i class="bi bi-info-circle me-2"></i>Show Tutorial Again
           </button>
         </div>
 
         <!-- Device Info -->
-        <div class="mobile-setting-item border-top pt-3">
+        <div class="mobile-setting-item mobile-setting-divider">
           <div class="mobile-setting-label">Device Information</div>
           <div class="mobile-setting-description">
             <small class="d-block">Screen: <span id="device-screen"></span></small>
@@ -139,7 +130,7 @@ class MobileSettings {
 
         <!-- Reset Settings -->
         <div class="mobile-setting-item">
-          <button class="btn btn-outline-danger w-100" id="reset-settings-btn">
+          <button class="outline w-100" data-variant="danger" id="reset-settings-btn">
             <i class="bi bi-arrow-counterclockwise me-2"></i>Reset to Defaults
           </button>
         </div>

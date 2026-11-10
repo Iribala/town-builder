@@ -76,7 +76,7 @@
     transform: translateX(-50%);
     width: 48px;
     height: 5px;
-    background: var(--bs-secondary);
+    background: var(--text-muted);
     border-radius: 2.5px;
     opacity: 0.5;
     pointer-events: none;
@@ -101,7 +101,7 @@
     cursor: grabbing !important;
   }
 
-  #toolbar .card-body {
+  #toolbar .panel-body {
     padding-top: 24px;
     height: 100%;
     max-height: 100%;
@@ -111,7 +111,7 @@
   }
 
   /* Make the title area clearly draggable */
-  #toolbar .card-title {
+  #toolbar .toolbar-title {
     font-size: 1.1rem;
     margin-bottom: 1rem;
     cursor: grab;
@@ -119,7 +119,7 @@
     -webkit-user-select: none;
   }
 
-  #toolbar .card-title:active {
+  #toolbar .toolbar-title:active {
     cursor: grabbing;
   }
 
@@ -169,8 +169,8 @@
   }
 
   .model-item:active {
-    background-color: var(--bs-primary) !important;
-    color: white !important;
+    background-color: var(--accent) !important;
+    color: var(--on-accent) !important;
   }
 
   .model-item i {
@@ -271,8 +271,7 @@
   /* ============================================
      Toolbar Bottom Section
      ============================================ */
-  .toolbar-bottom-section button,
-  .toolbar-bottom-section .btn {
+  .toolbar-bottom-section button {
     min-height: var(--touch-target-min);
     font-size: 16px;
   }
@@ -287,6 +286,15 @@
 }
 
 /* ============================================
+   Attribution Footer - Anchored above bottom sheet
+   ============================================ */
+@media (max-width: 768px) {
+  #attribution-footer {
+    bottom: calc(var(--bottom-sheet-peek) + env(safe-area-inset-bottom, 0px) + 0.5rem) !important;
+  }
+}
+
+/* ============================================
    FAB (Floating Action Button)
    ============================================ */
 .fab {
@@ -296,6 +304,9 @@
   width: var(--fab-size);
   height: var(--fab-size);
   border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--accent);
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -336,8 +347,8 @@
   left: 0;
   right: 0;
   height: calc(var(--bottom-bar-height) + var(--safe-area-inset-bottom));
-  background: var(--bs-body-bg);
-  border-top: 1px solid var(--bs-border-color);
+  background: var(--surface);
+  border-top: 1px solid var(--glass-border);
   display: none;
   justify-content: space-around;
   align-items: center;
@@ -353,7 +364,7 @@
   }
 }
 
-.bottom-action-bar .btn {
+.bottom-action-bar button {
   flex: 1;
   margin: 0 4px;
   min-height: var(--touch-target-min);
@@ -366,7 +377,7 @@
   border-radius: 8px;
 }
 
-.bottom-action-bar .btn i {
+.bottom-action-bar button i {
   font-size: 20px;
   margin-bottom: 2px;
 }
@@ -470,7 +481,7 @@
   justify-content: center;
 }
 
-.tutorial-buttons .btn {
+.tutorial-buttons button {
   min-width: 120px;
   min-height: var(--touch-target-min);
 }
@@ -484,7 +495,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--bs-body-bg);
+  background: var(--surface);
   z-index: 2500;
   transform: translateX(100%);
   transition: transform 0.3s ease;
@@ -507,7 +518,7 @@
   align-items: center;
   margin-bottom: 2rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--bs-border-color);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .mobile-settings-title {
@@ -520,9 +531,14 @@
   min-width: var(--touch-target-min);
 }
 
+.mobile-setting-divider {
+  border-top: 1px solid var(--glass-border);
+  padding-top: 1rem;
+}
+
 .mobile-setting-item {
   padding: 1rem 0;
-  border-bottom: 1px solid var(--bs-border-color);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .mobile-setting-label {
@@ -576,7 +592,7 @@
     --bottom-sheet-peek: 50px;
   }
 
-  #toolbar .card-title {
+  #toolbar .toolbar-title {
     font-size: 1rem;
   }
 
@@ -649,15 +665,15 @@
 /* ============================================
    Dark Mode Adjustments
    ============================================ */
-[data-bs-theme="dark"] .mobile-backdrop {
+[data-theme="dark"] .mobile-backdrop {
   background: rgba(0, 0, 0, 0.7);
 }
 
-[data-bs-theme="dark"] .tutorial-step {
+[data-theme="dark"] .tutorial-step {
   background: rgba(255, 255, 255, 0.05);
 }
 
-[data-bs-theme="dark"] #toolbar::before {
+[data-theme="dark"] #toolbar::before {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -697,9 +713,13 @@
    Accessibility
    ============================================ */
 @media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+  /* Dampen spatial movement only (bottom-sheet slide, settings slide-in, FAB scale).
+     Color/opacity transitions stay enabled; final states are unaffected. */
+  #toolbar,
+  .mobile-settings,
+  .fab {
+    transition-property: opacity;
+    transition-duration: 0.01ms;
   }
 }
 

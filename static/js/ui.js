@@ -107,10 +107,7 @@ export function updateContextHelp() {
 export function setCurrentMode(mode) {
     currentMode = mode;
     document.querySelectorAll('.mode-button').forEach(b => {
-        b.classList.remove('active');
-        if (b.dataset.mode === mode) {
-            b.classList.add('active');
-        }
+        b.setAttribute('aria-pressed', b.dataset.mode === mode ? 'true' : 'false');
     });
 
     // Clear selected object when switching modes (except when staying in edit mode)
@@ -216,62 +213,22 @@ export function deactivateDriveModeUI() {
 }
 
 export function showNotification(message, type = 'info') {
-    // Create Bootstrap toast
-    const toastContainer = document.getElementById('toast-container') || createToastContainer();
-
-    const toast = document.createElement('div');
-    toast.className = 'toast align-items-center border-0';
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
-    toast.setAttribute('aria-atomic', 'true');
-
-    // Set color based on type using Bootstrap classes
-    if (type === 'success') {
-        toast.classList.add('text-bg-success');
-    } else if (type === 'error') {
-        toast.classList.add('text-bg-danger');
-    } else {
-        toast.classList.add('text-bg-primary');
+    // Oat's toast handles placement, stacking, variants and live regions itself.
+    const variant = type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info';
+    if (window.ot && typeof window.ot.toast === 'function') {
+        window.ot.toast(message, '', { variant, placement: 'bottom-center', duration: 3000 });
+        return;
     }
-
-    const toastInner = document.createElement('div');
-    toastInner.className = 'd-flex';
-
-    const toastBody = document.createElement('div');
-    toastBody.className = 'toast-body';
-    toastBody.textContent = message;
-
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'btn-close btn-close-white me-2 m-auto';
-    closeBtn.setAttribute('data-bs-dismiss', 'toast');
-
-    toastInner.appendChild(toastBody);
-    toastInner.appendChild(closeBtn);
-    toast.appendChild(toastInner);
-
-    toastContainer.appendChild(toast);
-
-    // Initialize and show Bootstrap toast
-    const bsToast = new bootstrap.Toast(toast, {
-        autohide: true,
-        delay: 3000
-    });
-    bsToast.show();
-
-    // Remove from DOM after hidden
-    toast.addEventListener('hidden.bs.toast', () => {
-        toast.remove();
-    });
-}
-
-function createToastContainer() {
-    const container = document.createElement('div');
-    container.id = 'toast-container';
-    container.className = 'toast-container position-fixed bottom-0 start-50 translate-middle-x p-3';
-    container.style.zIndex = '2000';
-    document.body.appendChild(container);
-    return container;
+    // Defensive fallback (Oat failed to load): still announce politely to AT.
+    let fallback = document.getElementById('toast-a11y-fallback');
+    if (!fallback) {
+        fallback = document.createElement('p');
+        fallback.id = 'toast-a11y-fallback';
+        fallback.className = 'visually-hidden';
+        document.body.appendChild(fallback);
+    }
+    fallback.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    fallback.textContent = message;
 }
 
 /**
@@ -283,36 +240,13 @@ function createLoadingIndicator() {
 
     const indicator = document.createElement('div');
     indicator.id = 'loading-indicator';
-    indicator.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        background: rgba(0, 123, 255, 0.95);
-        color: white;
-        border-radius: 8px;
-        font-size: 14px;
-        font-weight: 500;
-        z-index: 3000;
-        display: none;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        backdrop-filter: blur(10px);
-        animation: pulse 1.5s ease-in-out infinite;
-    `;
+    indicator.className = 'loading-indicator';
+    indicator.setAttribute('role', 'status');
 
-    // Add pulse animation
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-    `;
-    document.head.appendChild(style);
-
+    // Decorative CSS spinner (see .spinner in app.css)
     const spinner = document.createElement('span');
-    spinner.textContent = '⏳ ';
-    spinner.style.marginRight = '8px';
+    spinner.className = 'spinner';
+    spinner.setAttribute('aria-hidden', 'true');
 
     const text = document.createElement('span');
     text.id = 'loading-text';
@@ -336,14 +270,14 @@ export function updateLoadingIndicator() {
     const text = document.getElementById('loading-text');
 
     if (count > 0) {
-        indicator.style.display = 'block';
+        indicator.dataset.visible = 'true';
         if (text) {
             text.textContent = count === 1
                 ? 'Loading 1 model...'
                 : `Loading ${count} models...`;
         }
     } else {
-        indicator.style.display = 'none';
+        delete indicator.dataset.visible;
     }
 }
 
@@ -379,10 +313,7 @@ export function initUI() {
     // Mode button handling
     document.querySelectorAll('.mode-button').forEach(btn =>
         btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.mode-button').forEach(b => b.classList.remove('active'));
-            const mode = e.target.dataset.mode;
-            // e.target.classList.add('active'); // setCurrentMode will handle this
-            // currentMode = mode; // setCurrentMode will handle this
+            const mode = e.currentTarget.dataset.mode;
             setCurrentMode(mode); // Use the new function
         })
     );

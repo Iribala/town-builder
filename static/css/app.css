@@ -1,0 +1,1078 @@
+/* ============================================
+   Town Builder — Design System ("Glass & Soft")
+   Layered over Bootstrap 5.3. Loaded after it.
+   Tokens are defined for light first, duplicated
+   for dark (media query + [data-theme="dark"])
+   so both the system preference and the manual
+   toggle work without light-dark() support.
+   ============================================ */
+
+/* ---------- 1. Design tokens (Tier 1 + semantic) ---------- */
+:root {
+  color-scheme: light dark;
+
+  --text: oklch(0.24 0.02 265);
+  --text-muted: oklch(0.43 0.02 265);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.965 0.004 265);
+  --surface-3: oklch(0.93 0.006 265);
+
+  --glass: oklch(0.99 0.003 265 / 0.88);
+  --glass-strong: oklch(0.99 0.003 265 / 0.94);
+  --glass-border: oklch(0.3 0.03 265 / 0.16);
+
+  --accent: oklch(0.48 0.13 162);
+  --accent-hover: oklch(0.42 0.12 162);
+  --accent-active: oklch(0.38 0.11 162);
+  --accent-soft: oklch(0.48 0.13 162 / 0.12);
+  --on-accent: oklch(1 0 0);
+
+  --ok: oklch(0.48 0.13 150);
+  --warn: oklch(0.52 0.12 75);
+  --danger: oklch(0.5 0.18 27);
+  --sky: oklch(0.48 0.13 235);
+
+  --shadow-1: 0 1px 2px oklch(0.2 0.03 265 / 0.10), 0 4px 16px oklch(0.2 0.03 265 / 0.10);
+  --shadow-2: 0 2px 4px oklch(0.2 0.03 265 / 0.12), 0 12px 32px oklch(0.2 0.03 265 / 0.18);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-pill: 999px;
+
+  --blur: blur(16px) saturate(1.3);
+
+  --scroll-thumb: oklch(0.52 0.02 265);
+  --scroll-track: oklch(0.91 0.005 265);
+
+
+}
+
+/* Dark scheme via system preference (no JS, or no stored override) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --text: oklch(0.94 0.008 265);
+    --text-muted: oklch(0.82 0.012 265);
+    --surface: oklch(0.21 0.018 265);
+    --surface-2: oklch(0.26 0.02 265);
+    --surface-3: oklch(0.31 0.022 265);
+
+    --glass: oklch(0.21 0.018 265 / 0.88);
+    --glass-strong: oklch(0.21 0.018 265 / 0.95);
+    --glass-border: oklch(0.95 0.01 265 / 0.17);
+
+    --accent: oklch(0.76 0.14 160);
+    --accent-hover: oklch(0.82 0.13 160);
+    --accent-active: oklch(0.88 0.11 160);
+    --accent-soft: oklch(0.76 0.14 160 / 0.18);
+    --on-accent: oklch(0.23 0.05 162);
+
+    --ok: oklch(0.77 0.13 150);
+    --warn: oklch(0.82 0.13 80);
+    --danger: oklch(0.74 0.15 25);
+    --sky: oklch(0.76 0.11 235);
+
+    --shadow-1: 0 1px 2px oklch(0 0 0 / 0.30), 0 4px 16px oklch(0 0 0 / 0.35);
+    --shadow-2: 0 2px 4px oklch(0 0 0 / 0.35), 0 12px 32px oklch(0 0 0 / 0.45);
+
+    --scroll-thumb: oklch(0.66 0.015 265);
+    --scroll-track: oklch(0.30 0.018 265);
+  }
+}
+
+/* Dark scheme via explicit manual toggle (JS sets data-theme) */
+:root[data-theme="dark"] {
+  --text: oklch(0.94 0.008 265);
+  --text-muted: oklch(0.82 0.012 265);
+  --surface: oklch(0.21 0.018 265);
+  --surface-2: oklch(0.26 0.02 265);
+  --surface-3: oklch(0.31 0.022 265);
+
+  --glass: oklch(0.21 0.018 265 / 0.88);
+  --glass-strong: oklch(0.21 0.018 265 / 0.95);
+  --glass-border: oklch(0.95 0.01 265 / 0.17);
+
+  --accent: oklch(0.76 0.14 160);
+  --accent-hover: oklch(0.82 0.13 160);
+  --accent-active: oklch(0.88 0.11 160);
+  --accent-soft: oklch(0.76 0.14 160 / 0.18);
+  --on-accent: oklch(0.23 0.05 162);
+
+  --ok: oklch(0.77 0.13 150);
+  --warn: oklch(0.82 0.13 80);
+  --danger: oklch(0.74 0.15 25);
+  --sky: oklch(0.76 0.11 235);
+
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.30), 0 4px 16px oklch(0 0 0 / 0.35);
+  --shadow-2: 0 2px 4px oklch(0 0 0 / 0.35), 0 12px 32px oklch(0 0 0 / 0.45);
+
+  --scroll-thumb: oklch(0.66 0.015 265);
+  --scroll-track: oklch(0.30 0.018 265);
+}
+
+/* Manual toggle pinned to light wins over a dark system preference */
+:root[data-theme="light"] {
+  --text: oklch(0.24 0.02 265);
+  --text-muted: oklch(0.43 0.02 265);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.965 0.004 265);
+  --surface-3: oklch(0.93 0.006 265);
+
+  --glass: oklch(0.99 0.003 265 / 0.88);
+  --glass-strong: oklch(0.99 0.003 265 / 0.94);
+  --glass-border: oklch(0.3 0.03 265 / 0.16);
+
+  --accent: oklch(0.48 0.13 162);
+  --accent-hover: oklch(0.42 0.12 162);
+  --accent-active: oklch(0.38 0.11 162);
+  --accent-soft: oklch(0.48 0.13 162 / 0.12);
+  --on-accent: oklch(1 0 0);
+
+  --ok: oklch(0.48 0.13 150);
+  --warn: oklch(0.52 0.12 75);
+  --danger: oklch(0.5 0.18 27);
+  --sky: oklch(0.48 0.13 235);
+
+  --shadow-1: 0 1px 2px oklch(0.2 0.03 265 / 0.10), 0 4px 16px oklch(0.2 0.03 265 / 0.10);
+  --shadow-2: 0 2px 4px oklch(0.2 0.03 265 / 0.12), 0 12px 32px oklch(0.2 0.03 265 / 0.18);
+
+  --scroll-thumb: oklch(0.52 0.02 265);
+  --scroll-track: oklch(0.91 0.005 265);
+}
+
+/* Map the toggle-controlled <meta name="color-scheme"> back onto the property
+   so light-dark branching keys off the override, per dark-mode guidance */
+:root:has(> head > meta[name="color-scheme"][content="dark"]) {
+  color-scheme: dark;
+}
+:root:has(> head > meta[name="color-scheme"][content="light"]) {
+  color-scheme: light;
+}
+
+/* Oat (@knadh/oat) theme mapping: swap its neutral primary for the app accent.
+   Oat colors are light-dark() pairs and key off color-scheme, so this works
+   with the same toggle that pins our own tokens. */
+:root {
+  --primary: light-dark(oklch(0.48 0.13 162), oklch(0.76 0.14 160));
+  --primary-foreground: light-dark(#ffffff, oklch(0.23 0.05 162));
+  --ring: light-dark(oklch(0.48 0.13 162 / 0.4), oklch(0.76 0.14 160 / 0.45));
+  --danger: light-dark(oklch(0.5 0.18 27), oklch(0.74 0.15 25));
+  --danger-foreground: light-dark(#ffffff, oklch(0.23 0.05 27));
+}
+
+/* Glass needs a backdrop to blur; without the feature use (nearly) opaque surfaces */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass: oklch(0.99 0.003 265 / 0.66);
+    --glass-strong: oklch(0.99 0.003 265 / 0.78);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --glass: oklch(0.21 0.018 265 / 0.78);
+      --glass-strong: oklch(0.21 0.018 265 / 0.86);
+    }
+  }
+  :root[data-theme="dark"] {
+    --glass: oklch(0.21 0.018 265 / 0.78);
+    --glass-strong: oklch(0.21 0.018 265 / 0.86);
+  }
+  :root[data-theme="light"] {
+    --glass: oklch(0.99 0.003 265 / 0.66);
+    --glass-strong: oklch(0.99 0.003 265 / 0.78);
+  }
+}
+
+/* Progressive enhancement: squircle corners where supported */
+@supports (corner-shape: squircle) {
+  .mode-buttons,
+  .mode-button,
+  .model-item {
+    corner-shape: squircle;
+  }
+}
+
+html {
+  accent-color: var(--accent);
+}
+
+::selection {
+  background: oklch(0.48 0.13 162 / 0.28);
+  color: inherit;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) ::selection {
+    background: oklch(0.76 0.14 160 / 0.35);
+  }
+}
+:root[data-theme="dark"] ::selection {
+  background: oklch(0.76 0.14 160 / 0.35);
+}
+
+/* ---------- 2. Base ---------- */
+body,
+html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  line-height: 1.5;
+}
+
+/* Oat's base layer pads <main>; the canvas wants none */
+main#canvas-container {
+  padding-block-start: 0;
+}
+
+/* ---------- Transitional utility shims (small subset used by markup/JS) ---------- */
+.mb-0 {
+  margin-block-end: 0;
+}
+.mb-1 {
+  margin-block-end: 0.25rem;
+}
+.mb-2 {
+  margin-block-end: 0.5rem;
+}
+.mt-2 {
+  margin-block-start: 0.5rem;
+}
+.mt-3 {
+  margin-block-start: 0.75rem;
+}
+.pt-3 {
+  padding-block-start: 0.75rem;
+}
+.me-1 {
+  margin-inline-end: 0.25rem;
+}
+.me-2 {
+  margin-inline-end: 0.5rem;
+}
+.d-flex {
+  display: flex;
+}
+.d-block {
+  display: block;
+}
+.align-items-center {
+  align-items: center;
+}
+.justify-content-between {
+  justify-content: space-between;
+}
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* Field primitives used by the toolbar and landing dialog */
+.field-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-block-end: 0.25rem;
+  color: var(--text);
+}
+.field-hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+.field-hint:empty {
+  display: none;
+}
+
+#canvas-container {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+#canvas-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.visually-hidden:where(:not(:focus-within, :active)) {
+  position: absolute !important;
+  clip-path: inset(50%) !important;
+  overflow: hidden !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  white-space: nowrap !important;
+}
+
+:where(a, button, input, select, textarea, [tabindex="0"], .model-item, .mode-button):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 4. Navbar ---------- */
+.navbar {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 1px 8px oklch(0.2 0.03 265 / 0.08);
+  padding-block: 0.35rem;
+}
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding-inline: 1rem;
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.navbar-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text) !important;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.brand-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--on-accent);
+  background: linear-gradient(145deg, var(--accent), var(--accent-active));
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.35), var(--shadow-1);
+}
+.brand-tile .bi {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Panel primitives shared by the toolbar, users panel and context help */
+.panel-body {
+  padding: 1rem;
+}
+
+/* ---------- 5. Town name + theme toggle + sign-in + users ---------- */
+#user-list {
+  position: absolute;
+  top: calc(3.25rem + 0.75rem + env(safe-area-inset-top, 0px));
+  inset-inline-end: 0.75rem;
+  z-index: 1000;
+  min-width: 10rem;
+}
+#user-list .panel-body {
+  padding: 0.75rem 1rem;
+}
+.panel-title,
+#user-list .panel-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+#user-list .panel-title .bi {
+  color: var(--accent);
+}
+.bluesky-signin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+}
+.signin-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid color-mix(in oklab, var(--sky) 38%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--sky) 14%, transparent);
+  color: var(--sky);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.35rem 0.85rem;
+  min-block-size: 2.25rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.signin-pill:hover {
+  background: color-mix(in oklab, var(--sky) 22%, transparent);
+  border-color: var(--sky);
+}
+.bluesky-status {
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  color: var(--text-muted);
+  max-width: 15rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bluesky-status:empty {
+  display: none;
+}
+/* Icon-only sign-in pill on very small screens; the button keeps its aria-label */
+@media (max-width: 576px) {
+  .signin-pill-label {
+    display: none;
+  }
+  .signin-pill {
+    padding-inline: 0.5rem;
+  }
+}
+.color-controls-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+#town-name-container {
+  position: absolute;
+  top: calc(3.25rem + env(safe-area-inset-top, 0px));
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  text-align: center;
+}
+
+#town-name-display {
+  cursor: pointer;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--text);
+  font: 600 1.125rem/1.4 system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  padding: 0.45rem 1.5rem;
+  min-width: 12.5rem;
+  box-shadow: var(--shadow-1);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+#town-name-display:hover {
+  box-shadow: var(--shadow-2);
+}
+
+#town-name-input {
+  text-align: center;
+  width: 12.5rem;
+  display: none;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.45rem 1rem;
+}
+
+#theme-toggle-container {
+  width: fit-content;
+}
+
+.theme-toggle {
+  cursor: pointer;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: var(--radius-pill) !important;
+  border: 1px solid var(--glass-border) !important;
+  background: var(--glass-strong) !important;
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--text) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  box-shadow: var(--shadow-1);
+}
+.theme-toggle .bi {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.theme-icon-moon {
+  display: none;
+}
+:root[data-theme="dark"] .theme-icon-moon {
+  display: inline-block;
+}
+:root[data-theme="dark"] .theme-icon-sun {
+  display: none;
+}
+.switch-to-light {
+  display: none;
+}
+:root[data-theme="dark"] .switch-to-light {
+  display: inline;
+}
+:root[data-theme="dark"] .switch-to-dark {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .theme-toggle {
+    transition: transform 0.25s ease;
+  }
+  .theme-toggle:hover {
+    transform: rotate(20deg) scale(1.05);
+  }
+}
+
+/* Floating utility cards share the glass look */
+#bluesky-signin-container,
+#user-list {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+}
+#user-list-ul li {
+  padding: 0.15rem 0;
+  color: var(--text);
+  font-size: 0.875rem;
+}
+#user-list-ul .bi {
+  color: var(--accent);
+}
+
+/* ---------- 6. Toolbar ---------- */
+#toolbar {
+  position: absolute;
+  top: calc(3.25rem + env(safe-area-inset-top, 0px));
+  inset-inline-start: 0.75rem;
+  max-height: calc(100vh - 4.5rem);
+  display: flex;
+  flex-direction: column;
+  z-index: 1000;
+  width: 17.5rem;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+  color: var(--text);
+}
+
+#toolbar .panel-body {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 6rem);
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.toolbar-title {
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-block: 0 0.6rem;
+  text-wrap: balance;
+}
+
+/* Segmented mode control — mutually exclusive toggles keyed off aria-pressed */
+.mode-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+}
+.mode-button {
+  --mode-accent: var(--text-muted);
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  min-block-size: 2.25rem;
+  padding: 0.35rem 0.5rem;
+  transition: color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.mode-button .bi {
+  font-size: 0.95rem;
+  color: var(--mode-accent);
+}
+.mode-button[data-mode="place"] {
+  --mode-accent: var(--ok);
+}
+.mode-button[data-mode="edit"] {
+  --mode-accent: var(--sky);
+}
+.mode-button[data-mode="delete"] {
+  --mode-accent: var(--danger);
+}
+.mode-button[data-mode="drive"] {
+  --mode-accent: var(--warn);
+}
+.mode-button[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--text);
+  /* inset cue keeps the toggled state visible even on low-contrast glass */
+  box-shadow: inset 0 0 0 1.5px var(--accent), var(--shadow-1);
+}
+@media (hover: hover) {
+  .mode-button:hover:not([aria-pressed="true"]) {
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+}
+
+/* Model list */
+#model-container {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-inline-end: 2px;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  scrollbar-width: auto;
+}
+@supports not (scrollbar-color: auto) {
+  #model-container {
+    scrollbar-width: auto; /* legacy track follows custom properties below */
+  }
+  #model-container::-webkit-scrollbar {
+    width: 10px;
+  }
+  #model-container::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+    border-radius: 5px;
+  }
+  #model-container::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 5px;
+  }
+}
+.category h6,
+.category-heading {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-block: 0.75rem 0.35rem;
+}
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  margin-block-end: 2px;
+  padding: 0.4rem 0.75rem;
+  text-align: start;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.model-item .bi {
+  color: var(--text-muted);
+}
+@media (hover: hover) {
+  .model-item:hover {
+    transform: translateY(-1px);
+    background: var(--accent-soft);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-1);
+  }
+}
+.model-item:active {
+  background: var(--accent-soft);
+}
+
+.toolbar-bottom-section {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.scene-colors {
+  border-top: 1px solid var(--glass-border);
+}
+
+/* Color inputs: larger hit swatch, visible boundary for 3:1 non-text contrast */
+input[type="color"] {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 0.25rem;
+  min-block-size: 2.25rem;
+  cursor: pointer;
+}
+
+/* ---------- 7. Buttons (Oat styled; app-tier radius for consistency) ---------- */
+menu.buttons {
+  border-radius: var(--radius-md);
+}
+menu.buttons > li > button {
+  font-weight: 600;
+}
+
+/* ---------- 8. Context-sensitive help ---------- */
+#context-help {
+  position: absolute;
+  bottom: 1.25rem;
+  inset-inline-end: 1.25rem;
+  z-index: 1000;
+  max-width: 17.5rem;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  opacity: 0.95;
+  transition: opacity 0.2s ease;
+}
+#context-help:hover {
+  opacity: 1;
+}
+#context-help .help-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+  text-wrap: balance;
+}
+#context-help ul {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+#context-help li {
+  margin-bottom: 0.25rem;
+}
+kbd {
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.35rem;
+  margin-inline: 0.1rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--glass-border);
+  border-bottom-width: 2px;
+  background: var(--surface-2);
+  color: var(--text);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.5);
+}
+
+/* ---------- 9. Toasts (Oat) — tint to the glass system ---------- */
+output.toast {
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  box-shadow: var(--shadow-2);
+}
+output.toast .toast-title {
+  color: var(--text);
+}
+output.toast .toast-message {
+  color: var(--text-muted);
+}
+
+/* ---------- 10. Landing dialog (native <dialog>) ---------- */
+.landing-dialog {
+  inline-size: min(28rem, calc(100dvw - 2rem));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--text);
+  box-shadow: var(--shadow-2);
+  padding: 0;
+  /* entry/exit animation: opacity + translate only, discrete display/overlay */
+  opacity: 0;
+  translate: 0 0.75rem;
+  transition: opacity 0.25s ease, translate 0.25s ease, display 0.25s allow-discrete, overlay 0.25s allow-discrete;
+}
+.landing-dialog[open] {
+  opacity: 1;
+  translate: 0 0;
+}
+@starting-style {
+  .landing-dialog[open] {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+}
+dialog.landing-dialog:modal {
+  overscroll-behavior: contain;
+}
+dialog.landing-dialog::backdrop {
+  background: oklch(0.15 0.02 265 / 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.landing-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 0;
+}
+.landing-dialog-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  text-wrap: balance;
+}
+.landing-dialog-body {
+  padding: 0.75rem 1.25rem 1.25rem;
+}
+.dialog-close {
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  inline-size: 2rem;
+  block-size: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+@media (hover: hover) {
+  .dialog-close:hover {
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+}
+#landingPreviewStatus {
+  min-block-size: 1.25rem;
+}
+
+/* ---------- 11. Attribution footer ---------- */
+#attribution-footer {
+  position: fixed;
+  bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  inset-inline-start: 0.5rem;
+  inset-inline-end: auto;
+  max-width: min(34rem, calc(100dvw - 1rem));
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  color: var(--text);
+  z-index: 1400;
+}
+#attribution-footer a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+#attribution-footer a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 12. Loading indicator + spinner ---------- */
+.loading-indicator {
+  position: fixed;
+  top: 4.5rem;
+  inset-inline-end: 1rem;
+  z-index: 3000;
+  display: none;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.loading-indicator[data-visible="true"] {
+  display: flex;
+}
+.spinner {
+  inline-size: 1rem;
+  block-size: 1rem;
+  border-radius: 50%;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .spinner {
+    animation: spin 0.9s linear infinite;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* ---------- 13. Joystick + exit drive (subtle glass) ---------- */
+#exit-driving-btn {
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-2);
+}
+#joystick-base {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: oklch(0.15 0.02 265 / 0.32);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid oklch(1 0 0 / 0.25);
+}
+#joystick-stick {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  left: 30px;
+  top: 30px;
+  border-radius: 50%;
+  background: oklch(0.6 0.15 150 / 0.5);
+  touch-action: none;
+}
+
+/* ---------- 14. Category status legend (created by JS) ---------- */
+#category-status-legend {
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--radius-lg) !important;
+  background: var(--glass) !important;
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--shadow-1) !important;
+  color: var(--text);
+}
+
+/* ---------- 15. Reduced motion: dampen spatial movement only ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .model-item,
+  .theme-toggle,
+  #town-name-display,
+  .mode-button {
+    transition-duration: 0.01ms;
+    transition-property: color, background-color, border-color, opacity;
+  }
+  .model-item:hover {
+    transform: none;
+  }
+  .landing-dialog {
+    translate: 0 0;
+    transition: opacity 0.01ms;
+  }
+  @starting-style {
+    .landing-dialog[open] {
+      translate: 0 0;
+    }
+  }
+}
+
+/* ---------- 16. Forced colors (Windows High Contrast) ---------- */
+@media (forced-colors: active) {
+  .navbar,
+  #toolbar,
+  #context-help,
+  #user-list,
+  #town-name-display,
+  #town-name-input,
+  #category-status-legend,
+  #attribution-footer,
+  .toast,
+  .landing-dialog,
+  .theme-toggle,
+  .signin-pill,
+  .loading-indicator,
+  .mode-buttons,
+  kbd {
+    background: Canvas !important;
+    color: CanvasText;
+    border: 1px solid ButtonText;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+  }
+  .mode-button[aria-pressed="true"] {
+    background: Highlight;
+    color: HighlightText;
+    box-shadow: none;
+    outline: 1px solid HighlightText;
+  }
+  .mode-button .bi {
+    color: inherit;
+  }
+  .model-item:hover {
+    border-color: Highlight !important;
+    outline: 1px solid Highlight;
+  }
+  #attribution-footer a {
+    color: LinkText;
+  }
+  .spinner {
+    border-color: ButtonText;
+    border-top-color: Highlight;
+  }
+}
+
+/* ---------- 17. prefers-contrast: more — strengthen glass boundaries ---------- */
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="light"] {
+    --glass: oklch(1 0 0 / 0.96);
+    --glass-strong: oklch(1 0 0 / 0.98);
+    --glass-border: oklch(0.2 0.02 265 / 0.55);
+    --text-muted: oklch(0.32 0.02 265);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --glass: oklch(0.18 0.018 265 / 0.96);
+      --glass-strong: oklch(0.18 0.018 265 / 0.98);
+      --glass-border: oklch(0.97 0.005 265 / 0.6);
+      --text-muted: oklch(0.88 0.01 265);
+    }
+  }
+  :root[data-theme="dark"] {
+    --glass: oklch(0.18 0.018 265 / 0.96);
+    --glass-strong: oklch(0.18 0.018 265 / 0.98);
+    --glass-border: oklch(0.97 0.005 265 / 0.6);
+    --text-muted: oklch(0.88 0.01 265);
+  }
+}

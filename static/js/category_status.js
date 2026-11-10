@@ -260,7 +260,7 @@ export function applyCategoryStatuses(categoryStatuses, placedObjects) {
 export function createStatusLegend(categoryStatuses) {
     const legend = document.createElement('div');
     legend.id = 'category-status-legend';
-    legend.className = 'card shadow-sm';
+    legend.className = 'category-status-panel';
     legend.setAttribute('role', 'region');
     legend.setAttribute('aria-label', 'Town Category Status');
     legend.style.cssText = `
@@ -273,13 +273,13 @@ export function createStatusLegend(categoryStatuses) {
     `;
 
     const cardBody = document.createElement('div');
-    cardBody.className = 'card-body';
+    cardBody.className = 'panel-body';
     cardBody.style.cssText = 'padding: 15px; font-size: 12px;';
 
     const title = document.createElement('h6');
-    title.className = 'card-title';
+    title.className = 'panel-title';
     title.textContent = 'Town Category Status';
-    title.style.cssText = 'margin: 0 0 10px 0; font-size: 14px; padding-bottom: 5px; border-bottom: 1px solid var(--bs-border-color);';
+    title.style.cssText = 'margin: 0 0 10px 0; font-size: 14px; padding-bottom: 5px; border-bottom: 1px solid var(--glass-border);';
     cardBody.appendChild(title);
 
     // Add legend key with color names
@@ -304,7 +304,7 @@ export function createStatusLegend(categoryStatuses) {
             height: 20px;
             background: #${getStatusColor(status.status_level).toString(16).padStart(6, '0')};
             margin-right: 8px;
-            border: 1px solid var(--bs-border-color);
+            border: 1px solid var(--glass-border);
         `;
         colorBox.setAttribute('aria-hidden', 'true'); // Hide decorative element from screen readers
 
