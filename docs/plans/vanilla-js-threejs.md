@@ -12,7 +12,9 @@
 > ~2,400 lines, **~23 KB gzip** vs the ~437 KB three.js stack (−94%);
 > `tests/js/gltf-min.test.cjs` parses all 75 assets; verified end-to-end in
 > Chrome (render, place, collide, pick/delete, clear-scene) with a clean
-> console on both renderer paths. See §4 for what is and isn't verified.
+> console on both renderer paths. See §4 for what is and isn't verified —
+> as of 2026-11-09, two Phase 2 parity bugs found by A/B are fixed and
+> cross-renderer cursor sprites are verified (with Redis running).
 >
 > Short answer: **yes — and in several structural respects this repo is a
 > better candidate than the Babylon one. The runtime asset pipeline risk
@@ -386,7 +388,40 @@ Staged exactly like the sibling repo's plan, adapted:
     `tests/js/webgl2-aabb.test.cjs` asserts vanilla `setFromObject()`
     matches Three.js `Box3.setFromObject()` for all 75 assets (plus
     `intersectsBox` agreement on 500 box pairs). 32/32 node tests green.
-    Screenshot A/B and the interactive/leak checks are still open.
+  - 2026-11-09: side-by-side A/B in Chrome (same browser, one tab per
+    renderer, same synthetic mouse events at the same CSS coordinates)
+    found and fixed two parity bugs (`83f822c`):
+    `glmath.js` `setEulerFromQuaternion()` used a y-first decomposition
+    while claiming XYZ order — composed matrices were fine (quaternion
+    path), but drive-mode camera arrow keys and `saveScene`
+    serialization read `rotation.*`, which was stale/wrong; replaced
+    with Three.js's exact asin/atan2 XYZ branch and pinned with
+    `tests/js/webgl2-glmath.test.cjs` (36/36 green). And the default
+    three.js path never called `renderer.setClearColor()` at startup,
+    so its sky rendered black until the user moved the sky picker —
+    `scene/scene.js` now sets the picker default (#87ceeb) for both
+    renderers. After the fixes the two tabs render identically: sky,
+    ground, grid, placement, and identical world positions for placed
+    models (to 1e-9). Pick/delete (raycast) works identically at the
+    same screen coordinates in both. Cars diverge between the tabs as
+    expected — collision response uses `Math.random()` — not a parity
+    signal. The "Road Straight" and "Tree A" placements were rejected
+    by the app's own overlap check in both renderers identically.
+  - 2026-11-09: cross-renderer cursor sprites verified. Multiplayer
+    fan-out requires Redis (`pubsub.Subscribe()` has no in-memory
+    fallback — without Redis, SSE runs keepalive-only and **no**
+    cursor/edit/delete/snapshot events reach other clients, all with
+    200s); with `redis-server` running, a three.js tab's cursor
+    renders on a vanilla tab as the cone + CanvasTexture label sprite
+    with a clean console. Roadmap note: `storage.Initialize()` pings
+    Redis once at startup and never retries — restart the dev server
+    after starting Redis.
+  - Still open: parity for the remaining model categories (A/B so far
+    covered buildings/trees/props/vehicles), long-session GPU leak
+    soak (eviction paths are unit-covered, not soak-tested), drive-mode
+    camera-follow interactive check, mobile/touch, game-over overlay,
+    hover/selection highlight parity, no automated 3D-layer screenshots
+    in CI, cache headers/content hashing for the flip.
 - **Decision gate — default flip**
   - Only after parity is boring in normal play: make vanilla the default,
     delete the three stack (2.1 MB raw / ~437 KB gz), remove the import
