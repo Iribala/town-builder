@@ -9,12 +9,14 @@
 >
 > Current code state (2026-11-09): all of it is committed on `main`,
 > flag-gated behind `?renderer=webgl2`, default-off. `static/js/webgl2/` —
-> ~2,400 lines, **~23 KB gzip** vs the ~437 KB three.js stack (−94%);
+> ~2,400 lines, **~24 KB gzip** vs the ~437 KB three.js stack (−94%);
 > `tests/js/gltf-min.test.cjs` parses all 75 assets; verified end-to-end in
 > Chrome (render, place, collide, pick/delete, clear-scene) with a clean
 > console on both renderer paths. See §4 for what is and isn't verified —
-> as of 2026-11-09, two Phase 2 parity bugs found by A/B are fixed and
-> cross-renderer cursor sprites are verified (with Redis running).
+> as of 2026-11-09, two Phase 2 parity bugs found by A/B are fixed,
+> cross-renderer cursor sprites are verified, and an all-75-asset A/B sweep
+> (transforms, AABBs, category-status tint, drive-mode camera follow) is
+> green on both renderers.
 >
 > Short answer: **yes — and in several structural respects this repo is a
 > better candidate than the Babylon one. The runtime asset pipeline risk
@@ -364,12 +366,13 @@ Staged exactly like the sibling repo's plan, adapted:
   (pre-existing; crashed every page after init regardless of renderer) and
   missing `geometry.parameters` on the shim's primitive geometries.
 
-  **Not yet verified:** collaborative-cursor sprites (needs a second
-  client), drive-mode camera follow (the pick path it relies on is
-  verified; the camera itself was not exercised), mobile/touch, long
-  sessions, game-over overlay, no automated 3D-layer screenshots.
+  **Not yet verified (at time of Phase 1):** collaborative-cursor sprites
+  (needs a second client), drive-mode camera follow, mobile/touch, long
+  sessions, no automated 3D-layer screenshots. (Cursor sprites and the
+  drive-mode camera were verified in Phase 2 — see below; mobile/touch,
+  the long-session soak, and CI screenshots remain open.
   Drive-mode *selection* uses the same raycast as Delete, which passes on a
-  moving vehicle.
+  moving vehicle.)
 
   **Notable:** Chrome served a stale cached `gltf-min.js` after edits —
   the documented "no cache headers/hash busting" gotcha bit hard during
@@ -416,11 +419,37 @@ Staged exactly like the sibling repo's plan, adapted:
     with a clean console. Roadmap note: `storage.Initialize()` pings
     Redis once at startup and never retries — restart the dev server
     after starting Redis.
-  - Still open: parity for the remaining model categories (A/B so far
-    covered buildings/trees/props/vehicles), long-session GPU leak
-    soak (eviction paths are unit-covered, not soak-tested), drive-mode
-    camera-follow interactive check, mobile/touch, game-over overlay,
-    hover/selection highlight parity, no automated 3D-layer screenshots
+  - 2026-11-09: all-75-asset A/B sweep in Chrome (one tab per renderer,
+    programmatic placement of **every** glTF on disk — including park and
+    street categories, which had no prior A/B — at identical grid
+    coordinates via `loadModel`, bypassing the UI). Result: for all 70
+    non-vehicle assets, position/rotation/scale and `userData.boundingBox`
+    are **bitwise identical** (max abs diff 0); child counts and frustum
+    visibility match. Vehicles diverge as expected (live physics with
+    `Math.random()` collision response) — not a parity signal. Both tabs
+    render the same grid pixel-identically at a fixed camera, load all 75
+    models with no failures, and log clean consoles (the webgl2 tab shows a
+    benign transient WASM-ready retry warning). LRU eviction paths fire
+    identically in both.
+  - 2026-11-09: category-status tint path (`applyCategoryStatuses` —
+    material clone + `color.setHex` + emissive clone, the app's only
+    visual "highlight" mechanism) verified identical across renderers:
+    11 tinted objects produce identical color/emissive/intensity values,
+    and side-by-side screenshots match.
+  - 2026-11-09: drive-mode camera-follow verified. `setDrivingCar` on a
+    static placed object in both renderers with identical start camera:
+    `updateDrivingCamera` converges both cameras to the exact third-person
+    offset (0, 2.5, −6 in car space) — camera positions bitwise identical,
+    look quaternions match to ~1e-9. (The interactive drive path was not
+    exercised — this checks the camera math the interactive path drives.)
+  - "Game-over overlay" was on the open list but **does not exist in this
+    codebase** (no matches in JS/templates/backend) — nothing to verify;
+    removed from the open list.
+  - Still open: long-session GPU leak soak (eviction paths are
+    unit-covered, not soak-tested), mobile/touch (untested; the touch
+    pick path duplicates desktop logic), hover/selection highlight
+    parity is effectively covered by the status-tint check (desktop has
+    no separate hover visual), no automated 3D-layer screenshots
     in CI, cache headers/content hashing for the flip.
 - **Decision gate — default flip**
   - Only after parity is boring in normal play: make vanilla the default,
@@ -543,6 +572,22 @@ EOF
 # JS tests
 ./scripts/test-js.sh
 ```
+
+Reproducing the all-asset A/B sweep (done 2026-11-09): with the dev
+server up and Redis running, open one tab per renderer
+(`/` and `/?renderer=webgl2`), then in each tab evaluate a script that
+imports `/static/js/state/scene-state.js` and `/static/js/models/loader.js`
+and calls `loadModel()` for **every** `static/models/**/*.gltf` (build the
+asset list with `find static/models -name '*.gltf'`) at deterministic grid
+coordinates (e.g. 10 columns × 4.5 units spacing, rows centered on z=0),
+then sets `camera.position.set(0, 62, 46)` + `camera.lookAt(0, 0, 0)` and
+dumps `placedObjects` (position/rotation/scale/`userData.boundingBox`) for
+comparison. `loadModel` does not POST, so the two tabs stay independent.
+Compare the dumps pairwise — non-vehicle assets must match exactly (cars
+drive on `Math.random()` and will diverge) — and screenshot both tabs for
+the visual check. For the drive-mode camera check, `setDrivingCar(obj)` on
+a static placed object and sample `camera.position`/`quaternion` after a
+few seconds; both renderers converge to the car-space offset (0, 2.5, −6).
 
 ### Appendix B — Sources
 
