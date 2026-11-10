@@ -17,9 +17,9 @@
 > cross-renderer cursor sprites are verified, an all-75-asset A/B sweep
 > (transforms, AABBs, category-status tint, drive-mode camera) is green on
 > both renderers, the long-session GPU-leak soak shows both paths
-> return to baseline GL object counts exactly, and mobile/touch was
-> emulated end-to-end — which surfaced and fixed three touch-path bugs
-> that made all touch gestures dead.
+> return to baseline GL object counts exactly, mobile/touch was
+> emulated end-to-end (three touch-path bugs fixed), and the static route
+> serves **content-hashed, immutable assets** under `/static/v/<hash>/`.
 >
 > Short answer: **yes — and in several structural respects this repo is a
 > better candidate than the Babylon one. The runtime asset pipeline risk
@@ -513,10 +513,27 @@ Staged exactly like the sibling repo's plan, adapted:
     across `ignoreCache` reloads (per-renderer memory cache — the known
     "no cache headers" gotcha). The static route now sends
     `Cache-Control: no-cache` (revalidate-always, no content hashing yet).
+  - 2026-11-09: content hashing for static assets (flip prereq, now done
+    end-to-end). The static route computes a **tree content hash at startup**
+    (SHA-256 over the sorted `path:hash` listing of `./static`) and serves
+    versioned URLs as `/static/v/<hash>/<path>` with
+    `Cache-Control: public, max-age=31536000, immutable`; wrong-version URLs
+    404 rather than serve mismatched content under an immutable cache.
+    Unversioned `/static/` remains as a `no-cache` fallback for any
+    hardcoded path. Templates emit versioned URLs via a new `staticURL`
+    func (all 10 references in `index.html`, including the import map and
+    the WASM fetch); `window.__STATIC_VERSION__` is injected and
+    `models/loader.js` builds the models base URL from it; the page is
+    `no-store`, so a deploy's new hash rides the fresh HTML automatically.
+    Verified: versioned assets return 200 + immutable; wrong version →
+    404; unversioned → no-cache; models/`.bin`/textures/WASM/fonts all
+    fetch versioned; both renderers place models through the real UI
+    flow with versioned asset URLs; consoles clean. Note: version is
+    computed once per process at startup — editing `./static` requires a
+    server restart to re-hash (HTML is no-store, so reloads pick it up).
   - Still open: hover/selection highlight parity is effectively
     covered by the status-tint check (desktop has no separate hover
-    visual), no automated 3D-layer screenshots in CI, content
-    hashing for the flip (base `no-cache` headers now in place).
+    visual), no automated 3D-layer screenshots in CI.
 - **Decision gate — default flip**
   - Only after parity is boring in normal play: make vanilla the default,
     delete the three stack (2.1 MB raw / ~437 KB gz), remove the import
@@ -562,12 +579,14 @@ unsound); or rewriting without the three.js fallback flag.
   map entry at the flip no longer touches Bluesky sign-in. (The same order
   discipline applies to the eventual flip itself: vendor/remove `three`
   only when nothing else references it.)
-- **No content hashing yet.** The static route now sends
-  `Cache-Control: no-cache` (revalidate-always, 2026-11-09), which closes
-  the stale-mixed-JS failure mode for flips; actual content hashes are
-  still worth adding at the flip for cache efficiency.
-- **Heuristic caching + no service worker** (today). First flips must be
-  tested with hard reloads; copy the sibling repo's lesson.
+- **Content hashing done (2026-11-09).** Assets are served immutably from
+  `/static/v/<tree-hash>/` with stale-version URLs 404ing; HTML is
+  `no-store`, so deploys flip cleanly. Remaining flip-blocker is just
+  automated screenshots in CI.
+- **Heuristic caching + no service worker** (no longer a flip hazard:
+  versioned immutable URLs + `no-store` HTML, 2026-11-09). Verify with a
+  normal reload at the flip; hard reloads stay useful during mixed-version
+  rollout debugging.
 - **Mobile duplication.** `interactions-touch.js` re-implements picking in
   three terms; porting it blindly doubles the bug surface — consolidate
   on the desktop pick path for both, or keep it on three until Phase 2.

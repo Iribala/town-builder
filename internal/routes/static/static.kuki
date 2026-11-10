@@ -2,7 +2,13 @@ petiole static
 
 import "net/http"
 import "path/filepath"
+import "stdlib/crypto" as cryptos
+import "stdlib/files"
+import "stdlib/log"
+import "stdlib/sort" as sortpkg
 import "stdlib/string" as strpkg
+
+import "github.com/Iribala/town-builder/internal/config"
 
 func mimeFor(p: string) string
     ext := strpkg.ToLower(filepath.Ext(p))
@@ -36,21 +42,83 @@ func mimeFor(p: string) string
         default
             return ""
 
-type mimeHandler
+func computeVersion() string
+    entries, err := files.ListRecursive("./static")
+    if err isnt empty
+        log.Error("static version: cannot list ./static: {err}")
+        return "dev"
+    entries = sortpkg.Strings(entries)
+    acc := ""
+    for p in entries
+        data, rerr := files.Read(p)
+        if rerr isnt empty
+            log.Error("static version: cannot read {p}: {rerr}")
+            continue
+        acc = "{acc}{p}:{cryptos.SHA256Hex(data)}\n"
+    return cryptos.SHA256Hex(acc as list of byte)[:16]
+
+var assetVersion: string
+
+# Version() returns the content hash of the entire static/ tree, computed
+# once at startup. Any file change produces a new hash, so versioned URLs
+# can be cached immutably forever.
+func Version() string
+    return assetVersion
+
+func basePath() string
+    s := config.Current()
+    if s equals empty
+        return ""
+    return strpkg.TrimRight(s.RootPath, "/")
+
+# URL rewrites an absolute "/static/..." path to its versioned form
+# ("/static/v/<hash>/..."). Unrecognized paths are returned unchanged, so
+# templates can call this unconditionally.
+func URL(p: string) string
+    if not strpkg.HasPrefix(p, "/static/")
+        return p
+    if (assetVersion is empty) or assetVersion equals "dev"
+        return basePath() + p
+    return "{basePath()}/static/v/{assetVersion}{strpkg.TrimPrefix(p, "/static")}"
+
+type staticHandler
     next: http.Handler
+    cacheControl: string
+    # requireVersion: when set, only this version is served (stale/wrong
+    # version URLs 404 instead of serving mismatched content as immutable).
+    requireVersion: string
 
 # kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
-func ServeHTTP on h: reference mimeHandler(w: http.ResponseWriter, r: reference http.Request)
+func ServeHTTP on h: reference staticHandler(w: http.ResponseWriter, r: reference http.Request)
+    if h.requireVersion isnt empty
+        if r.PathValue("version") isnt h.requireVersion
+            http.NotFound(w, r)
+            return
     if m := mimeFor(r.URL.Path); m isnt empty
         w.Header().Set("Content-Type", m)
-    # No content hashing exists yet, so never let browsers keep stale assets:
-    # "no-cache" = store but always revalidate (304s keep it cheap). Required
-    # for reliable dev iteration and safe renderer-flip rollouts.
-    w.Header().Set("Cache-Control", "no-cache")
+    w.Header().Set("Cache-Control", h.cacheControl)
     h.next.ServeHTTP(w, r)
 
 # kuki:suppress "exported-nonnull-reference" "deliberate carrier: internal app API — Kukicha enforces non-null at call sites; no Go consumers"
 func Register(mux: reference http.ServeMux)
+    assetVersion = computeVersion()
+    log.Info("Static asset version: {assetVersion}")
+
     fs := http.FileServer(http.Dir("./static"))
-    handler := http.StripPrefix("/static/", fs)
-    mux.Handle("/static/", reference of mimeHandler{next: handler})
+
+    # Versioned assets: content-hashed URL → immutable forever.
+    versionedFS := http.StripPrefix("/static/v/" + assetVersion, fs)
+    mux.Handle("/static/v/{version}/", reference of staticHandler{
+        next: versionedFS,
+        cacheControl: "public, max-age=31536000, immutable",
+        requireVersion: assetVersion,
+    })
+
+    # Unversioned assets: kept working for any hardcoded path; always
+    # revalidate (304s keep it cheap) but never serve stale content.
+    plainFS := http.StripPrefix("/static/", fs)
+    mux.Handle("/static/", reference of staticHandler{
+        next: plainFS,
+        cacheControl: "no-cache",
+        requireVersion: "",
+    })

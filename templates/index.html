@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Town Builder</title>
     <!-- Bootstrap 5 (self-hosted vendor builds — no runtime CDN dependency) -->
-    <link href="{{.BasePath}}/static/vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{.BasePath}}/static/vendor/bootstrap-icons.css">
+    <link href="{{staticURL "/static/vendor/bootstrap.min.css"}}" rel="stylesheet">
+    <link rel="stylesheet" href="{{staticURL "/static/vendor/bootstrap-icons.css"}}">
     <!-- Mobile CSS -->
-    <link rel="stylesheet" href="{{.BasePath}}/static/css/mobile.css">
+    <link rel="stylesheet" href="{{staticURL "/static/css/mobile.css"}}">
     <style>
         body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
         #canvas-container { width: 100%; height: 100%; display: block; }
@@ -327,7 +327,7 @@
     </button>
 
     <!-- Bootstrap JS Bundle (self-hosted) -->
-    <script src="{{.BasePath}}/static/vendor/bootstrap.bundle.min.js"></script>
+    <script src="{{staticURL "/static/vendor/bootstrap.bundle.min.js"}}"></script>
 
     <!-- Theme Toggle Script -->
     <script>
@@ -363,6 +363,7 @@
     <script>
       // Base path for reverse proxy deployments
       window.__BASE_PATH = '{{.BasePath}}';
+      window.__STATIC_VERSION__ = '{{.StaticVersion}}';
       // JWT token for authenticated API requests
       {{if .Token}}
       window.__TOKEN = '{{.Token}}';
@@ -382,20 +383,20 @@
     <script type="importmap">
     {
       "imports": {
-        "three": "{{if .VanillaRenderer}}{{.BasePath}}/static/js/webgl2/three-shim.js{{else}}{{.BasePath}}/static/js/three.module.js{{end}}",
-        "@atcute/client": "{{.BasePath}}/static/vendor/atcute/client.mjs",
-        "@atcute/oauth-browser-client": "{{.BasePath}}/static/vendor/atcute/oauth-browser-client.mjs"
+        "three": "{{if .VanillaRenderer}}{{staticURL "/static/js/webgl2/three-shim.js"}}{{else}}{{staticURL "/static/js/three.module.js"}}{{end}}",
+        "@atcute/client": "{{staticURL "/static/vendor/atcute/client.mjs"}}",
+        "@atcute/oauth-browser-client": "{{staticURL "/static/vendor/atcute/oauth-browser-client.mjs"}}"
       }
     }
     </script>
 
     <!-- Load Go WASM runtime -->
-    <script src="{{.BasePath}}/static/js/wasm_exec.js"></script>
+    <script src="{{staticURL "/static/js/wasm_exec.js"}}"></script>
     <script>
       // Load physics WASM module (Go 1.25+ with GreenTea GC experimental and car physics)
       const go = new Go();
       // wasmReady promise in wasm.js is resolved by window.__markWasmReady() or window.__markWasmFailed()
-      WebAssembly.instantiateStreaming(fetch(window.__BASE_PATH + "/static/wasm/physics_greentea.wasm"), go.importObject).then(result => {
+      WebAssembly.instantiateStreaming(fetch("{{staticURL "/static/wasm/physics_greentea.wasm"}}"), go.importObject).then(result => {
         go.run(result.instance);
         console.log("✓ Physics WASM loaded (Go 1.25+ with GreenTea GC experimental)");
         
@@ -416,7 +417,7 @@
     </script>
 
     <!-- Load main application after WASM -->
-    <script type="module" src="{{.BasePath}}/static/js/main.js"></script>
+    <script type="module" src="{{staticURL "/static/js/main.js"}}"></script>
 
     <!-- get-your-own-town landing modal -->
     <div class="modal fade" id="landingModal" tabindex="-1" aria-labelledby="landingModalLabel" aria-hidden="true">

@@ -9,6 +9,7 @@ import "stdlib/log"
 import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/routes/static" as staticroute
 import "github.com/Iribala/town-builder/internal/services/kibigia_auth"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
 import "github.com/Iribala/town-builder/internal/services/model_loader"
@@ -31,6 +32,7 @@ func loadTemplate() error
     funcs := template.FuncMap{
         "title": titleCase,
         "displayName": model_display_names.GetModelDisplayName,
+        "staticURL": staticroute.URL,
     }
     t, perr := template.New("index.html").Funcs(funcs).Parse(raw as string)
     if perr isnt empty
@@ -50,6 +52,7 @@ type indexData
     Token: string
     BasePath: string
     VanillaRenderer: bool
+    StaticVersion: string
 
 func index(response: httphelper.Response, request: httphelper.Request)
     if indexTmpl equals empty
@@ -71,6 +74,7 @@ func index(response: httphelper.Response, request: httphelper.Request)
         Token: token,
         BasePath: basePath(),
         VanillaRenderer: request.URL().Query().Get("renderer") equals "webgl2",
+        StaticVersion: staticroute.Version(),
     }
     w := response.Raw()
     w.Header().Set("Content-Type", "text/html; charset=utf-8")

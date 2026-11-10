@@ -20,7 +20,12 @@ import { LRUCache, BloomFilter } from '../utils/data_structures.js';
 import { getBasePath } from '../state/app-state.js';
 
 // Configuration constants
-const MODELS_BASE_URL = (getBasePath() || '') + '/static/models';
+// Versioned static URLs (content-hashed, immutable) injected by the server;
+// fall back to the unversioned path when absent (e.g. unit tests).
+const STATIC_VERSION = (typeof window !== 'undefined' && window.__STATIC_VERSION__) || '';
+const MODELS_BASE_URL = (getBasePath() || '')
+    + (STATIC_VERSION ? `/static/v/${STATIC_VERSION}` : '/static')
+    + '/models';
 const MODEL_CACHE_SIZE = 50; // Maximum number of models to cache
 const MODEL_EXISTS_BLOOM_SIZE = 200; // Expected number of existing models
 const MODEL_NOT_FOUND_BLOOM_SIZE = 100; // Expected number of 404 models
