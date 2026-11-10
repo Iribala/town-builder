@@ -141,9 +141,11 @@ All High and Medium findings have been addressed. Details per finding:
   Bluesky sign-in modules are now self-hosted under `static/vendor/atcute/`
   (Phase 0 of the vanilla-JS evaluation, 2026-11-09). No third-party origin
   is needed in any directive.
-- Bootstrap 5.3.0 / bootstrap-icons 1.10.0 are **self-hosted** under
+- Oat UI 1.1.0 (`@knadh/oat`) / bootstrap-icons 1.13.2 are **self-hosted** under
   `static/vendor/` (no runtime jsdelivr dependency at all); icon fonts
-  served as `font/woff2|woff`. Index responses carry `Cache-Control:
+  served as `font/woff2|woff`. Oat replaced Bootstrap 2026-11-10; its npm
+  tarball is verified against the registry-published integrity hash on
+  install. Index responses carry `Cache-Control:
   no-store` (page embeds the JWT). Tests: `secheaders_test.kuki`.
 
 ### M3 — FIXED
