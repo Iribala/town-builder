@@ -379,6 +379,14 @@ Staged exactly like the sibling repo's plan, adapted:
     `Box3.setFromObject`; long-session leak check (the LRU cache and
     cloned-model disposal paths must have vanilla equivalents of
     `geometry.dispose()`/`material.dispose()` — i.e., GL deletes).
+  - 2026-11-09: the two correctness risks now have automated coverage —
+    `tests/js/webgl2-disposal.test.cjs` drives the shim's GL disposal
+    paths with a stub WebGL2 context (geometry VAO/buffer deletes,
+    texture pending-delete flush, `disposeObject()` end-to-end) and
+    `tests/js/webgl2-aabb.test.cjs` asserts vanilla `setFromObject()`
+    matches Three.js `Box3.setFromObject()` for all 75 assets (plus
+    `intersectsBox` agreement on 500 box pairs). 32/32 node tests green.
+    Screenshot A/B and the interactive/leak checks are still open.
 - **Decision gate — default flip**
   - Only after parity is boring in normal play: make vanilla the default,
     delete the three stack (2.1 MB raw / ~437 KB gz), remove the import
