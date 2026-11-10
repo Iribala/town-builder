@@ -52,6 +52,26 @@ kukicha brew --stdout --build-tag "js && wasm" physics_wasm.kuki > physics_wasm.
 ./build_wasm.sh
 ```
 
+## Local multiplayer & Redis
+
+Redis is optional for a single-tab smoke test but **required for anything
+multiplayer**, and the degraded mode is silent:
+
+- `storage.Initialize()` pings Redis **once at server startup** and never
+  retries. If Redis is down when the server starts (or appears later),
+  storage stays in-memory and `pubsub.Subscribe()` returns nothing, so SSE
+  connections run in "keepalive-only" mode: no cursor, edit, delete, or
+  snapshot events are ever fanned out — while every API POST still
+  returns 200 and pages load fine.
+- Symptom: two tabs both render and the Users panel looks alive at connect
+  time, but nothing placed, moved, or deleted in one tab appears in the
+  other. Only trace is a `WARN … keepalive-only mode` in the server log at
+  SSE connect time.
+- Fix: `redis-server`, then **restart the dev server** — it will not
+  re-probe Redis on its own. `scripts/dev.sh` warns if Redis is missing but
+  does not restart the server for you. `redis-cli ping` to check;
+  `redis-cli monitor` to watch `town_events` fan-out.
+
 ## Architecture
 
 Town Builder is a real-time multiplayer 3D town builder. Three layers communicate:
