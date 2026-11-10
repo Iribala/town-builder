@@ -290,10 +290,10 @@ class TouchInteractions {
     // Raycast to find objects
     this.raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.camera);
 
-    // Get all objects in scene (filter out helpers, ground, etc.)
+    // Get all placed-object roots (matches the desktop pick path in utils/raycaster.js)
     const selectableObjects = [];
     this.scene.traverse((object) => {
-      if (object.isMesh && object.userData && object.userData.id) {
+      if (object.userData && object.userData._isPlacedRoot) {
         selectableObjects.push(object);
       }
     });
@@ -303,7 +303,7 @@ class TouchInteractions {
     if (intersects.length > 0) {
       // Find the top-level object
       let object = intersects[0].object;
-      while (object.parent && !object.userData.id) {
+      while (object.parent && !(object.userData && object.userData._isPlacedRoot)) {
         object = object.parent;
       }
 
@@ -334,7 +334,7 @@ class TouchInteractions {
 
     const selectableObjects = [];
     this.scene.traverse((object) => {
-      if (object.isMesh && object.userData && object.userData.id) {
+      if (object.userData && object.userData._isPlacedRoot) {
         selectableObjects.push(object);
       }
     });
@@ -343,7 +343,7 @@ class TouchInteractions {
 
     if (intersects.length > 0) {
       let object = intersects[0].object;
-      while (object.parent && !object.userData.id) {
+      while (object.parent && !(object.userData && object.userData._isPlacedRoot)) {
         object = object.parent;
       }
 
@@ -405,7 +405,7 @@ class TouchInteractions {
       this.onSelectObject(object);
     }
 
-    console.log('Object selected:', object.userData.id);
+    console.log('Object selected:', object.userData.modelName || object.userData.id);
   }
 
   /**
@@ -463,6 +463,14 @@ class TouchInteractions {
     const dx = touch2.clientX - touch1.clientX;
     const dy = touch2.clientY - touch1.clientY;
     return Math.atan2(dy, dx);
+  }
+
+  /**
+   * Whether touch interactions are active (mirrors TouchControls.isEnabled())
+   * @returns {boolean}
+   */
+  isEnabled() {
+    return this.enabled;
   }
 
   /**

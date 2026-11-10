@@ -3,6 +3,7 @@
 
 import { isTouchDevice } from '../utils/device-detect.js';
 import { haptics } from '../utils/haptics.js';
+import touchInteractions from './interactions-touch.js';
 
 class TouchControls {
   constructor() {
@@ -118,7 +119,7 @@ class TouchControls {
 
     }
     // Two touches - pinch to zoom or rotate
-    else if (touchCount === 2) {
+    else if (touchCount === 2 && !this.isObjectGestureActive()) {
       event.preventDefault();
 
       // Cancel long press
@@ -155,8 +156,8 @@ class TouchControls {
       this.longPressTimer = null;
     }
 
-    // Single touch - pan camera (if not in interact mode)
-    if (touchCount === 1 && !this.isInteractMode) {
+    // Single touch - pan camera (if not in interact mode and no object gesture owns it)
+    if (touchCount === 1 && !this.isInteractMode && !this.isObjectGestureActive()) {
       event.preventDefault();
 
       const touch = event.touches[0];
@@ -176,8 +177,8 @@ class TouchControls {
         this.gestureType = 'pan';
       }
     }
-    // Two touches - pinch to zoom or rotate
-    else if (touchCount === 2) {
+    // Two touches - pinch to zoom or rotate (unless an object rotate gesture owns them)
+    else if (touchCount === 2 && !this.isObjectGestureActive()) {
       event.preventDefault();
 
       const touch1 = event.touches[0];
@@ -424,6 +425,15 @@ class TouchControls {
    */
   isEnabled() {
     return this.enabled;
+  }
+
+  /**
+   * True when an edit-mode object gesture owns single/two-finger touches
+   * (object drag or object rotate), so the camera should not also move.
+   * @returns {boolean}
+   */
+  isObjectGestureActive() {
+    return touchInteractions.mode === 'edit' && !!touchInteractions.selectedObject;
   }
 
   /**
