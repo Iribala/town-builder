@@ -289,14 +289,17 @@ export class Euler {
 export function setEulerFromQuaternion(target, q) {
     const m = new Matrix4().compose(new Vector3(), q, new Vector3(1, 1, 1));
     const e = m.elements;
-    const sy = Math.sqrt(e[0] * e[0] + e[1] * e[1]);
-    if (sy > 1e-6) {
-        target._x = Math.atan2(e[6], e[10]);
-        target._y = Math.atan2(-e[2], sy);
-        target._z = Math.atan2(e[1], e[0]);
+    // Column-major elements: m11=e[0], m12=e[4], m13=e[8],
+    //                      m21=e[1], m22=e[5], m23=e[9], m33=e[10], m32=e[6]
+    const m11 = e[0], m12 = e[4], m13 = e[8];
+    const m22 = e[5], m23 = e[9], m33 = e[10], m32 = e[6];
+    const clamp = (v) => Math.max(-1, Math.min(1, v));
+    target._y = Math.asin(clamp(m13));
+    if (Math.abs(m13) < 0.9999999) {
+        target._x = Math.atan2(-m23, m33);
+        target._z = Math.atan2(-m12, m11);
     } else {
-        target._x = Math.atan2(-e[9], e[5]);
-        target._y = Math.atan2(-e[2], sy);
+        target._x = Math.atan2(m32, m22);
         target._z = 0;
     }
     if (target._onChange) target._onChange();

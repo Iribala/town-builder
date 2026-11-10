@@ -133,6 +133,10 @@ export function initScene(container) {
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap at 2x for performance
     renderer.setSize(window.innerWidth, window.innerHeight);
+    // Match the sky color picker's default (#skyColorPicker value=#87ceeb);
+    // three.js clears to black unless told otherwise, the shim hardcodes
+    // the same color — set it explicitly so both paths agree.
+    renderer.setClearColor(0x87ceeb, 1);
 
     // Enable HDR tone mapping (r180+ feature)
     // ACESFilmic provides film-like color and better highlight handling
