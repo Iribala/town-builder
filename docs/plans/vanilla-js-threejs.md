@@ -14,9 +14,10 @@
 > Chrome (render, place, collide, pick/delete, clear-scene) with a clean
 > console on both renderer paths. See §4 for what is and isn't verified —
 > as of 2026-11-09, two Phase 2 parity bugs found by A/B are fixed,
-> cross-renderer cursor sprites are verified, and an all-75-asset A/B sweep
-> (transforms, AABBs, category-status tint, drive-mode camera follow) is
-> green on both renderers.
+> cross-renderer cursor sprites are verified, an all-75-asset A/B sweep
+> (transforms, AABBs, category-status tint, drive-mode camera) is green on
+> both renderers, and the long-session GPU-leak soak shows both paths
+> return to baseline GL object counts exactly.
 >
 > Short answer: **yes — and in several structural respects this repo is a
 > better candidate than the Babylon one. The runtime asset pipeline risk
@@ -442,15 +443,42 @@ Staged exactly like the sibling repo's plan, adapted:
     offset (0, 2.5, −6 in car space) — camera positions bitwise identical,
     look quaternions match to ~1e-9. (The interactive drive path was not
     exercised — this checks the camera math the interactive path drives.)
-  - "Game-over overlay" was on the open list but **does not exist in this
+  - 2026-11-09: "Game-over overlay" was on the open list but **does not exist in this
     codebase** (no matches in JS/templates/backend) — nothing to verify;
     removed from the open list.
-  - Still open: long-session GPU leak soak (eviction paths are
-    unit-covered, not soak-tested), mobile/touch (untested; the touch
-    pick path duplicates desktop logic), hover/selection highlight
-    parity is effectively covered by the status-tint check (desktop has
-    no separate hover visual), no automated 3D-layer screenshots
-    in CI, cache headers/content hashing for the flip.
+  - 2026-11-09: long-session GPU leak soak — symmetric place→render→delete
+    cycles in one tab per renderer (WebGL context monkey-patched to count
+    live buffers/VAOs/textures/programs; `renderer.info` sampled where
+    available; JS heap via `performance.memory`). Two shapes: 12 rounds of
+    a 6-model cycle and 2 cycles of all 75 models (forces the 75→50-entry
+    LRU to evict). Results identical on both renderers:
+    - **Every GL object created is deleted exactly once**: per round
+      24 buffers / 6 textures / 6 VAOs created → all deleted; all-75 peak
+      370–380 buffers / 75 textures / 95 VAOs → all deleted; create count
+      equals delete count cumulatively. `renderer.info` returns to the
+      15-geometries / 5-textures baseline every round. Three.js also
+      churns (creates then deletes) one shader program per round; the
+      vanilla path holds one shared cached program forever.
+    - JS heap shows a GC sawtooth with no monotonic growth on either
+      path (vanilla idles ~3.3–11 MB vs three ~7.8–19 MB).
+    - LRU eviction path fires identically (both logs match); post-soak,
+      previously-evicted models re-place and render correctly on both
+      paths (verified visually and by placement).
+    - Method note: models must be placed **in front of the camera** —
+      three.js frustum-culls per object by default, so placements placed
+      behind the camera never upload GL buffers there and would produce
+      a falsely "flat" reading; the vanilla renderer has no per-object
+      frustum cull at draw time (see note below).
+    - Incidental perf observation: the vanilla renderer never drops
+      off-screen models at draw time (three does, via the per-object
+      `frustumCulled` default). The scene-level 100-object culling in
+      `scene.js` still applies to both. Worth revisiting only if
+      profiling shows overdraw matters; out of scope for parity.
+  - Still open: mobile/touch (untested; the touch pick path duplicates
+    desktop logic), hover/selection highlight parity is effectively
+    covered by the status-tint check (desktop has no separate hover
+    visual), no automated 3D-layer screenshots in CI, cache
+    headers/content hashing for the flip.
 - **Decision gate — default flip**
   - Only after parity is boring in normal play: make vanilla the default,
     delete the three stack (2.1 MB raw / ~437 KB gz), remove the import
@@ -588,6 +616,13 @@ drive on `Math.random()` and will diverge) — and screenshot both tabs for
 the visual check. For the drive-mode camera check, `setDrivingCar(obj)` on
 a static placed object and sample `camera.position`/`quaternion` after a
 few seconds; both renderers converge to the car-space offset (0, 2.5, −6).
+For the leak soak, open one tab per renderer, monkey-patch the context's
+`create*/delete*` GL functions to count live objects, set the camera to the
+(0, 62, 46) overview framing (anything behind the default camera never
+uploads GL buffers in three.js), then place → wait ≥2 frames → delete via
+the exact `handleDelete` sequence (`disposeObject` + `scene.remove` +
+`placedObjects`/`movingCars` splice) in a loop; sample counts after each
+round. Both paths must return exactly to baseline.
 
 ### Appendix B — Sources
 
