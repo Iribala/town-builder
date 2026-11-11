@@ -162,13 +162,20 @@
 
 /* Oat (@knadh/oat) theme mapping: swap its neutral primary for the app accent.
    Oat colors are light-dark() pairs and key off color-scheme, so this works
-   with the same toggle that pins our own tokens. */
+   with the same toggle that pins our own tokens. --background/--foreground/
+   --card map to the app surfaces so <body> and Oat's toast/dialog chrome match
+   the app palette instead of Oat's neutral defaults. Keep theme-color metas in
+   templates/index.html equal to the mapped --background (#ffffff / #141821). */
 :root {
   --primary: light-dark(oklch(0.48 0.13 162), oklch(0.76 0.14 160));
   --primary-foreground: light-dark(#ffffff, oklch(0.23 0.05 162));
   --ring: light-dark(oklch(0.48 0.13 162 / 0.4), oklch(0.76 0.14 160 / 0.45));
   --danger: light-dark(oklch(0.5 0.18 27), oklch(0.74 0.15 25));
   --danger-foreground: light-dark(#ffffff, oklch(0.23 0.05 27));
+  --background: light-dark(oklch(1 0 0), oklch(0.21 0.018 265));
+  --foreground: light-dark(oklch(0.24 0.02 265), oklch(0.94 0.008 265));
+  --card: light-dark(oklch(1 0 0), oklch(0.26 0.02 265));
+  --card-foreground: light-dark(oklch(0.24 0.02 265), oklch(0.94 0.008 265));
 }
 
 /* Glass needs a backdrop to blur; without the feature use (nearly) opaque surfaces */

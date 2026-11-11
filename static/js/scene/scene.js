@@ -144,6 +144,9 @@ export function initScene(container) {
     renderer.toneMappingExposure = 1.0; // Standard exposure
 
     container.appendChild(renderer.domElement);
+    // Main canvas is the app's primary visual: announce as an image with a name
+    renderer.domElement.setAttribute('role', 'img');
+    renderer.domElement.setAttribute('aria-label', '3D view of the town');
 
     // Add HDR environment map with PMREM prefiltering (enhanced in r181).
     // Skipped in vanilla mode: the shim's hemisphere ambient stands in for it.

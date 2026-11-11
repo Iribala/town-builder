@@ -48,9 +48,12 @@ class Tutorial {
 
     const overlay = document.createElement('div');
     overlay.className = 'tutorial-overlay hidden';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'tutorial-title');
     overlay.innerHTML = `
       <div class="tutorial-content">
-        <div class="tutorial-title">Welcome to Town Builder!</div>
+        <div class="tutorial-title" id="tutorial-title">Welcome to Town Builder!</div>
         <div class="tutorial-subtitle">Learn the touch gestures</div>
 
         <div class="tutorial-steps">
