@@ -159,12 +159,12 @@
     <script type="application/json" id="server-embed">{{.EmbedJSON}}</script>
     <script src="{{staticURL "/static/js/embed.js"}}"></script>
 
-    <!-- Import map: three.js by default, vanilla WebGL2 shim with ?renderer=webgl2.
+    <!-- Import map: third-party module specifiers (@atcute sign-in).
+         First-party code imports the vendored renderer by relative path.
          Carries a per-response nonce — the page's only non-self-contained script. -->
     <script type="importmap" nonce="{{.Nonce}}">
     {
       "imports": {
-        "three": "{{if .VanillaRenderer}}{{staticURL "/static/js/webgl2/three-shim.js"}}{{else}}{{staticURL "/static/js/three.module.js"}}{{end}}",
         "@atcute/client": "{{staticURL "/static/vendor/atcute/client.mjs"}}",
         "@atcute/oauth-browser-client": "{{staticURL "/static/vendor/atcute/oauth-browser-client.mjs"}}"
       }

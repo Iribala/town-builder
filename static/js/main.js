@@ -85,22 +85,15 @@ async function init() {
     // Wait for Go WASM module to load
     await waitForWasm();
 
-    // Initialize the scene. In the vanilla WebGL2 path the shim can throw
-    // (e.g. WebGL2 unavailable or a loader/render bug) — fall back to the
-    // default renderer once per session rather than leaving a blank page.
+    // Initialize the scene. The vanilla WebGL2 renderer requires WebGL2 —
+    // if it cannot initialize (unsupported browser, GPU blocklist, driver
+    // bug), show a blocking error instead of a blank page.
     try {
         initializeScene();
     } catch (err) {
-        if (new URLSearchParams(window.location.search).get('renderer') === 'webgl2'
-            && !sessionStorage.getItem('webgl2-fell-back')) {
-            sessionStorage.setItem('webgl2-fell-back', '1');
-            console.warn('Vanilla renderer failed to initialize, falling back to default:', err);
-            const params = new URLSearchParams(window.location.search);
-            params.delete('renderer');
-            window.location.replace(`${window.location.pathname}?${params.toString()}${window.location.hash}`);
-            return;
-        }
-        throw err;
+        console.error('Scene failed to initialize:', err);
+        showFatalError();
+        return;
     }
     animate();
 
@@ -231,6 +224,30 @@ async function init() {
             showNotification("Error setting up multiplayer connection", "error");
         });
     }, 0);
+}
+
+// Shown when WebGL2 is unavailable or scene init throws — the app cannot
+// render, so say so plainly rather than leaving a silent blank page.
+function showFatalError() {
+    const overlay = document.createElement('div');
+    overlay.className = 'fatal-error';
+    overlay.setAttribute('role', 'alert');
+
+    const card = document.createElement('div');
+    card.className = 'fatal-error-card';
+
+    const title = document.createElement('h1');
+    title.className = 'fatal-error-title';
+    title.textContent = '3D view unavailable';
+
+    const text = document.createElement('p');
+    text.className = 'fatal-error-text';
+    text.textContent = 'Town Builder needs WebGL2, which this browser or graphics driver does not support. Try a current version of Chrome, Firefox, Edge, or Safari.';
+
+    card.appendChild(title);
+    card.appendChild(text);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
 }
 
 // Start the application

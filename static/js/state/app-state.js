@@ -21,9 +21,7 @@ const appState = {
     elapsedTime: 0,
     // Base path and token
     basePath: '',
-    token: null,
-    // Environment map
-    envMapTexture: null
+    token: null
 };
 
 export function getMyName() {
@@ -189,11 +187,3 @@ export function setToken(token) {
     appState.token = token;
 }
 
-// Environment map getters and setters
-export function getEnvMapTexture() {
-    return appState.envMapTexture;
-}
-
-export function setEnvMapTexture(texture) {
-    appState.envMapTexture = texture;
-}

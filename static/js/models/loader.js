@@ -1,19 +1,11 @@
 /**
- * 3D model loading utilities
- * Enhanced with r181 features:
- * - Loader abort support for better UX
- * - Improved error handling
+ * 3D model loading utilities (vanilla WebGL2 renderer)
+ * - webgl2/gltf-min.js parses the restricted glTF subset our assets use
  * - LRU cache for model geometry (reduces redundant loads)
  * - Bloom filter for fast existence checks (reduces failed load attempts)
  */
-import * as THREE from 'three';
-
-// GLTFLoader (three) is imported lazily — in the vanilla WebGL2 renderer
-// models are parsed by webgl2/gltf-min.js instead, and statically importing
-// GLTFLoader here would link it against the shim, which lacks the classes
-// it needs. Detection mirrors the ?renderer=webgl2 flag in the page URL.
-const IS_VANILLA_RENDERER = typeof window !== 'undefined'
-    && new URLSearchParams(window.location.search).get('renderer') === 'webgl2';
+import * as THREE from '../webgl2/three-shim.js';
+import { loadGLTF } from '../webgl2/gltf-min.js';
 import { updateBoundingBox } from './collision.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from '../utils/physics_wasm.js';
 import { LRUCache, BloomFilter } from '../utils/data_structures.js';
@@ -31,8 +23,11 @@ const MODEL_EXISTS_BLOOM_SIZE = 200; // Expected number of existing models
 const MODEL_NOT_FOUND_BLOOM_SIZE = 100; // Expected number of 404 models
 const BLOOM_FALSE_POSITIVE_RATE = 0.01; // 1% false positive rate
 
-// Track active loaders for abort functionality (new in three.js r179)
-const activeLoaders = new Map();
+// Unique suffix for per-load ids (Date.now alone collides on same-tick loads)
+let nextLoadId = 0;
+
+// Track in-flight loads so the loading HUD can show activity
+const activeLoads = new Set();
 
 /**
  * Disposal callback for LRU cache eviction
@@ -111,7 +106,7 @@ const modelNotFoundFilter = new BloomFilter(MODEL_NOT_FOUND_BLOOM_SIZE, BLOOM_FA
  * @param {string} modelName - Model filename
  * @param {THREE.Vector3} [position] - Optional position to place the model
  * @param {Object} [options] - Loading options
- * @param {string} [options.loaderId] - Unique ID for this load operation (for abort support)
+ * @param {string} [options.loaderId] - Unique ID for this load operation (internal; for tracking in-flight loads)
  * @param {boolean} [options.bypassCache] - If true, bypass LRU cache and force reload
  * @returns {Promise<THREE.Object3D>} The loaded model
  */
@@ -119,7 +114,7 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
     return new Promise((resolve, reject) => {
         const url = `${MODELS_BASE_URL}/${category}/${modelName}`;
         const cacheKey = `${category}/${modelName}`;
-        const loaderId = options.loaderId || `${category}-${modelName}-${Date.now()}`;
+        const loaderId = options.loaderId || `${category}-${modelName}-${Date.now()}-${nextLoadId++}`;
 
         // Bloom filter: Use as hint only, not hard rejection
         // False positives (1% rate) could incorrectly block valid models
@@ -162,28 +157,13 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             return;
         }
 
-        // Cache miss or bypass - load from server.
-        // Vanilla mode: gltf-min.js parses the restricted subset our assets use.
-        // Default mode: three's GLTFLoader, loaded lazily like the vanilla path.
-        let scenePromise;
-        if (IS_VANILLA_RENDERER) {
-            scenePromise = import('../webgl2/gltf-min.js')
-                .then(m => m.loadGLTF(url).then(parsed => parsed.root));
-        } else {
-            scenePromise = import('../three/examples/jsm/loaders/GLTFLoader.js')
-                .then(({ GLTFLoader }) => new Promise((res, rej) => {
-                    const loader = new GLTFLoader();
-                    activeLoaders.set(loaderId, loader);
-                    loader.load(url, gltf => {
-                        activeLoaders.delete(loaderId);
-                        res(gltf.scene);
-                    }, undefined, rej);
-                }));
-        }
+        // Cache miss or bypass - load from server via gltf-min.js
+        activeLoads.add(loaderId);
+        const scenePromise = loadGLTF(url).then(parsed => parsed.root);
 
         scenePromise.then(gltfScene => {
             // Remove loader from active tracking
-            activeLoaders.delete(loaderId);
+            activeLoads.delete(loaderId);
 
             // Cache the ORIGINAL scene for reuse
             // Store a clean copy in cache, use a clone for this instance
@@ -221,24 +201,18 @@ export async function loadModel(scene, placedObjects, movingCars, category, mode
             resolve(modelInstance);
         }).catch(err => {
             // Remove loader from active tracking
-            activeLoaders.delete(loaderId);
+            activeLoads.delete(loaderId);
             const message = err?.message ?? String(err);
 
-            // Distinguish between user abort and actual error
-            if (message && message.includes('abort')) {
-                // User intentionally aborted - this is not an error condition
-                reject(new Error('ABORTED'));
+            // Add to not-found bloom filter to reduce retry attempts
+            // Note: Bloom filter is used as a hint only, not a hard rejection
+            if (message.includes('404') || message.includes('Not Found')) {
+                modelNotFoundFilter.add(cacheKey);
+                // Provide user-friendly error message
+                reject(new Error(`Model not found: ${category}/${modelName}`));
             } else {
-                // Add to not-found bloom filter to reduce retry attempts
-                // Note: Bloom filter is used as a hint only, not a hard rejection
-                if (message.includes('404') || message.includes('Not Found')) {
-                    modelNotFoundFilter.add(cacheKey);
-                    // Provide user-friendly error message
-                    reject(new Error(`Model not found: ${category}/${modelName}`));
-                } else {
-                    // Other error types (network, parsing, etc.)
-                    reject(new Error(`Failed to load model ${category}/${modelName}: ${message}`));
-                }
+                // Network, parsing, etc.
+                reject(new Error(`Failed to load model ${category}/${modelName}: ${message}`));
             }
         });
     });
@@ -275,46 +249,11 @@ function configureVehicle(vehicle, movingCars) {
 }
 
 /**
- * Abort a specific loader operation
- * Utilizes the new abort() method introduced in three.js r179
- *
- * @param {string} loaderId - The ID of the loader to abort
- * @returns {boolean} True if loader was found and aborted, false otherwise
- */
-export function abortLoader(loaderId) {
-    const loader = activeLoaders.get(loaderId);
-    if (loader && typeof loader.abort === 'function') {
-        loader.abort();
-        activeLoaders.delete(loaderId);
-        return true;
-    }
-    return false;
-}
-
-/**
- * Abort all active loader operations
- * Useful when clearing the scene or switching modes
- *
- * @returns {number} Number of loaders aborted
- */
-export function abortAllLoaders() {
-    let count = 0;
-    activeLoaders.forEach((loader, loaderId) => {
-        if (typeof loader.abort === 'function') {
-            loader.abort();
-            count++;
-        }
-    });
-    activeLoaders.clear();
-    return count;
-}
-
-/**
- * Get the number of active loader operations
+ * Get the number of in-flight model loads
  * Useful for showing loading indicators
  *
- * @returns {number} Number of active loaders
+ * @returns {number} Number of active loads
  */
 export function getActiveLoaderCount() {
-    return activeLoaders.size;
+    return activeLoads.size;
 }

@@ -25,6 +25,8 @@ static/wasm/
 
 #Local Test
 *.json
+# ...but keep the committed characterization fixtures for the JS test suite
+!tests/js/fixtures/*.json
 
 repomix-output.xml
 

@@ -18,7 +18,7 @@
  * - Improved small object allocation
  */
 
-import * as THREE from 'three';
+import * as THREE from '../webgl2/three-shim.js';
 
 let physicsWasmReady = false;
 let physicsWasmEnabled = false;

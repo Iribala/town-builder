@@ -1,16 +1,20 @@
 'use strict';
 
 /**
- * AABB parity: vanilla WebGL2 shim vs the vendored Three.js r181.
+ * AABB characterization: vanilla WebGL2 shim vs the Three.js r181 oracle.
  *
  * The WASM spatial grid and the JS collision fallback both serialize the
  * world-space Box3 of every placed model (models/collision.js,
- * utils/physics_wasm.js). If the vanilla renderer's setFromObject() drifts
- * from Three.js's, cars "bonk" at invisible offsets only on the vanilla
- * path. This suite parses every shipped .gltf with the vanilla loader,
- * mirrors the resulting node hierarchy into Three.js, applies the same
- * non-trivial root transform (rotation + non-uniform scale + offset), and
- * asserts the two world-space AABBs agree.
+ * utils/physics_wasm.js). If the vanilla renderer's setFromObject() drifts,
+ * cars "bonk" at invisible offsets.
+ *
+ * The three.js stack was deleted in the renderer cutover, so the parity
+ * reference is now a fixture — tests/js/fixtures/aabb-expected.json —
+ * generated from vendored Three.js r181 on 2026-11-11 with the same
+ * non-trivial root transform applied (rotation + non-uniform scale +
+ * offset). Regenerate only if the shim's transform math intentionally
+ * changes; the fixture is the characterization baseline, not a target to
+ * move.
  *
  * Run with: ./scripts/test-js.sh   (or: node --test tests/js/)
  */
@@ -23,6 +27,7 @@ const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const MODELS_DIR = path.join(ROOT, 'static', 'models');
+const FIXTURE = path.join(__dirname, 'fixtures', 'aabb-expected.json');
 const MOD = (...p) => url.pathToFileURL(path.join(ROOT, ...p)).href;
 
 function collectGltfFiles(dir) {
@@ -37,15 +42,15 @@ function collectGltfFiles(dir) {
 
 const gltfFiles = collectGltfFiles(MODELS_DIR);
 const rel = (p) => path.relative(ROOT, p);
+const expected = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
 
 let modulesPromise = null;
 function mods() {
     if (!modulesPromise) {
         modulesPromise = Promise.all([
-            import(MOD('static/js/three.module.js')),
             import(MOD('static/js/webgl2/gltf-min.js')),
             import(MOD('static/js/webgl2/three-shim.js')),
-        ]).then(([three, gltfMin, shim]) => ({ three, gltfMin, shim }));
+        ]).then(([gltfMin, shim]) => ({ gltfMin, shim }));
     }
     return modulesPromise;
 }
@@ -60,72 +65,61 @@ function parseModel(file, gltfMin) {
     return gltfMin.parseGLTF(json, buffers, rel(file));
 }
 
-/** Mirror a shim node hierarchy into a Three.js one (positions-only geometry is enough for AABBs). */
-function mirrorIntoThree(shimNode, THREE) {
-    let node;
-    if (shimNode.isMesh) {
-        const geometry = new THREE.BufferGeometry();
-        const pos = shimNode.geometry.getAttribute('position');
-        geometry.setAttribute('position', new THREE.BufferAttribute(pos.array.slice(), 3));
-        node = new THREE.Mesh(geometry);
-    } else {
-        node = new THREE.Group();
-    }
-    node.position.set(shimNode.position.x, shimNode.position.y, shimNode.position.z);
-    node.quaternion.set(shimNode.quaternion.x, shimNode.quaternion.y, shimNode.quaternion.z, shimNode.quaternion.w);
-    node.scale.set(shimNode.scale.x, shimNode.scale.y, shimNode.scale.z);
-    for (const child of shimNode.children) node.add(mirrorIntoThree(child, THREE));
-    return node;
-}
-
 test('model corpus is non-empty', () => {
     assert.ok(gltfFiles.length >= 75, `expected >= 75 .gltf files, found ${gltfFiles.length}`);
 });
 
-test('vanilla setFromObject() matches Three.js Box3.setFromObject() for every asset', async () => {
-    const { three: THREE, gltfMin, shim } = await mods();
+test('fixture covers every shipped asset', () => {
+    for (const file of gltfFiles) {
+        assert.ok(expected.assets[rel(file)], `missing fixture entry for ${rel(file)}`);
+    }
+});
+
+test('vanilla setFromObject() matches the Three.js r181 fixture for every asset', async () => {
+    const { gltfMin, shim } = await mods();
     const EPS = 1e-4;
+    const [qx, qy, qz] = expected.transform.eulerXYZ;
+    const [tx, ty, tz] = expected.transform.position;
+    const [sx, sy, sz] = expected.transform.scale;
 
     for (const file of gltfFiles) {
         const { root: shimRoot } = parseModel(file, gltfMin);
-        const threeRoot = mirrorIntoThree(shimRoot, THREE);
 
-        // Same non-trivial world transform on both: rotation, non-uniform
-        // scale, translation — catches row/column and corner-order bugs.
-        shimRoot.quaternion.setFromEuler(new shim.Euler(0.3, 0.9, -0.25));
-        shimRoot.position.set(2.5, 0.4, -1.5);
-        shimRoot.scale.set(1.6, 0.7, 2.3);
-
-        threeRoot.quaternion.setFromEuler(new THREE.Euler(0.3, 0.9, -0.25));
-        threeRoot.position.set(2.5, 0.4, -1.5);
-        threeRoot.scale.set(1.6, 0.7, 2.3);
+        shimRoot.quaternion.setFromEuler(new shim.Euler(qx, qy, qz));
+        shimRoot.position.set(tx, ty, tz);
+        shimRoot.scale.set(sx, sy, sz);
 
         const shimBox = new shim.Box3().setFromObject(shimRoot);
-        const threeBox = new THREE.Box3().setFromObject(threeRoot);
+        const truth = expected.assets[rel(file)];
 
         const name = rel(file);
         assert.ok(
             shimBox.max.x - shimBox.min.x + (shimBox.max.y - shimBox.min.y) + (shimBox.max.z - shimBox.min.z) > 0,
             `${name}: empty box from the vanilla loader`,
         );
-        for (const axis of ['x', 'y', 'z']) {
+        for (const [i, axis] of ['x', 'y', 'z'].entries()) {
             assert.ok(
-                Math.abs(shimBox.min[axis] - threeBox.min[axis]) < EPS,
-                `${name}: min.${axis} vanilla=${shimBox.min[axis]} three=${threeBox.min[axis]}`,
+                Math.abs(shimBox.min[axis] - truth.min[i]) < EPS,
+                `${name}: min.${axis} vanilla=${shimBox.min[axis]} expected=${truth.min[i]}`,
             );
             assert.ok(
-                Math.abs(shimBox.max[axis] - threeBox.max[axis]) < EPS,
-                `${name}: max.${axis} vanilla=${shimBox.max[axis]} three=${threeBox.max[axis]}`,
+                Math.abs(shimBox.max[axis] - truth.max[i]) < EPS,
+                `${name}: max.${axis} vanilla=${shimBox.max[axis]} expected=${truth.max[i]}`,
             );
         }
     }
 });
 
-test('vanilla Ray/AABB intersectsBox() agrees with Three.js on overlap outcomes', async () => {
-    const { three: THREE, shim } = await mods();
+test('vanilla intersectsBox() matches the inclusive slab method on 500 box pairs', async () => {
+    const { shim } = await mods();
     // Deterministic pseudo-random box pairs: mix of overlapping, touching,
-    // and disjoint cases. Both implementations use the same inclusive-slab
-    // comparison, so they must agree exactly.
+    // and disjoint cases. Reference implementation: textbook slab test with
+    // the same inclusive-boundary semantics three.js uses.
+    const slabIntersects = (a, b) =>
+        a.min.x <= b.max.x && a.max.x >= b.min.x
+        && a.min.y <= b.max.y && a.max.y >= b.min.y
+        && a.min.z <= b.max.z && a.max.z >= b.min.z;
+
     let seed = 0x5eed;
     const rand = () => {
         seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -140,8 +134,6 @@ test('vanilla Ray/AABB intersectsBox() agrees with Three.js on overlap outcomes'
         const a = makeBox(), b = makeBox();
         const shimA = new shim.Box3(new shim.Vector3(a.cx - a.hx, a.cy - a.hy, a.cz - a.hz), new shim.Vector3(a.cx + a.hx, a.cy + a.hy, a.cz + a.hz));
         const shimB = new shim.Box3(new shim.Vector3(b.cx - b.hx, b.cy - b.hy, b.cz - b.hz), new shim.Vector3(b.cx + b.hx, b.cy + b.hy, b.cz + b.hz));
-        const threeA = new THREE.Box3(new THREE.Vector3(a.cx - a.hx, a.cy - a.hy, a.cz - a.hz), new THREE.Vector3(a.cx + a.hx, a.cy + a.hy, a.cz + a.hz));
-        const threeB = new THREE.Box3(new THREE.Vector3(b.cx - b.hx, b.cy - b.hy, b.cz - b.hz), new THREE.Vector3(b.cx + b.hx, b.cy + b.hy, b.cz + b.hz));
-        assert.equal(shimA.intersectsBox(shimB), threeA.intersectsBox(threeB), `box pair ${i} disagrees`);
+        assert.equal(shimA.intersectsBox(shimB), slabIntersects(shimA, shimB), `box pair ${i} disagrees`);
     }
 });

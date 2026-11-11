@@ -39,7 +39,7 @@ func Init()
 # the import map carries a per-response nonce (see ContentSecurityPolicyWithNonce);
 # 'wasm-unsafe-eval' stays because the physics module is Go-compiled WASM.
 func contentSecurityPolicy() string
-    return "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors " + frameAncestors
+    return "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors " + frameAncestors
 
 # ContentSecurityPolicyWithNonce returns the strict policy with a per-response
 # nonce on script-src, for contexts that must keep one inline script

@@ -74,7 +74,6 @@ func newNonce() (string, error)
 
 type indexData
     Models: map of string to list of string
-    VanillaRenderer: bool
     EmbedJSON: template.JS
     Nonce: string
 
@@ -98,7 +97,6 @@ func index(response: httphelper.Response, request: httphelper.Request)
 
     data := indexData{
         Models: model_loader.GetAvailableModels(),
-        VanillaRenderer: request.URL().Query().Get("renderer") equals "webgl2",
         EmbedJSON: template.JS(embedPayload(token)),
         Nonce: nonce,
     }

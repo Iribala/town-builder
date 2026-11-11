@@ -2,7 +2,7 @@
  * Collaborative Cursors - Show other users' cursor positions in 3D space
  * Includes screen reader support for accessibility
  */
-import * as THREE from 'three';
+import * as THREE from './webgl2/three-shim.js';
 
 // Store active cursors: {username: cursorObject}
 const activeCursors = new Map();

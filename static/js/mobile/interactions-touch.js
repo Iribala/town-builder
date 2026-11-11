@@ -3,7 +3,7 @@
 
 import { isTouchDevice } from '../utils/device-detect.js';
 import { haptics } from '../utils/haptics.js';
-import * as THREE from 'three';
+import { clientToNdc, getPlacedObjectRoots, pickPlacedObject, raycastGroundPlane } from '../utils/raycaster.js';
 
 class TouchInteractions {
   constructor() {
@@ -81,6 +81,9 @@ class TouchInteractions {
    */
   setupEventListeners() {
     if (!this.canvas) return;
+    // Idempotency guard: re-init (e.g. after a mode reset) must not stack
+    // a second copy of every listener — taps would fire twice.
+    if (this.boundHandlers.tap) return;
 
     // Store bound handlers
     this.boundHandlers.tap = this.handleTap.bind(this);
@@ -252,25 +255,14 @@ class TouchInteractions {
   placeObjectAtTouch(x, y) {
     if (!this.raycaster || !this.camera) return;
 
-    // Convert touch coordinates to normalized device coordinates
-    const rect = this.canvas.getBoundingClientRect();
-    const ndcX = ((x - rect.left) / rect.width) * 2 - 1;
-    const ndcY = -((y - rect.top) / rect.height) * 2 + 1;
-
-    // Raycast to find ground position
-    this.raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.camera);
+    this.raycaster.setFromCamera(clientToNdc(x, y, this.canvas), this.camera);
 
     // Find intersection with ground plane (y=0)
-    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const intersectionPoint = new THREE.Vector3();
-    this.raycaster.ray.intersectPlane(groundPlane, intersectionPoint);
+    const intersectionPoint = raycastGroundPlane(this.raycaster);
 
-    if (intersectionPoint) {
-      // Trigger place callback
-      if (this.onPlaceObject) {
-        this.onPlaceObject(intersectionPoint);
-        haptics.medium();
-      }
+    if (intersectionPoint && this.onPlaceObject) {
+      this.onPlaceObject(intersectionPoint);
+      haptics.medium();
     }
   }
 
@@ -282,31 +274,11 @@ class TouchInteractions {
   selectObjectAtTouch(x, y) {
     if (!this.raycaster || !this.camera || !this.scene) return;
 
-    // Convert touch coordinates to normalized device coordinates
-    const rect = this.canvas.getBoundingClientRect();
-    const ndcX = ((x - rect.left) / rect.width) * 2 - 1;
-    const ndcY = -((y - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(clientToNdc(x, y, this.canvas), this.camera);
 
-    // Raycast to find objects
-    this.raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.camera);
+    const object = pickPlacedObject(this.raycaster, getPlacedObjectRoots(this.scene));
 
-    // Get all placed-object roots (matches the desktop pick path in utils/raycaster.js)
-    const selectableObjects = [];
-    this.scene.traverse((object) => {
-      if (object.userData && object.userData._isPlacedRoot) {
-        selectableObjects.push(object);
-      }
-    });
-
-    const intersects = this.raycaster.intersectObjects(selectableObjects, true);
-
-    if (intersects.length > 0) {
-      // Find the top-level object
-      let object = intersects[0].object;
-      while (object.parent && !(object.userData && object.userData._isPlacedRoot)) {
-        object = object.parent;
-      }
-
+    if (object) {
       // Select object
       this.selectObject(object);
       haptics.light();
@@ -324,29 +296,11 @@ class TouchInteractions {
   deleteObjectAtTouch(x, y) {
     if (!this.raycaster || !this.camera || !this.scene) return;
 
-    // Convert touch coordinates to normalized device coordinates
-    const rect = this.canvas.getBoundingClientRect();
-    const ndcX = ((x - rect.left) / rect.width) * 2 - 1;
-    const ndcY = -((y - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(clientToNdc(x, y, this.canvas), this.camera);
 
-    // Raycast to find objects
-    this.raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.camera);
+    const object = pickPlacedObject(this.raycaster, getPlacedObjectRoots(this.scene));
 
-    const selectableObjects = [];
-    this.scene.traverse((object) => {
-      if (object.userData && object.userData._isPlacedRoot) {
-        selectableObjects.push(object);
-      }
-    });
-
-    const intersects = this.raycaster.intersectObjects(selectableObjects, true);
-
-    if (intersects.length > 0) {
-      let object = intersects[0].object;
-      while (object.parent && !(object.userData && object.userData._isPlacedRoot)) {
-        object = object.parent;
-      }
-
+    if (object) {
       // Show confirmation dialog
       this.confirmDelete(object);
     }
@@ -359,17 +313,9 @@ class TouchInteractions {
   dragObject(touch) {
     if (!this.selectedObject || !this.raycaster || !this.camera) return;
 
-    // Convert touch coordinates to normalized device coordinates
-    const rect = this.canvas.getBoundingClientRect();
-    const ndcX = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
-    const ndcY = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(clientToNdc(touch.clientX, touch.clientY, this.canvas), this.camera);
 
-    // Raycast to ground plane
-    this.raycaster.setFromCamera({ x: ndcX, y: ndcY }, this.camera);
-
-    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    const intersectionPoint = new THREE.Vector3();
-    this.raycaster.ray.intersectPlane(groundPlane, intersectionPoint);
+    const intersectionPoint = raycastGroundPlane(this.raycaster);
 
     if (intersectionPoint) {
       // Update object position (keep Y the same)

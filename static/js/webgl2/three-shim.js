@@ -3,7 +3,7 @@
  * three.js API that Town Builder's first-party client actually uses.
  *
  * This is NOT a reimplementation of three.js. It implements exactly what
- * our client calls (see docs/plans/vanilla-js-threejs.md §1):
+ * our client calls:
  *   scene graph nodes, basic geometries (plane/circle/cone), a line-based
  *   grid, PBR (GGX) + unlit + line + sprite draws, hemisphere ambient
  *   lighting (stands in for the PMREM env map), ACES tone mapping with

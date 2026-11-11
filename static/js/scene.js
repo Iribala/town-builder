@@ -4,15 +4,15 @@
  * - Timer class for frame-independent physics
  */
 import { wasmReady } from './utils/wasm.js';
-import * as THREE from 'three';
+import * as THREE from './webgl2/three-shim.js';
 import { updateControls } from './controls.js';
 import { getCurrentMode, showNotification, activateDriveModeUI, deactivateDriveModeUI, updateLoadingIndicator, updateContextHelp, hasModelBeenPlaced } from './ui.js';
 import { initScene, setupResizeListener } from './scene/scene.js';
-import { loadModel, abortAllLoaders } from './models/loader.js';
+import { loadModel } from './models/loader.js';
 import { createPlacementIndicator, updatePlacementIndicator, isPlacementValid } from './models/placement.js';
 import { updateMovingCars, updateDrivingCamera } from './physics/car.js';
 import { disposeObject } from './utils/disposal.js';
-import { getMouseCoordinates, findRootObject } from './utils/raycaster.js';
+import { getMouseCoordinates, pickPlacedObject } from './utils/raycaster.js';
 import { updateSpatialGrid, isPhysicsWasmReady } from './utils/physics_wasm.js';
 import { animateCursors, cleanupInactiveCursors } from './collaborative-cursors.js';
 import { sendCursorUpdate, broadcastSceneUpdate } from './network.js';
@@ -397,9 +397,8 @@ function onCanvasClick(event) {
  * Handle drive mode click (select a vehicle to drive)
  */
 function handleDriveModeClick(raycaster) {
-    const intersects = raycaster.intersectObjects(placedObjects, true);
-    if (intersects.length > 0) {
-        const selectedObject = findRootObject(intersects[0].object, placedObjects);
+    const selectedObject = pickPlacedObject(raycaster, placedObjects);
+    if (selectedObject) {
         if (selectedObject.userData && selectedObject.userData.category === 'vehicles') {
             activateDriveModeUI(selectedObject);
         } else {
@@ -440,10 +439,8 @@ function handlePlaceClick() {
  * Handle delete or edit mode click
  */
 function handleDeleteOrEditClick(raycaster, mode) {
-    const intersects = raycaster.intersectObjects(placedObjects, true);
-    if (intersects.length > 0) {
-        const selected = findRootObject(intersects[0].object, placedObjects);
-
+    const selected = pickPlacedObject(raycaster, placedObjects);
+    if (selected) {
         if (mode === 'delete') {
             handleDelete(selected);
         } else if (mode === 'edit') {

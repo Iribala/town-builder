@@ -1,7 +1,7 @@
 /**
  * Model placement utilities
  */
-import * as THREE from 'three';
+import * as THREE from '../webgl2/three-shim.js';
 import { checkCollision } from './collision.js';
 import { getMouseCoordinates } from '../utils/raycaster.js';
 

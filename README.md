@@ -105,11 +105,11 @@ See `scripts/README.md` for detailed usage.
 ## Architecture
 
 - **Backend**: Kukicha (transpiled to Go) with Redis — `net/http.ServeMux` + Go 1.22 method patterns
-- **Frontend**: Three.js with vanilla JavaScript
+- **Frontend**: Vanilla JavaScript (no framework) with a hand-written WebGL2 renderer (`static/js/webgl2/`)
 - **Physics**: Kukicha WASM (spatial grid, collision detection, car physics)
 - **Multiplayer**: Server-Sent Events + Redis Pub/Sub
 
-Sources live in `*.kuki` files under `cmd/` and `internal/`; brewed `.go` files are committed alongside so `go test` / `go build` work without a Kukicha toolchain.
+Sources live in `*.kuki` files under `cmd/` and `internal/`; `./scripts/brew.sh` (run automatically by the dev/prod scripts) transpiles them to gitignored `.go` files for `go test` / `go build`.
 
 ## Deployment
 

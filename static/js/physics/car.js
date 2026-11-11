@@ -2,7 +2,7 @@
  * Car physics and movement system
  * Optimized with Go 1.24 WASM for chase AI
  */
-import * as THREE from 'three';
+import * as THREE from '../webgl2/three-shim.js';
 import { checkCollision, updateBoundingBox } from '../models/collision.js';
 import { findNearestObject, isPhysicsWasmReady } from '../utils/physics_wasm.js';
 

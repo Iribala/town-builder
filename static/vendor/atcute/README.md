@@ -1,9 +1,8 @@
 # Vendored @atcute packages (Bluesky / ATProto OAuth)
 
 Self-hosted copies of the exact versions previously loaded at runtime from
-`https://esm.sh` (see the import map in `templates/index.html`). Vendored as
-part of Phase 0 of the vanilla-JS evaluation (`docs/plans/vanilla-js-threejs.md`):
-removes the last third-party runtime CDN dependency. All three packages are
+`https://esm.sh` (see the import map in `templates/index.html`). Vendored to
+remove the last third-party runtime CDN dependency. All three packages are
 licensed **0BSD** (Zero-Clause BSD) — copying is explicitly permitted; no
 attribution required. This file records provenance anyway.
 
