@@ -28,6 +28,8 @@
   --glass: light-dark(oklch(0.99 0.003 265 / 0.88), oklch(0.21 0.018 265 / 0.88));
   --glass-strong: light-dark(oklch(0.99 0.003 265 / 0.94), oklch(0.21 0.018 265 / 0.95));
   --glass-border: light-dark(oklch(0.3 0.03 265 / 0.16), oklch(0.95 0.01 265 / 0.17));
+  /* 3:1+ non-text boundary for controls (WCAG 1.4.11); glass hairlines stay decorative */
+  --control-border: light-dark(oklch(0.52 0.025 265), oklch(0.72 0.012 265));
 
   --accent: light-dark(oklch(0.48 0.13 162), oklch(0.76 0.14 160));
   --accent-hover: light-dark(oklch(0.42 0.12 162), oklch(0.82 0.13 160));
@@ -516,7 +518,7 @@ main#canvas-container {
   margin-bottom: 0.75rem;
   flex-shrink: 0;
   background: var(--surface-2);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-md);
 }
 .mode-button {
@@ -641,7 +643,7 @@ main#canvas-container {
 
 /* Color inputs: larger hit swatch, visible boundary for 3:1 non-text contrast */
 input[type="color"] {
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   padding: 0.25rem;
@@ -700,7 +702,7 @@ kbd {
   padding: 0.1rem 0.35rem;
   margin-inline: 0.1rem;
   border-radius: 0.35rem;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--control-border);
   border-bottom-width: 2px;
   background: var(--surface-2);
   color: var(--text);
