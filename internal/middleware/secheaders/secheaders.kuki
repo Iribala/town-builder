@@ -34,14 +34,22 @@ func Init()
                 ancestors = append(ancestors, origin)
     frameAncestors = strpkg.Join(ancestors, " ")
 
+# contentSecurityPolicy builds the strict default policy. No 'unsafe-inline'
+# anywhere: the page ships no inline scripts and no style attributes —
+# the import map carries a per-response nonce (see ContentSecurityPolicyWithNonce);
+# 'wasm-unsafe-eval' stays because the physics module is Go-compiled WASM.
 func contentSecurityPolicy() string
-    # 'wasm-unsafe-eval' is required in script-src for WebAssembly.
-    # 'unsafe-inline' scripts are required by the token/WASM bootstrap block
-    # in index.html. The Bluesky sign-in flow uses the self-hosted @atcute
-    # ESM modules under /static/vendor/atcute/ (vendored in Phase 0 of the
-    # vanilla-JS evaluation); no third-party origins are needed.
-    # object-src/base-uri/form-action stay locked down.
-    return "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors " + frameAncestors
+    return "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors " + frameAncestors
+
+# ContentSecurityPolicyWithNonce returns the strict policy with a per-response
+# nonce on script-src, for contexts that must keep one inline script
+# (currently the import map in index.html).
+func ContentSecurityPolicyWithNonce(nonce: string) string
+    return strpkg.ReplaceAll(
+        contentSecurityPolicy(),
+        "script-src 'self' 'wasm-unsafe-eval'",
+        "script-src 'self' 'wasm-unsafe-eval' 'nonce-" + nonce + "'",
+    )
 
 func Wrap(next: http.Handler) http.Handler
     if frameAncestors is empty

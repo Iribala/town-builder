@@ -35,6 +35,8 @@ func TestSecurityHeadersPresent(t: reference testing.T)
     test.AssertTrue(t, strpkg.Contains(csp, "default-src 'self'"))
     test.AssertTrue(t, strpkg.Contains(csp, "object-src 'none'"))
     test.AssertTrue(t, strpkg.Contains(csp, "wasm-unsafe-eval"))
+    test.AssertFalse(t, strpkg.Contains(csp, "script-src 'self' 'unsafe-inline'"))
+    test.AssertFalse(t, strpkg.Contains(csp, "style-src 'self' 'unsafe-inline'"))
     test.AssertTrue(t, strpkg.Contains(csp, "frame-ancestors 'self' https://kibigia.internal"))
     test.AssertEqual(t, headers.Get("X-Content-Type-Options"), "nosniff")
     test.AssertEqual(t, headers.Get("Referrer-Policy"), "strict-origin-when-cross-origin")
@@ -53,6 +55,18 @@ func TestFrameAncestorsDefaultsToSelf(t: reference testing.T)
         t,
         strpkg.Contains(headers.Get("Content-Security-Policy"), "frame-ancestors 'self' https:"),
     )
+
+func TestContentSecurityPolicyWithNonce(t: reference testing.T)
+    s := reference of config.Settings{Environment: "development"}
+    config.SetForTest(s)
+    secheaders.Init()
+    nonceCSP := secheaders.ContentSecurityPolicyWithNonce("testnonce123")
+    test.AssertTrue(
+        t,
+        strpkg.Contains(nonceCSP, "script-src 'self' 'wasm-unsafe-eval' 'nonce-testnonce123'"),
+    )
+    test.AssertTrue(t, strpkg.Contains(nonceCSP, "default-src 'self'"))
+    test.AssertFalse(t, strpkg.Contains(nonceCSP, "script-src 'self' 'unsafe-inline'"))
 
 func TestFrameAncestorsEnvOverride(t: reference testing.T)
     t.Setenv("FRAME_ANCESTORS", "https://kibigia.org, https://app.kibigia.org")

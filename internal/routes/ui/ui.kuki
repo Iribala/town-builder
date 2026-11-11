@@ -3,12 +3,14 @@ petiole ui
 import "html/template"
 import "net/http"
 import "os"
-import "stdlib/cast"
+import "stdlib/crypto"
 import "stdlib/http" as httphelper
+import "stdlib/json"
 import "stdlib/log"
 import "stdlib/string" as strpkg
 
 import "github.com/Iribala/town-builder/internal/config"
+import "github.com/Iribala/town-builder/internal/middleware/secheaders"
 import "github.com/Iribala/town-builder/internal/routes/static" as staticroute
 import "github.com/Iribala/town-builder/internal/services/kibigia_auth"
 import "github.com/Iribala/town-builder/internal/services/model_display_names"
@@ -46,13 +48,35 @@ func basePath() string
         return ""
     return strpkg.TrimRight(s.RootPath, "/")
 
+# embedPayload renders the server-embed JSON consumed by embed.js and
+# wasm-init.js. The index handler injects it into a <script type="application/json">
+# raw-text element; `</` is escaped as `<\/` (valid JSON, inert HTML) so an
+# attacker-supplied token cannot terminate the block early.
+func embedPayload(token: string) string
+    embed := map of string to string{
+        "BasePath": basePath(),
+        "Token": token,
+        "StaticVersion": staticroute.Version(),
+        "WasmURL": staticroute.URL("/static/wasm/physics_greentea.wasm"),
+    }
+    raw, err := json.Bytes(embed)
+    if err isnt empty
+        log.Error("embed: marshal failed: {err}")
+        return "{}"
+    return strpkg.ReplaceAll(raw as string, "</", "<\\/")
+
+# newNonce returns a per-response CSP nonce for the import map.
+func newNonce() (string, error)
+    raw, err := crypto.RandomToken(16)
+    if err isnt empty
+        return "", err
+    return raw, empty
+
 type indexData
     Models: map of string to list of string
-    TownID: int
-    Token: string
-    BasePath: string
     VanillaRenderer: bool
-    StaticVersion: string
+    EmbedJSON: template.JS
+    Nonce: string
 
 func index(response: httphelper.Response, request: httphelper.Request)
     if indexTmpl equals empty
@@ -61,25 +85,30 @@ func index(response: httphelper.Response, request: httphelper.Request)
             response.JSONError("template load failed", 500) onerr discard
             return
 
-    townID := cast.ToIntOr(request.URL().Query().Get("town_id"), 0)
-
     # ?code= from kibigia's auth-code flow; ?token= is the direct-token fallback.
     authCode := request.URL().Query().Get("code")
     directToken := request.URL().Query().Get("token")
     token := kibigia_auth.ResolveToken(authCode, directToken)
 
+    nonce, nerr := newNonce()
+    if nerr isnt empty
+        log.Error("Failed to generate CSP nonce: {nerr}")
+        response.JSONError("unable to render page", 500) onerr discard
+        return
+
     data := indexData{
         Models: model_loader.GetAvailableModels(),
-        TownID: townID,
-        Token: token,
-        BasePath: basePath(),
         VanillaRenderer: request.URL().Query().Get("renderer") equals "webgl2",
-        StaticVersion: staticroute.Version(),
+        EmbedJSON: template.JS(embedPayload(token)),
+        Nonce: nonce,
     }
     w := response.Raw()
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
-    # The page embeds the caller's JWT (window.__TOKEN); never let it be cached.
+    # The page embeds the caller's JWT (#server-embed); never let it be cached.
     w.Header().Set("Cache-Control", "no-store")
+    # Strict CSP with the per-response nonce for the import map; overrides
+    # the global policy set by the secheaders middleware.
+    w.Header().Set("Content-Security-Policy", secheaders.ContentSecurityPolicyWithNonce(nonce))
     if err := indexTmpl.Execute(w, data); err isnt empty
         log.Error("Failed to render index: {err}")
 

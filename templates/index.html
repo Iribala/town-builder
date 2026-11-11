@@ -4,26 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#ffffff">
-    <!-- MANDATORY: declare supported schemes before first render to avoid a theme flash -->
+    <!-- MANDATORY: theme.js declares the resolved scheme before first paint to avoid a theme flash. CSP: no inline scripts — the import map carries a per-response nonce instead. -->
     <meta name="color-scheme" content="light dark">
-    <script>
-        // FOUC prevention: apply the stored color-scheme override before CSS paints.
-        // A stored value pins the scheme; otherwise follow the system preference.
-        (function () {
-            var root = document.documentElement;
-            var stored = null;
-            try { stored = localStorage.getItem('color-scheme'); } catch (e) { /* storage blocked */ }
-            var systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            var resolved = stored || (systemDark ? 'dark' : 'light');
-            root.setAttribute('data-theme', resolved);
-            var meta = document.querySelector('meta[name="color-scheme"]');
-            if (meta) meta.setAttribute('content', stored || 'light dark');
-            // Keep browser chrome in sync with the mapped --background
-            var tc = document.querySelector('meta[name="theme-color"]');
-            if (tc) tc.setAttribute('content', resolved === 'dark' ? '#141821' : '#ffffff');
-        })();
-    </script>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%A2%3C/text%3E%3C/svg%3E">
+    <script src="{{staticURL "/static/js/theme.js"}}"></script>
+    <link rel="icon" type="image/svg+xml" href="{{staticURL "/static/favicon.svg"}}">
     <title>Simple Town Builder</title>
     <!-- Oat UI v1.1.0 (self-hosted, zero-dependency, ~11KB gz — replaces Bootstrap) -->
     <script src="{{staticURL "/static/vendor/oat.min.js"}}" defer></script>
@@ -171,70 +155,13 @@
     </button>
 
 
-    <!-- Theme toggle behavior (two-state: system default + its opposite) -->
-    <script>
-        (function () {
-            var root = document.documentElement;
-            var toggle = document.getElementById('themeToggle');
-            if (!toggle) return;
-            var meta = document.querySelector('meta[name="color-scheme"]');
-            var media = window.matchMedia('(prefers-color-scheme: dark)');
+    <!-- Server-embed JSON (rendered by the index handler; escaped for raw-text embedding) -->
+    <script type="application/json" id="server-embed">{{.EmbedJSON}}</script>
+    <script src="{{staticURL "/static/js/embed.js"}}"></script>
 
-            function storedScheme() {
-                try { return localStorage.getItem('color-scheme'); } catch (e) { return null; }
-            }
-            function resolvedScheme() {
-                return storedScheme() || (media.matches ? 'dark' : 'light');
-            }
-            function apply(scheme) {
-                root.setAttribute('data-theme', scheme);
-                if (meta) meta.setAttribute('content', storedScheme() || 'light dark');
-                var tc = document.querySelector('meta[name="theme-color"]');
-                if (tc) tc.setAttribute('content', scheme === 'dark' ? '#141821' : '#ffffff');
-            }
-            toggle.addEventListener('click', function () {
-                var target = resolvedScheme() === 'dark' ? 'light' : 'dark';
-                var system = media.matches ? 'dark' : 'light';
-                try {
-                    // Undo the override when the target matches the system again
-                    if (target === system) localStorage.removeItem('color-scheme');
-                    else localStorage.setItem('color-scheme', target);
-                } catch (e) { /* storage blocked: apply without persisting */ }
-                apply(target);
-            });
-            // Follow OS scheme changes while no manual override is stored
-            media.addEventListener('change', function () {
-                if (!storedScheme()) apply(media.matches ? 'dark' : 'light');
-            });
-            // Keep tabs in sync when the override changes elsewhere
-            window.addEventListener('storage', function (event) {
-                if (event.key === 'color-scheme') apply(resolvedScheme());
-            });
-        })();
-    </script>
-
-    <!-- Embed town_id and base path from server -->
-    <script>
-      // Base path for reverse proxy deployments
-      window.__BASE_PATH = '{{.BasePath}}';
-      window.__STATIC_VERSION__ = '{{.StaticVersion}}';
-      // JWT token for authenticated API requests
-      {{if .Token}}
-      window.__TOKEN = '{{.Token}}';
-      {{else}}
-      window.__TOKEN = null;
-      {{end}}
-      // Set initial town_id if provided from URL parameter
-      {{if .TownID}}
-      window.currentTownId = {{.TownID}};
-      console.log("Town ID from URL:", window.currentTownId);
-      {{else}}
-      window.currentTownId = null;
-      {{end}}
-    </script>
-
-    <!-- Import map: three.js by default, vanilla WebGL2 shim with ?renderer=webgl2 -->
-    <script type="importmap">
+    <!-- Import map: three.js by default, vanilla WebGL2 shim with ?renderer=webgl2.
+         Carries a per-response nonce — the page's only non-self-contained script. -->
+    <script type="importmap" nonce="{{.Nonce}}">
     {
       "imports": {
         "three": "{{if .VanillaRenderer}}{{staticURL "/static/js/webgl2/three-shim.js"}}{{else}}{{staticURL "/static/js/three.module.js"}}{{end}}",
@@ -244,31 +171,9 @@
     }
     </script>
 
-    <!-- Load Go WASM runtime -->
+    <!-- Load Go WASM runtime + physics module -->
     <script src="{{staticURL "/static/js/wasm_exec.js"}}"></script>
-    <script>
-      // Load physics WASM module (Go 1.25+ with GreenTea GC experimental and car physics)
-      const go = new Go();
-      // wasmReady promise in wasm.js is resolved by window.__markWasmReady() or window.__markWasmFailed()
-      WebAssembly.instantiateStreaming(fetch("{{staticURL "/static/wasm/physics_greentea.wasm"}}"), go.importObject).then(result => {
-        go.run(result.instance);
-        console.log("✓ Physics WASM loaded (Go 1.25+ with GreenTea GC experimental)");
-
-        // Signal readiness to main.js (breaks deadlock)
-        if (typeof window.__markWasmReady === 'function') {
-          window.__markWasmReady();
-        } else {
-          // Fallback in case main application loads slower - functions will be checked again in main.js init loop
-          console.warn("WASM signal function not yet on window - will retry in 100ms");
-          setTimeout(() => {
-            if (typeof window.__markWasmReady === 'function') window.__markWasmReady();
-          }, 100);
-        }
-      }).catch(err => {
-        console.error("Failed to load physics WASM:", err);
-        if (typeof window.__markWasmFailed === 'function') window.__markWasmFailed(err);
-      });
-    </script>
+    <script src="{{staticURL "/static/js/wasm-init.js"}}"></script>
 
     <!-- Load main application after WASM -->
     <script type="module" src="{{staticURL "/static/js/main.js"}}"></script>
