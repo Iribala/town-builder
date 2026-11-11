@@ -108,7 +108,7 @@ func Register(mux: reference http.ServeMux)
 
     # Versioned assets: content-hashed URL → immutable forever.
     versionedFS := http.StripPrefix("/static/v/" + assetVersion, fs)
-    mux.Handle("/static/v/{version}/", reference of staticHandler{
+    mux.Handle("/static/v/\{version\}/", reference of staticHandler{
         next: versionedFS,
         cacheControl: "public, max-age=31536000, immutable",
         requireVersion: assetVersion,
