@@ -8,10 +8,10 @@
    at the end of mobile.css (loaded last) so it
    beats components here and mobile.css's own
    display rules — no !important needed.
-   Tokens are defined for light first, duplicated
-   for dark (media query + [data-theme="dark"])
-   so both the system preference and the manual
-   toggle work without light-dark() support.
+   Tokens are defined once as light-dark() pairs;
+   the :has() rules below pin the used color-scheme
+   to the toggle so they resolve identically for the
+   system preference and the manual override.
    ============================================ */
 
 @layer components {
@@ -19,29 +19,35 @@
 :root {
   color-scheme: light dark;
 
-  --text: oklch(0.24 0.02 265);
-  --text-muted: oklch(0.43 0.02 265);
-  --surface: oklch(1 0 0);
-  --surface-2: oklch(0.965 0.004 265);
-  --surface-3: oklch(0.93 0.006 265);
+  --text: light-dark(oklch(0.24 0.02 265), oklch(0.94 0.008 265));
+  --text-muted: light-dark(oklch(0.43 0.02 265), oklch(0.82 0.012 265));
+  --surface: light-dark(oklch(1 0 0), oklch(0.21 0.018 265));
+  --surface-2: light-dark(oklch(0.965 0.004 265), oklch(0.26 0.02 265));
+  --surface-3: light-dark(oklch(0.93 0.006 265), oklch(0.31 0.022 265));
 
-  --glass: oklch(0.99 0.003 265 / 0.88);
-  --glass-strong: oklch(0.99 0.003 265 / 0.94);
-  --glass-border: oklch(0.3 0.03 265 / 0.16);
+  --glass: light-dark(oklch(0.99 0.003 265 / 0.88), oklch(0.21 0.018 265 / 0.88));
+  --glass-strong: light-dark(oklch(0.99 0.003 265 / 0.94), oklch(0.21 0.018 265 / 0.95));
+  --glass-border: light-dark(oklch(0.3 0.03 265 / 0.16), oklch(0.95 0.01 265 / 0.17));
 
-  --accent: oklch(0.48 0.13 162);
-  --accent-hover: oklch(0.42 0.12 162);
-  --accent-active: oklch(0.38 0.11 162);
-  --accent-soft: oklch(0.48 0.13 162 / 0.12);
-  --on-accent: oklch(1 0 0);
+  --accent: light-dark(oklch(0.48 0.13 162), oklch(0.76 0.14 160));
+  --accent-hover: light-dark(oklch(0.42 0.12 162), oklch(0.82 0.13 160));
+  --accent-active: light-dark(oklch(0.38 0.11 162), oklch(0.88 0.11 160));
+  --accent-soft: light-dark(oklch(0.48 0.13 162 / 0.12), oklch(0.76 0.14 160 / 0.18));
+  --on-accent: light-dark(oklch(1 0 0), oklch(0.23 0.05 162));
 
-  --ok: oklch(0.48 0.13 150);
-  --warn: oklch(0.52 0.12 75);
-  --danger: oklch(0.5 0.18 27);
-  --sky: oklch(0.48 0.13 235);
+  --ok: light-dark(oklch(0.48 0.13 150), oklch(0.77 0.13 150));
+  --warn: light-dark(oklch(0.52 0.12 75), oklch(0.82 0.13 80));
+  --danger: light-dark(oklch(0.5 0.18 27), oklch(0.74 0.15 25));
+  --sky: light-dark(oklch(0.48 0.13 235), oklch(0.76 0.11 235));
 
-  --shadow-1: 0 1px 2px oklch(0.2 0.03 265 / 0.10), 0 4px 16px oklch(0.2 0.03 265 / 0.10);
-  --shadow-2: 0 2px 4px oklch(0.2 0.03 265 / 0.12), 0 12px 32px oklch(0.2 0.03 265 / 0.18);
+  /* Shadow layers as single-value light-dark() pairs (the composed
+     shadows below reference them; light-dark() can't take comma lists) */
+  --shadow-c1: light-dark(oklch(0.2 0.03 265 / 0.10), oklch(0 0 0 / 0.30));
+  --shadow-c2: light-dark(oklch(0.2 0.03 265 / 0.10), oklch(0 0 0 / 0.35));
+  --shadow-c3: light-dark(oklch(0.2 0.03 265 / 0.12), oklch(0 0 0 / 0.35));
+  --shadow-c4: light-dark(oklch(0.2 0.03 265 / 0.18), oklch(0 0 0 / 0.45));
+  --shadow-1: 0 1px 2px var(--shadow-c1), 0 4px 16px var(--shadow-c2);
+  --shadow-2: 0 2px 4px var(--shadow-c3), 0 12px 32px var(--shadow-c4);
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -53,106 +59,14 @@
   /* Fixed navbar height; overlay panels anchor below it */
   --navbar-h: 3.5rem;
 
-  --scroll-thumb: oklch(0.52 0.02 265);
-  --scroll-track: oklch(0.91 0.005 265);
-
-
-}
-
-/* Dark scheme via system preference (no JS, or no stored override) */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --text: oklch(0.94 0.008 265);
-    --text-muted: oklch(0.82 0.012 265);
-    --surface: oklch(0.21 0.018 265);
-    --surface-2: oklch(0.26 0.02 265);
-    --surface-3: oklch(0.31 0.022 265);
-
-    --glass: oklch(0.21 0.018 265 / 0.88);
-    --glass-strong: oklch(0.21 0.018 265 / 0.95);
-    --glass-border: oklch(0.95 0.01 265 / 0.17);
-
-    --accent: oklch(0.76 0.14 160);
-    --accent-hover: oklch(0.82 0.13 160);
-    --accent-active: oklch(0.88 0.11 160);
-    --accent-soft: oklch(0.76 0.14 160 / 0.18);
-    --on-accent: oklch(0.23 0.05 162);
-
-    --ok: oklch(0.77 0.13 150);
-    --warn: oklch(0.82 0.13 80);
-    --danger: oklch(0.74 0.15 25);
-    --sky: oklch(0.76 0.11 235);
-
-    --shadow-1: 0 1px 2px oklch(0 0 0 / 0.30), 0 4px 16px oklch(0 0 0 / 0.35);
-    --shadow-2: 0 2px 4px oklch(0 0 0 / 0.35), 0 12px 32px oklch(0 0 0 / 0.45);
-
-    --scroll-thumb: oklch(0.66 0.015 265);
-    --scroll-track: oklch(0.30 0.018 265);
-  }
-}
-
-/* Dark scheme via explicit manual toggle (JS sets data-theme) */
-:root[data-theme="dark"] {
-  --text: oklch(0.94 0.008 265);
-  --text-muted: oklch(0.82 0.012 265);
-  --surface: oklch(0.21 0.018 265);
-  --surface-2: oklch(0.26 0.02 265);
-  --surface-3: oklch(0.31 0.022 265);
-
-  --glass: oklch(0.21 0.018 265 / 0.88);
-  --glass-strong: oklch(0.21 0.018 265 / 0.95);
-  --glass-border: oklch(0.95 0.01 265 / 0.17);
-
-  --accent: oklch(0.76 0.14 160);
-  --accent-hover: oklch(0.82 0.13 160);
-  --accent-active: oklch(0.88 0.11 160);
-  --accent-soft: oklch(0.76 0.14 160 / 0.18);
-  --on-accent: oklch(0.23 0.05 162);
-
-  --ok: oklch(0.77 0.13 150);
-  --warn: oklch(0.82 0.13 80);
-  --danger: oklch(0.74 0.15 25);
-  --sky: oklch(0.76 0.11 235);
-
-  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.30), 0 4px 16px oklch(0 0 0 / 0.35);
-  --shadow-2: 0 2px 4px oklch(0 0 0 / 0.35), 0 12px 32px oklch(0 0 0 / 0.45);
-
-  --scroll-thumb: oklch(0.66 0.015 265);
-  --scroll-track: oklch(0.30 0.018 265);
-}
-
-/* Manual toggle pinned to light wins over a dark system preference */
-:root[data-theme="light"] {
-  --text: oklch(0.24 0.02 265);
-  --text-muted: oklch(0.43 0.02 265);
-  --surface: oklch(1 0 0);
-  --surface-2: oklch(0.965 0.004 265);
-  --surface-3: oklch(0.93 0.006 265);
-
-  --glass: oklch(0.99 0.003 265 / 0.88);
-  --glass-strong: oklch(0.99 0.003 265 / 0.94);
-  --glass-border: oklch(0.3 0.03 265 / 0.16);
-
-  --accent: oklch(0.48 0.13 162);
-  --accent-hover: oklch(0.42 0.12 162);
-  --accent-active: oklch(0.38 0.11 162);
-  --accent-soft: oklch(0.48 0.13 162 / 0.12);
-  --on-accent: oklch(1 0 0);
-
-  --ok: oklch(0.48 0.13 150);
-  --warn: oklch(0.52 0.12 75);
-  --danger: oklch(0.5 0.18 27);
-  --sky: oklch(0.48 0.13 235);
-
-  --shadow-1: 0 1px 2px oklch(0.2 0.03 265 / 0.10), 0 4px 16px oklch(0.2 0.03 265 / 0.10);
-  --shadow-2: 0 2px 4px oklch(0.2 0.03 265 / 0.12), 0 12px 32px oklch(0.2 0.03 265 / 0.18);
-
-  --scroll-thumb: oklch(0.52 0.02 265);
-  --scroll-track: oklch(0.91 0.005 265);
+  --scroll-thumb: light-dark(oklch(0.52 0.02 265), oklch(0.66 0.015 265));
+  --scroll-track: light-dark(oklch(0.91 0.005 265), oklch(0.30 0.018 265));
 }
 
 /* Map the toggle-controlled <meta name="color-scheme"> back onto the property
-   so light-dark branching keys off the override, per dark-mode guidance */
+   so light-dark branching keys off the override, per dark-mode guidance.
+   This is what makes the single token definitions above resolve correctly
+   for both the system preference and the manual toggle. */
 :root:has(> head > meta[name="color-scheme"][content="dark"]) {
   color-scheme: dark;
 }
@@ -181,22 +95,8 @@
 /* Glass needs a backdrop to blur; without the feature use (nearly) opaque surfaces */
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :root {
-    --glass: oklch(0.99 0.003 265 / 0.66);
-    --glass-strong: oklch(0.99 0.003 265 / 0.78);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --glass: oklch(0.21 0.018 265 / 0.78);
-      --glass-strong: oklch(0.21 0.018 265 / 0.86);
-    }
-  }
-  :root[data-theme="dark"] {
-    --glass: oklch(0.21 0.018 265 / 0.78);
-    --glass-strong: oklch(0.21 0.018 265 / 0.86);
-  }
-  :root[data-theme="light"] {
-    --glass: oklch(0.99 0.003 265 / 0.66);
-    --glass-strong: oklch(0.99 0.003 265 / 0.78);
+    --glass: light-dark(oklch(0.99 0.003 265 / 0.66), oklch(0.21 0.018 265 / 0.78));
+    --glass-strong: light-dark(oklch(0.99 0.003 265 / 0.78), oklch(0.21 0.018 265 / 0.86));
   }
 }
 
@@ -214,16 +114,8 @@ html {
 }
 
 ::selection {
-  background: oklch(0.48 0.13 162 / 0.28);
+  background: light-dark(oklch(0.48 0.13 162 / 0.28), oklch(0.76 0.14 160 / 0.35));
   color: inherit;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) ::selection {
-    background: oklch(0.76 0.14 160 / 0.35);
-  }
-}
-:root[data-theme="dark"] ::selection {
-  background: oklch(0.76 0.14 160 / 0.35);
 }
 
 /* ---------- 2. Base ---------- */
@@ -1120,26 +1012,11 @@ dialog.landing-dialog::backdrop {
 
 /* ---------- 17. prefers-contrast: more — strengthen glass boundaries ---------- */
 @media (prefers-contrast: more) {
-  :root,
-  :root[data-theme="light"] {
-    --glass: oklch(1 0 0 / 0.96);
-    --glass-strong: oklch(1 0 0 / 0.98);
-    --glass-border: oklch(0.2 0.02 265 / 0.55);
-    --text-muted: oklch(0.32 0.02 265);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      --glass: oklch(0.18 0.018 265 / 0.96);
-      --glass-strong: oklch(0.18 0.018 265 / 0.98);
-      --glass-border: oklch(0.97 0.005 265 / 0.6);
-      --text-muted: oklch(0.88 0.01 265);
-    }
-  }
-  :root[data-theme="dark"] {
-    --glass: oklch(0.18 0.018 265 / 0.96);
-    --glass-strong: oklch(0.18 0.018 265 / 0.98);
-    --glass-border: oklch(0.97 0.005 265 / 0.6);
-    --text-muted: oklch(0.88 0.01 265);
+  :root {
+    --glass: light-dark(oklch(1 0 0 / 0.96), oklch(0.18 0.018 265 / 0.96));
+    --glass-strong: light-dark(oklch(1 0 0 / 0.98), oklch(0.18 0.018 265 / 0.98));
+    --glass-border: light-dark(oklch(0.2 0.02 265 / 0.55), oklch(0.97 0.005 265 / 0.6));
+    --text-muted: light-dark(oklch(0.32 0.02 265), oklch(0.88 0.01 265));
   }
 }
 } /* end @layer components */
