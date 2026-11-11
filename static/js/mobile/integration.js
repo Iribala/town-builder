@@ -147,7 +147,8 @@ class MobileIntegration {
     if (!hint) {
       hint = document.createElement('div');
       hint.id = 'mobile-placement-hint';
-      hint.className = 'camera-mode-indicator bg-info text-white show';
+      hint.className = 'camera-mode-indicator camera-mode-indicator--info show';
+      hint.setAttribute('role', 'status');
       hint.textContent = 'Tap the ground to place';
       document.body.appendChild(hint);
     } else {

@@ -47,7 +47,7 @@ class Tutorial {
     if (this.overlay) return;
 
     const overlay = document.createElement('div');
-    overlay.className = 'tutorial-overlay';
+    overlay.className = 'tutorial-overlay hidden';
     overlay.innerHTML = `
       <div class="tutorial-content">
         <div class="tutorial-title">Welcome to Town Builder!</div>
@@ -135,7 +135,7 @@ class Tutorial {
       this.createOverlay();
     }
 
-    this.overlay.style.display = 'flex';
+    this.overlay.classList.remove('hidden');
     this.isShowing = true;
 
     // Animate in
@@ -156,7 +156,7 @@ class Tutorial {
 
     setTimeout(() => {
       if (this.overlay) {
-        this.overlay.style.display = 'none';
+        this.overlay.classList.add('hidden');
       }
       this.isShowing = false;
     }, 300);
@@ -213,21 +213,6 @@ class Tutorial {
     }
     this.isShowing = false;
   }
-}
-
-// CSS for fadeOut animation (add to mobile.css or inject)
-const fadeOutAnimation = `
-@keyframes fadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
-}
-`;
-
-// Inject animation if not already in CSS
-if (typeof document !== 'undefined') {
-  const styleSheet = document.createElement('style');
-  styleSheet.textContent = fadeOutAnimation;
-  document.head.appendChild(styleSheet);
 }
 
 // Create singleton instance

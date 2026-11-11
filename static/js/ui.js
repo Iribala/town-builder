@@ -124,26 +124,28 @@ export function setCurrentMode(mode) {
     const themeToggleContainer = document.getElementById('theme-toggle-container');
     const categoryStatusLegend = document.getElementById('category-status-legend');
 
+    const setVisible = (el, visible) => { if (el) el.classList.toggle('hidden', !visible); };
+
     // Default UI states
-    if (joystickContainer) joystickContainer.style.display = 'none';
-    if (exitDrivingBtn) exitDrivingBtn.style.display = 'none';
-    if (modelContainer) modelContainer.style.display = 'block'; // Show model list by default
-    if (toolbar) toolbar.style.display = 'block';
-    if (contextHelp) contextHelp.style.display = 'block';
-    if (townNameContainer) townNameContainer.style.display = 'block';
-    if (themeToggleContainer) themeToggleContainer.style.display = 'block';
-    if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
+    setVisible(joystickContainer, false);
+    setVisible(exitDrivingBtn, false);
+    setVisible(modelContainer, true); // Show model list by default
+    setVisible(toolbar, true);
+    setVisible(contextHelp, true);
+    setVisible(townNameContainer, true);
+    setVisible(themeToggleContainer, true);
+    setVisible(categoryStatusLegend, true);
 
     if (mode === 'drive') {
         if (getDrivingCar()) { // Actively driving a car
-            if (joystickContainer) joystickContainer.style.display = 'block'; // Or 'flex'
-            if (exitDrivingBtn) exitDrivingBtn.style.display = 'block';
-            if (modelContainer) modelContainer.style.display = 'none';
-            if (toolbar) toolbar.style.display = 'none';
-            if (contextHelp) contextHelp.style.display = 'none';
-            if (townNameContainer) townNameContainer.style.display = 'none';
-            if (themeToggleContainer) themeToggleContainer.style.display = 'none';
-            if (categoryStatusLegend) categoryStatusLegend.style.display = 'none';
+            setVisible(joystickContainer, true); // Or 'flex'
+            setVisible(exitDrivingBtn, true);
+            setVisible(modelContainer, false);
+            setVisible(toolbar, false);
+            setVisible(contextHelp, false);
+            setVisible(townNameContainer, false);
+            setVisible(themeToggleContainer, false);
+            setVisible(categoryStatusLegend, false);
             showNotification(`Driving ${getDrivingCar().userData.modelName || 'car'}. Use WASD/Arrows or joystick on mobile.`, 'info');
 
             // Re-initialize joystick when it becomes visible
@@ -156,23 +158,23 @@ export function setCurrentMode(mode) {
                 });
             });
         } else { // Entered drive mode, waiting for car selection
-            if (joystickContainer) joystickContainer.style.display = 'none';
-            if (exitDrivingBtn) exitDrivingBtn.style.display = 'none'; // Keep hidden until car selected
-            if (modelContainer) modelContainer.style.display = 'block'; // Or 'none' if you prefer
-            if (toolbar) toolbar.style.display = 'block';
-            if (contextHelp) contextHelp.style.display = 'block';
-            if (townNameContainer) townNameContainer.style.display = 'block';
-            if (themeToggleContainer) themeToggleContainer.style.display = 'block';
-            if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
+            setVisible(joystickContainer, false);
+            setVisible(exitDrivingBtn, false); // Keep hidden until car selected
+            setVisible(modelContainer, true); // Or 'none' if you prefer
+            setVisible(toolbar, true);
+            setVisible(contextHelp, true);
+            setVisible(townNameContainer, true);
+            setVisible(themeToggleContainer, true);
+            setVisible(categoryStatusLegend, true);
             showNotification('Drive Mode: Click on a car in the scene to drive it.', 'info');
         }
     } else { // Not in drive mode
-        if (modelContainer) modelContainer.style.display = 'block';
-        if (toolbar) toolbar.style.display = 'block';
-        if (contextHelp) contextHelp.style.display = 'block';
-        if (townNameContainer) townNameContainer.style.display = 'block';
-        if (themeToggleContainer) themeToggleContainer.style.display = 'block';
-        if (categoryStatusLegend) categoryStatusLegend.style.display = 'block';
+        setVisible(modelContainer, true);
+        setVisible(toolbar, true);
+        setVisible(contextHelp, true);
+        setVisible(townNameContainer, true);
+        setVisible(themeToggleContainer, true);
+        setVisible(categoryStatusLegend, true);
         setDrivingCar(null); // Ensure drivingCar is cleared if mode changes from drive
     }
 
@@ -296,8 +298,8 @@ export function initUI() {
     const display = document.getElementById('town-name-display');
     const input = document.getElementById('town-name-input');
     display.addEventListener('click', () => {
-        display.style.display = 'none';
-        input.style.display = 'block';
+        display.classList.add('hidden');
+        input.classList.remove('hidden');
         input.focus();
     });
     input.addEventListener('blur', onTownNameChange);
@@ -465,8 +467,8 @@ async function onTownNameChange() {
     const display = document.getElementById('town-name-display');
     if (display) {
         display.textContent = newName;
-        display.style.display = 'block';
-        input.style.display = 'none';
+        display.classList.remove('hidden');
+        input.classList.add('hidden');
     }
     await onSaveScene(); // Automatically save the scene when the town name changes
 }
@@ -484,9 +486,9 @@ export function updateOnlineUsersList(users) {
     ul.innerHTML = '';
     users.forEach(u => {
         const li = document.createElement('li');
-        li.className = 'py-1';
+        li.className = 'user-item';
         const icon = document.createElement('i');
-        icon.className = 'bi bi-person-circle me-2 text-primary';
+        icon.className = 'bi bi-person-circle me-2';
         li.appendChild(icon);
         li.appendChild(document.createTextNode(u));
         ul.appendChild(li);

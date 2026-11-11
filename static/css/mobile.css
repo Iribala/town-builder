@@ -2,11 +2,10 @@
 /* Responsive design for mobile phones and tablets */
 
 /*
- * NOTE: This file uses !important flags in several places to override:
- * 1. Bootstrap's default styles which have high specificity
- * 2. Inline styles set by JavaScript in index.html
- * 3. Styles from desktop-first CSS that conflict with mobile layout
- * These are intentional and necessary for mobile responsiveness.
+ * NOTE: This file is intentionally unlayered — unlayered rules beat every
+ * cascade layer, so mobile overrides win over app.css (@layer components)
+ * and Oat without. The .hidden utility is defined at the very
+ * bottom of this file for the same reason.
  */
 
 /* ============================================
@@ -40,26 +39,26 @@
 
   /* Prevent zoom on input focus (iOS) */
   input, select, textarea {
-    font-size: 16px !important;
+    font-size: 16px;
   }
 
   /* ============================================
      Toolbar as Bottom Sheet
      ============================================ */
   #toolbar {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    height: var(--mobile-toolbar-height) !important;
-    max-height: var(--mobile-toolbar-height) !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    max-width: 100%;
+    height: var(--mobile-toolbar-height);
+    max-height: var(--mobile-toolbar-height);
     transform: translateY(calc(100% - var(--bottom-sheet-peek)));
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 1500 !important;
-    border-radius: 16px 16px 0 0 !important;
+    z-index: 1500;
+    border-radius: 16px 16px 0 0;
     padding-bottom: var(--safe-area-inset-bottom);
   }
 
@@ -98,7 +97,7 @@
   }
 
   .toolbar-drag-zone:active {
-    cursor: grabbing !important;
+    cursor: grabbing;
   }
 
   #toolbar .panel-body {
@@ -150,18 +149,18 @@
      ============================================ */
   #model-container {
     flex: 1 1 auto;
-    overflow-y: auto !important;
+    overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    min-height: 150px !important; /* Ensure models list is always visible */
-    max-height: 40vh !important; /* Limit height so bottom section is visible */
+    min-height: 150px; /* Ensure models list is always visible */
+    max-height: 40vh; /* Limit height so bottom section is visible */
     touch-action: pan-y; /* Allow vertical scrolling */
     overscroll-behavior: contain; /* Prevent scroll chaining */
   }
 
   .model-item {
     min-height: var(--touch-target-min);
-    padding: 12px !important;
+    padding: 12px;
     font-size: 16px;
     cursor: pointer;
     -webkit-tap-highlight-color: rgba(0, 123, 255, 0.3);
@@ -169,8 +168,8 @@
   }
 
   .model-item:active {
-    background-color: var(--accent) !important;
-    color: var(--on-accent) !important;
+    background-color: var(--accent);
+    color: var(--on-accent);
   }
 
   .model-item i {
@@ -193,25 +192,19 @@
      Town Name - Smaller and Top
      ============================================ */
   #town-name-container {
-    top: 60px !important;
-    left: 50% !important;
+    top: 60px;
   }
 
   #town-name-display {
-    font-size: 1rem !important;
-    padding: 8px 16px !important;
+    font-size: 1rem;
+    padding: 8px 16px;
   }
 
   /* ============================================
-     Theme Toggle - Positioned for Mobile
+     Theme Toggle
      ============================================ */
-  #theme-toggle-container {
-    top: 60px !important;
-    right: 10px !important;
-  }
-
   #themeToggle i {
-    font-size: 1.5rem !important;
+    font-size: 1.5rem;
   }
 
   /* ============================================
@@ -225,22 +218,22 @@
      Context Help - Hidden on Mobile
      ============================================ */
   #context-help {
-    display: none !important;
+    display: none;
   }
 
   /* ============================================
      Category Status Legend - Hidden on Mobile
      ============================================ */
   #category-status-legend {
-    display: none !important;
+    display: none;
   }
 
   /* ============================================
      Exit Driving Button - Larger
      ============================================ */
   #exit-driving-btn {
-    top: 60px !important;
-    right: 10px !important;
+    top: 60px;
+    right: 10px;
     z-index: 2002;
     min-height: var(--touch-target-min);
     font-size: 16px;
@@ -251,21 +244,21 @@
      Joystick - Better Positioning
      ============================================ */
   #joystick-container {
-    bottom: calc(80px + var(--safe-area-inset-bottom)) !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
+    bottom: calc(80px + var(--safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   #joystick-base {
-    width: 140px !important;
-    height: 140px !important;
+    width: 140px;
+    height: 140px;
   }
 
   #joystick-stick {
-    width: 70px !important;
-    height: 70px !important;
-    left: 35px !important;
-    top: 35px !important;
+    width: 70px;
+    height: 70px;
+    left: 35px;
+    top: 35px;
   }
 
   /* ============================================
@@ -290,7 +283,7 @@
    ============================================ */
 @media (max-width: 768px) {
   #attribution-footer {
-    bottom: calc(var(--bottom-sheet-peek) + env(safe-area-inset-bottom, 0px) + 0.5rem) !important;
+    bottom: calc(var(--bottom-sheet-peek) + env(safe-area-inset-bottom, 0px) + 0.5rem);
   }
 }
 
@@ -304,7 +297,6 @@
   width: var(--fab-size);
   height: var(--fab-size);
   border-radius: 50%;
-  border: 1px solid var(--glass-border);
   background: var(--accent);
   color: var(--on-accent);
   display: flex;
@@ -312,7 +304,6 @@
   justify-content: center;
   z-index: 1600;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  border: none;
   transition: all 0.3s ease;
   cursor: pointer;
   padding-bottom: var(--safe-area-inset-bottom);
@@ -336,50 +327,6 @@
   .fab {
     display: none;
   }
-}
-
-/* ============================================
-   Bottom Action Bar
-   ============================================ */
-.bottom-action-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: calc(var(--bottom-bar-height) + var(--safe-area-inset-bottom));
-  background: var(--surface);
-  border-top: 1px solid var(--glass-border);
-  display: none;
-  justify-content: space-around;
-  align-items: center;
-  padding: 8px;
-  padding-bottom: calc(8px + var(--safe-area-inset-bottom));
-  z-index: 1400;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 768px) {
-  .bottom-action-bar {
-    display: flex;
-  }
-}
-
-.bottom-action-bar button {
-  flex: 1;
-  margin: 0 4px;
-  min-height: var(--touch-target-min);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  font-size: 12px;
-  border-radius: 8px;
-}
-
-.bottom-action-bar button i {
-  font-size: 20px;
-  margin-bottom: 2px;
 }
 
 /* ============================================
@@ -553,14 +500,6 @@
 }
 
 /* ============================================
-   Touch Feedback
-   ============================================ */
-.touch-active {
-  opacity: 0.7;
-  transform: scale(0.98);
-}
-
-/* ============================================
    Camera Mode Indicator
    ============================================ */
 .camera-mode-indicator {
@@ -573,10 +512,17 @@
   border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
+  color: var(--on-accent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.3s ease;
+}
+.camera-mode-indicator--primary {
+  background: var(--accent);
+}
+.camera-mode-indicator--info {
+  background: var(--sky);
 }
 
 .camera-mode-indicator.show {
@@ -606,7 +552,7 @@
   }
 
   .model-item {
-    padding: 10px !important;
+    padding: 10px;
     font-size: 15px;
   }
 }
@@ -649,7 +595,7 @@
   }
 
   #joystick-container {
-    bottom: calc(40px + var(--safe-area-inset-bottom)) !important;
+    bottom: calc(40px + var(--safe-area-inset-bottom));
   }
 }
 
@@ -698,6 +644,15 @@
   }
 }
 
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes scaleIn {
   from {
     transform: scale(0.8);
@@ -736,4 +691,14 @@
     -webkit-appearance: none;
     border-radius: 0;
   }
+}
+
+/* ============================================
+   Utilities
+   Unlayered, last in source order so .hidden beats
+   app.css (@layer components), this file's own
+   display rules, and Oat's layers.
+   ============================================ */
+.hidden {
+  display: none;
 }

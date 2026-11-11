@@ -260,52 +260,36 @@ export function applyCategoryStatuses(categoryStatuses, placedObjects) {
 export function createStatusLegend(categoryStatuses) {
     const legend = document.createElement('div');
     legend.id = 'category-status-legend';
-    legend.className = 'category-status-panel';
     legend.setAttribute('role', 'region');
     legend.setAttribute('aria-label', 'Town Category Status');
-    legend.style.cssText = `
-        position: fixed;
-        top: 50%;
-        right: 10px;
-        transform: translateY(-50%);
-        max-width: 300px;
-        z-index: 1000;
-    `;
 
     const cardBody = document.createElement('div');
     cardBody.className = 'panel-body';
-    cardBody.style.cssText = 'padding: 15px; font-size: 12px;';
 
     const title = document.createElement('h6');
-    title.className = 'panel-title';
+    title.className = 'panel-title legend-title';
     title.textContent = 'Town Category Status';
-    title.style.cssText = 'margin: 0 0 10px 0; font-size: 14px; padding-bottom: 5px; border-bottom: 1px solid var(--glass-border);';
     cardBody.appendChild(title);
 
     // Add legend key with color names
     const keyHeader = document.createElement('div');
-    keyHeader.style.cssText = 'margin-bottom: 10px; font-size: 11px; color: #666;';
+    keyHeader.className = 'legend-key';
     keyHeader.innerHTML = '<strong>Status levels:</strong> ' + Object.values(STATUS_NAMES).join(' • ');
     cardBody.appendChild(keyHeader);
 
     const statusList = document.createElement('ul');
+    statusList.className = 'legend-list';
     statusList.setAttribute('role', 'list');
-    statusList.style.cssText = 'list-style: none; padding: 0; margin: 0;';
 
     categoryStatuses.forEach(status => {
         const item = document.createElement('li');
         item.setAttribute('role', 'listitem');
-        item.style.cssText = 'margin: 5px 0; display: flex; align-items: center;';
+        item.className = 'legend-item';
 
         const colorBox = document.createElement('span');
-        colorBox.style.cssText = `
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            background: #${getStatusColor(status.status_level).toString(16).padStart(6, '0')};
-            margin-right: 8px;
-            border: 1px solid var(--glass-border);
-        `;
+        colorBox.className = 'legend-swatch';
+        // Dynamic data — setting element.style from JS is fine
+        colorBox.style.background = `#${getStatusColor(status.status_level).toString(16).padStart(6, '0')}`;
         colorBox.setAttribute('aria-hidden', 'true'); // Hide decorative element from screen readers
 
         const text = document.createElement('span');
@@ -324,7 +308,7 @@ export function createStatusLegend(categoryStatuses) {
     const srSummary = document.createElement('div');
     srSummary.setAttribute('role', 'status');
     srSummary.setAttribute('aria-live', 'polite');
-    srSummary.style.cssText = 'position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;';
+    srSummary.className = 'visually-hidden';
     srSummary.textContent = `Town category status legend showing ${categoryStatuses.length} categories`;
     cardBody.appendChild(srSummary);
 

@@ -36,7 +36,7 @@
     <h1 class="visually-hidden">Simple Town Builder</h1>
 
     <!-- Navigation bar -->
-    <nav class="navbar fixed-top">
+    <nav class="navbar">
         <div class="navbar-inner">
             <a class="navbar-brand" href="/">
                 <span class="brand-tile" aria-hidden="true"><i class="bi bi-building"></i></span>
@@ -66,7 +66,7 @@
     <!-- Town Name Display -->
     <div id="town-name-container">
         <button id="town-name-display" type="button" title="Rename town">My Town</button>
-        <input id="town-name-input" type="text" value="My Town" aria-label="Town name" autocomplete="off" spellcheck="false">
+        <input id="town-name-input" class="hidden" type="text" value="My Town" aria-label="Town name" autocomplete="off" spellcheck="false">
     </div>
 
     <!-- User List -->
@@ -145,7 +145,7 @@
     <main id="canvas-container" aria-label="3D town canvas"></main>
 
     <!-- Joystick for mobile driving mode -->
-    <div id="joystick-container" style="position:absolute; display:none; bottom: 60px; left: 50%; transform: translateX(-50%); z-index: 2002;">
+    <div id="joystick-container" class="hidden">
         <div id="joystick-base">
             <div id="joystick-stick"></div>
         </div>
@@ -164,7 +164,7 @@
     </div>
 
     <!-- Exit Driving Mode Button -->
-    <button id="exit-driving-btn" data-variant="danger" type="button" style="position:absolute; display:none; top: 70px; right: 20px; z-index: 2002;">
+    <button id="exit-driving-btn" class="hidden" data-variant="danger" type="button">
         <i class="bi bi-x-circle me-1" aria-hidden="true"></i>Exit Driving Mode
     </button>
 

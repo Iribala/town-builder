@@ -44,10 +44,11 @@ class MobileUI {
     this.setupToolbarGestures();
     this.setupOrientationHandler();
 
-    // Hide user list on mobile
+    // Hide user list on mobile (JS toggles .hidden; mobile.css force-hides
+    // #user-list on ≤768px regardless, and unlayered beats layers by design)
     const userList = document.getElementById('user-list');
     if (userList) {
-      userList.style.display = 'none';
+      userList.classList.add('hidden');
     }
 
     console.log('Mobile UI initialized');
@@ -279,7 +280,8 @@ class MobileUI {
     if (!indicator) {
       indicator = document.createElement('div');
       indicator.id = 'camera-mode-indicator';
-      indicator.className = 'camera-mode-indicator bg-primary text-white';
+      indicator.className = 'camera-mode-indicator camera-mode-indicator--primary';
+      indicator.setAttribute('role', 'status');
       document.body.appendChild(indicator);
     }
 
