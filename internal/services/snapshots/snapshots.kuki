@@ -34,10 +34,16 @@ func init()
     memSnapshots = empty list of map of string to any
     memSnapshotData = empty map of string to map of string to any
     enc, err := zstd.NewWriter(empty)
-    if err equals empty
+    if err isnt empty
+        log.Warn("zstd encoder init failed; snapshots will stay in memory only: {err}")
+    else
         encoder = enc
     dec, err := zstd.NewReader(empty)
-    if err equals empty
+    if err isnt empty
+        log.Warn(
+            "zstd decoder init failed; snapshots stored in Redis will be unreadable (in-memory fallback only): {err}",
+        )
+    else
         decoder = dec
 
 func maxSnapshots() int

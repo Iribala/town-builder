@@ -55,10 +55,18 @@ func init()
     townOwners = empty map of string to string
     cacheMemory = empty map of string to map of string to any
     enc, err := zstd.NewWriter(empty)
-    if err equals empty
+    if err isnt empty
+        log.Warn(
+            "zstd encoder init failed; town data will not persist to Redis (in-memory fallback only): {err}",
+        )
+    else
         encoder = enc
     dec, err := zstd.NewReader(empty)
-    if err equals empty
+    if err isnt empty
+        log.Warn(
+            "zstd decoder init failed; stored town data will be unreadable (in-memory fallback only): {err}",
+        )
+    else
         decoder = dec
 
 func Initialize(redisURL: string) error

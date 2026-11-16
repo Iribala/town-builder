@@ -20,6 +20,9 @@ func getAllCategories(townData: map of string to any) list of string
             continue
         if v is list of any
             keys = append(keys, k)
+    # Map iteration order is random; sort so query results (e.g. bounds
+    # queries with ties or no distance sort) are deterministic.
+    sort.Strings(keys)
     return keys
 
 func sortByDistance(items: list of map of string to any) list of map of string to any
