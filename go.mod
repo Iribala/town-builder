@@ -13,16 +13,16 @@ require (
 	github.com/klauspost/compress v1.20.3
 	github.com/redis/go-redis/v9 v9.7.3
 	kukicha.org/game v0.2.1
-	kukicha.org/stdlib v0.86.9
+	kukicha.org/stdlib v0.86.10
 )
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	go.yaml.in/yaml/v4 v4.0.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace kukicha.org/stdlib => ./.kukicha/stdlib
